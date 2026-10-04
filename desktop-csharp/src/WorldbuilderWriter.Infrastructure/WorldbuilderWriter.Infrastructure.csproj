@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>WorldbuilderWriter.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WorldbuilderWriter.Core\WorldbuilderWriter.Core.csproj" />
+  </ItemGroup>
+</Project>

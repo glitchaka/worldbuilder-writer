@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>WorldbuilderWriter.Web</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WorldbuilderWriter.Core\WorldbuilderWriter.Core.csproj" />
+    <ProjectReference Include="..\WorldbuilderWriter.Infrastructure\WorldbuilderWriter.Infrastructure.csproj" />
+    <ProjectReference Include="..\WorldbuilderWriter.UI\WorldbuilderWriter.UI.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,15 @@
+WORLDBUILDER WRITER — APLICACIÓN LOCAL PARA WINDOWS
+
+1. Descomprime el archivo ZIP completo.
+2. Haz doble clic en WorldbuilderWriter.exe.
+3. En el primer inicio, elige una carpeta externa para tus proyectos.
+
+El ejecutable es autocontenido: no necesita instalar .NET ni Visual Studio.
+Los proyectos no están incluidos en el programa y no se guardan dentro del EXE.
+Cada obra vive en la carpeta externa que elijas.
+
+Compatibilidad: Windows 10/11 de 64 bits.
+
+Esta compilación no está firmada con un certificado comercial. Windows puede
+mostrar SmartScreen en el primer inicio; en ese caso revisa el nombre del archivo
+y usa «Más información» para permitir la ejecución si confías en esta copia.

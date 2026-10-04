@@ -1,0 +1,312 @@
+<Window x:Class="WorldbuilderWriter.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Worldbuilder Writer"
+        Width="1480"
+        Height="900"
+        MinWidth="1080"
+        MinHeight="680"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource AppBackground}"
+        Loaded="Window_Loaded">
+  <Window.Resources>
+    <SolidColorBrush x:Key="AppBackground" Color="#17130F" />
+    <SolidColorBrush x:Key="PanelBackground" Color="#251A13" />
+    <SolidColorBrush x:Key="Surface" Color="#332319" />
+    <SolidColorBrush x:Key="Paper" Color="#E4D5B6" />
+    <SolidColorBrush x:Key="Ink" Color="#2D2118" />
+    <SolidColorBrush x:Key="TextLight" Color="#EAD9B9" />
+    <SolidColorBrush x:Key="Muted" Color="#A89679" />
+    <SolidColorBrush x:Key="Accent" Color="#B76548" />
+    <SolidColorBrush x:Key="Danger" Color="#8E352C" />
+    <SolidColorBrush x:Key="Line" Color="#6F5138" />
+
+    <Style TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextLight}" />
+      <Setter Property="FontFamily" Value="Segoe UI" />
+    </Style>
+    <Style TargetType="Button">
+      <Setter Property="Foreground" Value="{DynamicResource TextLight}" />
+      <Setter Property="Background" Value="{DynamicResource Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="14,9" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource Accent}" /></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.75" /></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.4" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="TitleButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Width" Value="46" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontSize" Value="16" />
+    </Style>
+    <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="{DynamicResource Danger}" />
+      <Setter Property="BorderBrush" Value="#B96958" />
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="{DynamicResource Paper}" />
+      <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="CaretBrush" Value="{DynamicResource Ink}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource Accent}" />
+    </Style>
+    <Style TargetType="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource Paper}" />
+      <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style TargetType="ListBox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource TextLight}" />
+    </Style>
+    <Style TargetType="ListBoxItem">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource Accent}" /><Setter Property="Foreground" Value="White" /></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#664532" /></Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style TargetType="TabItem">
+      <Setter Property="Foreground" Value="{DynamicResource TextLight}" />
+      <Setter Property="Background" Value="{DynamicResource Surface}" />
+      <Setter Property="Padding" Value="18,10" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <DataTemplate x:Key="ChapterTemplate">
+      <StackPanel>
+        <TextBlock Text="{Binding Label}" FontSize="10" Foreground="{DynamicResource Muted}" />
+        <TextBlock Text="{Binding Title}" FontFamily="Georgia" FontSize="15" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate x:Key="SceneTemplate">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="9" Foreground="{DynamicResource Muted}" Margin="8,0,0,0" />
+      </Grid>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="34" /><RowDefinition Height="*" /><RowDefinition Height="28" /></Grid.RowDefinitions>
+
+    <Border Grid.Row="0" Background="#100D0A" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+          <Border Width="22" Height="22" Background="{DynamicResource Danger}" BorderBrush="#C29957" BorderThickness="1" Margin="0,0,9,0"><TextBlock Text="WW" FontWeight="Bold" FontSize="8" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+          <TextBlock Text="WORLDBUILDER WRITER · ESCRITORIO C#" FontSize="10" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal">
+          <Button Style="{StaticResource TitleButton}" Content="−" Click="Minimize_Click" />
+          <Button Style="{StaticResource TitleButton}" Content="□" Click="Maximize_Click" />
+          <Button Style="{StaticResource TitleButton}" Content="×" Click="Close_Click" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid x:Name="LibraryView" Grid.Row="1">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="280" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0" Padding="26">
+        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+          <StackPanel>
+            <TextBlock Text="WW" FontFamily="Georgia" FontSize="42" Foreground="#C99A53" />
+            <TextBlock Text="ARCHIVO LOCAL" FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,4,0,18" />
+            <TextBlock Text="Tus historias viven fuera del programa." TextWrapping="Wrap" FontFamily="Georgia" FontSize="19" />
+          </StackPanel>
+          <StackPanel Grid.Row="1" VerticalAlignment="Center">
+            <TextBlock Text="CARPETA DE PROYECTOS" FontSize="9" Foreground="{DynamicResource Muted}" Margin="0,0,0,6" />
+            <TextBlock x:Name="WorkspacePathText" Text="Ninguna carpeta elegida" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,16" />
+            <Button Content="Elegir carpeta externa" Click="ChooseWorkspace_Click" />
+          </StackPanel>
+          <TextBlock Grid.Row="2" Text="La copia distribuida comienza vacía. Solo recuerda la ubicación elegida; las novelas no quedan dentro del ejecutable." FontSize="11" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
+        </Grid>
+      </Border>
+      <Grid Grid.Column="1" Background="#C9AF7A">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Border Background="{DynamicResource Surface}" Padding="32,22">
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="BIBLIOTECA EXTERNA" FontSize="10" Foreground="{DynamicResource Muted}" /><TextBlock Text="Tus historias" FontFamily="Georgia" FontSize="30" /></StackPanel>
+            <Button Grid.Column="1" Content="Actualizar" Click="RefreshProjects_Click" />
+          </Grid>
+        </Border>
+        <Border Grid.Row="1" Background="#D9C394" BorderBrush="#8B6B45" BorderThickness="0,0,0,1" Padding="32,18">
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="190" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBox x:Name="NewProjectTitle" ToolTip="Nombre de la nueva obra" Margin="0,0,10,0" />
+            <ComboBox x:Name="NewProjectTheme" Grid.Column="1" SelectedIndex="0" Margin="0,0,10,0"><ComboBoxItem Tag="grim">Fantasía sucia</ComboBoxItem><ComboBoxItem Tag="classic">Fantasía clásica</ComboBoxItem><ComboBoxItem Tag="kawaii">Moe kawaii</ComboBoxItem><ComboBoxItem Tag="chronicle">Crónica</ComboBoxItem><ComboBoxItem Tag="desk">Escritorio</ComboBoxItem></ComboBox>
+            <Button Grid.Column="2" Content="+ Nueva obra vacía" Click="CreateProject_Click" />
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="32">
+          <StackPanel>
+            <Border x:Name="EmptyLibraryMessage" Background="#E1CCA0" BorderBrush="#9C7748" BorderThickness="1" Padding="28" Visibility="Collapsed"><TextBlock Text="La carpeta está vacía. Crea tu primera obra cuando quieras." Foreground="{DynamicResource Ink}" FontFamily="Georgia" FontSize="19" /></Border>
+            <ItemsControl x:Name="ProjectList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="#E1CCA0" BorderBrush="#8E6A41" BorderThickness="1" Padding="20" Margin="0,0,0,12">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                      <StackPanel>
+                        <TextBlock Text="{Binding Status}" Foreground="#785738" FontSize="9" />
+                        <TextBlock Text="{Binding ArchiveTitle}" Foreground="{DynamicResource Ink}" FontFamily="Georgia" FontSize="24" />
+                        <TextBlock Text="{Binding StoryTitle}" Foreground="#684D35" FontSize="13" Margin="0,4,0,8" />
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Characters, StringFormat={}{0} personajes}" Foreground="#684D35" FontSize="10" Margin="0,0,16,0" /><TextBlock Text="{Binding Chapters, StringFormat={}{0} capítulos}" Foreground="#684D35" FontSize="10" Margin="0,0,16,0" /><TextBlock Text="{Binding Scenes, StringFormat={}{0} escenas}" Foreground="#684D35" FontSize="10" /></StackPanel>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="Eliminar" Style="{StaticResource DangerButton}" Tag="{Binding}" Click="DeleteProject_Click" Margin="0,0,8,0" /><Button Content="Abrir →" Tag="{Binding}" Click="OpenProject_Click" /></StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+
+    <Grid x:Name="WorkspaceView" Grid.Row="1" Visibility="Collapsed">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="245" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0" Padding="18">
+        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+          <StackPanel>
+            <Button Content="← Biblioteca" Click="BackToLibrary_Click" HorizontalAlignment="Stretch" Margin="0,0,0,18" />
+            <TextBlock x:Name="ProjectArchiveTitle" FontFamily="Georgia" FontSize="22" TextWrapping="Wrap" />
+            <TextBlock x:Name="ProjectStatusText" Foreground="{DynamicResource Muted}" FontSize="10" Margin="0,5,0,0" />
+          </StackPanel>
+          <StackPanel Grid.Row="1" Margin="0,32,0,0">
+            <Button x:Name="BoardNavButton" Content="01  TABLERO" Click="ShowBoard_Click" Margin="0,0,0,8" />
+            <Button x:Name="ManuscriptNavButton" Content="02  MANUSCRITO" Click="ShowManuscript_Click" Margin="0,0,0,8" />
+            <Button x:Name="WorldNavButton" Content="03  CREACIÓN DE MUNDO" Click="ShowWorld_Click" />
+          </StackPanel>
+          <StackPanel Grid.Row="2">
+            <TextBlock Text="TEMA" FontSize="9" Foreground="{DynamicResource Muted}" Margin="0,0,0,5" />
+            <ComboBox x:Name="ProjectTheme" SelectionChanged="ProjectTheme_SelectionChanged"><ComboBoxItem Tag="grim">Fantasía sucia</ComboBoxItem><ComboBoxItem Tag="classic">Fantasía clásica</ComboBoxItem><ComboBoxItem Tag="kawaii">Moe kawaii</ComboBoxItem><ComboBoxItem Tag="chronicle">Crónica</ComboBoxItem><ComboBoxItem Tag="desk">Escritorio</ComboBoxItem></ComboBox>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Column="1">
+        <Grid.RowDefinitions><RowDefinition Height="70" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="24,14">
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock x:Name="SectionEyebrow" Text="PERSONAJES / ENLACES" FontSize="9" Foreground="{DynamicResource Muted}" /><TextBlock x:Name="SectionTitle" Text="Tablero" FontFamily="Georgia" FontSize="27" /></StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="Datos de la obra" Click="EditProjectProfile_Click" Margin="0,0,8,0" /><Button Content="Guardar proyecto" Click="SaveProject_Click" /></StackPanel>
+          </Grid>
+        </Border>
+
+        <Grid x:Name="BoardView" Grid.Row="1">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="320" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+          <ScrollViewer Background="{DynamicResource PanelBackground}" VerticalScrollBarVisibility="Auto" Padding="18">
+            <StackPanel>
+              <TextBlock Text="NUEVO PERSONAJE" FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,8" />
+              <TextBox x:Name="CharacterName" ToolTip="Nombre" Margin="0,0,0,7" />
+              <TextBox x:Name="CharacterRole" ToolTip="Rol" Margin="0,0,0,7" />
+              <TextBox x:Name="CharacterBackground" ToolTip="Antecedentes" AcceptsReturn="True" Height="90" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8" />
+              <Button Content="Agregar al tablero" Click="AddCharacter_Click" Margin="0,0,0,22" />
+
+              <TextBlock Text="ENLACE MANUAL" FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,8" />
+              <ComboBox x:Name="RelationshipSource" DisplayMemberPath="Name" SelectedValuePath="Id" Margin="0,0,0,7" />
+              <ComboBox x:Name="RelationshipTarget" DisplayMemberPath="Name" SelectedValuePath="Id" Margin="0,0,0,7" />
+              <ComboBox x:Name="RelationshipType" SelectedIndex="0" Margin="0,0,0,7"><ComboBoxItem>Familia</ComboBoxItem><ComboBoxItem>Amistad</ComboBoxItem><ComboBoxItem>Romance</ComboBoxItem><ComboBoxItem>Alianza</ComboBoxItem><ComboBoxItem>Enemistad</ComboBoxItem><ComboBoxItem>Rivalidad</ComboBoxItem><ComboBoxItem>Conocido</ComboBoxItem><ComboBoxItem>Interacción</ComboBoxItem></ComboBox>
+              <TextBox x:Name="RelationshipLabel" ToolTip="Descripción" Margin="0,0,0,8" />
+              <Button Content="Crear enlace" Click="AddRelationship_Click" Margin="0,0,0,22" />
+
+              <Border x:Name="SelectedCharacterPanel" BorderBrush="{DynamicResource Line}" BorderThickness="1" Padding="12" Visibility="Collapsed">
+                <StackPanel><TextBlock Text="FICHA SELECCIONADA" FontSize="9" Foreground="{DynamicResource Muted}" Margin="0,0,0,8" /><TextBox x:Name="SelectedCharacterName" Margin="0,0,0,7" TextChanged="SelectedCharacterField_Changed" /><TextBox x:Name="SelectedCharacterRole" Margin="0,0,0,7" TextChanged="SelectedCharacterField_Changed" /><TextBox x:Name="SelectedCharacterNotes" Height="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" TextChanged="SelectedCharacterField_Changed" Margin="0,0,0,8" /><TextBlock x:Name="SelectedCharacterPhoto" Text="Sin fotografía" FontSize="9" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,0,0,5" /><Button Content="Agregar o cambiar fotografía" Click="ChooseCharacterPhoto_Click" Margin="0,0,0,8" /><Button Content="Eliminar personaje" Style="{StaticResource DangerButton}" Click="DeleteCharacter_Click" /></StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+          <Grid Grid.Column="1" Background="#574535">
+            <Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Background="#2E231C" Padding="12"><StackPanel Orientation="Horizontal"><Button Content="−" Click="BoardZoomOut_Click" Padding="12,5" /><TextBlock x:Name="BoardZoomLabel" Text="100%" Width="60" TextAlignment="Center" VerticalAlignment="Center" /><Button Content="+" Click="BoardZoomIn_Click" Padding="12,5" /><Button Content="Restablecer" Click="BoardZoomReset_Click" Padding="12,5" Margin="8,0,0,0" /></StackPanel></Border>
+            <ScrollViewer x:Name="BoardScroll" Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#49392D">
+              <Canvas x:Name="BoardCanvas" Width="1800" Height="1100" Background="#4B3A2D" />
+            </ScrollViewer>
+          </Grid>
+        </Grid>
+
+        <Grid x:Name="ManuscriptView" Grid.Row="1" Visibility="Collapsed">
+          <TabControl x:Name="ManuscriptTabs" Background="{DynamicResource AppBackground}" BorderThickness="0">
+            <TabItem Header="Escritura">
+              <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="285" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <Border Background="{DynamicResource PanelBackground}" Padding="14">
+                  <Grid><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="2*" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8"><Button Content="+ Capítulo" Click="AddChapter_Click" Margin="0,0,6,0" /><Button Content="Importar" Click="ImportManuscript_Click" /></StackPanel>
+                    <ListBox x:Name="ChapterList" Grid.Row="1" ItemTemplate="{StaticResource ChapterTemplate}" SelectionChanged="ChapterList_SelectionChanged" />
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8"><Button Content="Eliminar capítulo" Style="{StaticResource DangerButton}" Click="DeleteChapter_Click" Margin="0,0,6,0" /><Button Content="Purgar" Style="{StaticResource DangerButton}" Click="PurgeChapters_Click" /></StackPanel>
+                    <ListBox x:Name="SceneList" Grid.Row="3" ItemTemplate="{StaticResource SceneTemplate}" SelectionChanged="SceneList_SelectionChanged" />
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0"><Button Content="+ Escena" Click="AddScene_Click" Margin="0,0,6,0" /><Button Content="Eliminar escena" Style="{StaticResource DangerButton}" Click="DeleteScene_Click" /></StackPanel>
+                  </Grid>
+                </Border>
+                <Grid Grid.Column="1" Background="#ECE5D5"><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="32" /></Grid.RowDefinitions>
+                  <Border Background="#D7C7A7" BorderBrush="#9A805D" BorderThickness="0,0,0,1" Padding="16"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBox x:Name="ChapterLabelEditor" ToolTip="Etiqueta del capítulo" TextChanged="WritingField_Changed" Margin="0,0,8,0" /><TextBox x:Name="ChapterTitleEditor" Grid.Column="1" ToolTip="Título del capítulo" TextChanged="WritingField_Changed" Margin="0,0,8,0" /><Button Grid.Column="2" Content="Sin distracciones" Click="DistractionFree_Click" /></Grid></Border>
+                  <Border Grid.Row="1" Background="#E3D7BD" Padding="16,10"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /></Grid.ColumnDefinitions><TextBox x:Name="SceneTitleEditor" ToolTip="Título de escena" TextChanged="WritingField_Changed" Margin="0,0,7,0" /><TextBox x:Name="ScenePovEditor" Grid.Column="1" ToolTip="POV" TextChanged="WritingField_Changed" Margin="0,0,7,0" /><TextBox x:Name="SceneLocationEditor" Grid.Column="2" ToolTip="Ubicación" TextChanged="WritingField_Changed" Margin="0,0,7,0" /><TextBox x:Name="SceneLayerEditor" Grid.Column="3" ToolTip="Capa narrativa" TextChanged="WritingField_Changed" Margin="0,0,7,0" /><ComboBox x:Name="SceneStatusEditor" Grid.Column="4" SelectionChanged="WritingField_Changed"><ComboBoxItem>Borrador</ComboBoxItem><ComboBoxItem>Revisión</ComboBoxItem><ComboBoxItem>Final</ComboBoxItem></ComboBox></Grid></Border>
+                  <TextBox x:Name="WritingEditor" Grid.Row="2" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" BorderThickness="0" Padding="72,44" FontFamily="Georgia" FontSize="18" TextBlock.LineHeight="30" SpellCheck.IsEnabled="True" TextChanged="WritingField_Changed" />
+                  <Border Grid.Row="3" Background="#D7C7A7" Padding="16,6"><TextBlock x:Name="WordCountText" Text="0 palabras" Foreground="{DynamicResource Ink}" FontSize="10" /></Border>
+                </Grid>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Tablero de escenas">
+              <Grid Background="#403329"><Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="*" /><RowDefinition Height="80" /></Grid.RowDefinitions>
+                <Border Background="#2B211A" Padding="12"><StackPanel Orientation="Horizontal"><Button Content="−" Click="SceneBoardZoomOut_Click" Padding="12,5" /><TextBlock x:Name="SceneBoardZoomLabel" Text="100%" Width="60" TextAlignment="Center" VerticalAlignment="Center" /><Button Content="+" Click="SceneBoardZoomIn_Click" Padding="12,5" /><TextBlock Text="Arrastra escenas entre capítulos; arrastra una tarjeta o columna a la papelera." Foreground="{DynamicResource Muted}" VerticalAlignment="Center" Margin="18,0,0,0" /></StackPanel></Border>
+                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="SceneBoardHost" Orientation="Horizontal" Margin="18" /></ScrollViewer>
+                <Border x:Name="SceneTrash" Grid.Row="2" Background="#682E29" BorderBrush="#C36B5D" BorderThickness="2" Margin="18,8,18,14" AllowDrop="True" Drop="SceneTrash_Drop"><TextBlock Text="⌫  PAPELERA — ARRASTRA AQUÍ Y CONFIRMA" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" /></Border>
+              </Grid>
+            </TabItem>
+          </TabControl>
+        </Grid>
+
+        <Grid x:Name="WorldView" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource AppBackground}">
+          <TabControl Background="{DynamicResource AppBackground}" BorderThickness="0">
+            <TabItem Header="Mundo">
+              <Grid Margin="18"><Grid.ColumnDefinitions><ColumnDefinition Width="290" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <StackPanel><TextBlock Text="NUEVA ENTRADA" FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,8" /><ComboBox x:Name="WorldCategory" SelectedIndex="0" Margin="0,0,0,7"><ComboBoxItem>País o reino</ComboBoxItem><ComboBoxItem>Ciudad</ComboBoxItem><ComboBoxItem>Moneda</ComboBoxItem><ComboBoxItem>Religión</ComboBoxItem><ComboBoxItem>Cultura</ComboBoxItem><ComboBoxItem>Organización</ComboBoxItem><ComboBoxItem>Objeto</ComboBoxItem><ComboBoxItem>Fauna o criatura</ComboBoxItem><ComboBoxItem>Otro</ComboBoxItem></ComboBox><TextBox x:Name="WorldName" ToolTip="Nombre" Margin="0,0,0,7" /><TextBox x:Name="WorldSummary" ToolTip="Resumen" AcceptsReturn="True" Height="90" TextWrapping="Wrap" Margin="0,0,0,7" /><TextBox x:Name="WorldDetails" ToolTip="Detalles" AcceptsReturn="True" Height="180" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8" /><Button Content="Agregar entrada" Click="AddWorldEntry_Click" /></StackPanel>
+                <Grid Grid.Column="1" Margin="22,0,0,0"><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><ListBox x:Name="WorldList" SelectionChanged="WorldList_SelectionChanged"><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Category}" FontSize="9" Foreground="{DynamicResource Muted}" /><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="17" /><TextBlock Text="{Binding Summary}" TextTrimming="CharacterEllipsis" FontSize="11" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox><Button Grid.Row="1" Content="Eliminar entrada seleccionada" Style="{StaticResource DangerButton}" Click="DeleteWorldEntry_Click" Margin="0,8,0,0" HorizontalAlignment="Left" /></Grid>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Sistemas de magia">
+              <Grid Margin="18"><Grid.ColumnDefinitions><ColumnDefinition Width="320" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <StackPanel><TextBlock Text="NUEVO SISTEMA" FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,8" /><TextBox x:Name="MagicName" ToolTip="Nombre" Margin="0,0,0,7" /><TextBox x:Name="MagicSource" ToolTip="Fuente" AcceptsReturn="True" Height="70" TextWrapping="Wrap" Margin="0,0,0,7" /><TextBox x:Name="MagicRules" ToolTip="Reglas" AcceptsReturn="True" Height="130" TextWrapping="Wrap" Margin="0,0,0,7" /><TextBox x:Name="MagicCosts" ToolTip="Costes" AcceptsReturn="True" Height="80" TextWrapping="Wrap" Margin="0,0,0,7" /><TextBox x:Name="MagicLimits" ToolTip="Límites" AcceptsReturn="True" Height="80" TextWrapping="Wrap" Margin="0,0,0,8" /><Button Content="Agregar sistema" Click="AddMagicSystem_Click" /></StackPanel>
+                <Grid Grid.Column="1" Margin="22,0,0,0"><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><ListBox x:Name="MagicList"><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="SISTEMA DE MAGIA" FontSize="9" Foreground="{DynamicResource Muted}" /><TextBlock Text="{Binding Name}" FontFamily="Georgia" FontSize="18" /><TextBlock Text="{Binding Source}" FontSize="11" TextTrimming="CharacterEllipsis" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox><Button Grid.Row="1" Content="Eliminar sistema seleccionado" Style="{StaticResource DangerButton}" Click="DeleteMagicSystem_Click" Margin="0,8,0,0" HorizontalAlignment="Left" /></Grid>
+              </Grid>
+            </TabItem>
+            <TabItem Header="Cronología">
+              <Grid Margin="18"><Grid.ColumnDefinitions><ColumnDefinition Width="300" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <StackPanel><TextBlock Text="NUEVO EVENTO" FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,8" /><TextBox x:Name="TimelineWhen" ToolTip="Cuándo" Margin="0,0,0,7" /><TextBox x:Name="TimelineTitle" ToolTip="Título" Margin="0,0,0,7" /><TextBox x:Name="TimelineChapter" ToolTip="Capítulo relacionado" Margin="0,0,0,7" /><TextBox x:Name="TimelineSummary" ToolTip="Descripción" AcceptsReturn="True" Height="180" TextWrapping="Wrap" Margin="0,0,0,8" /><Button Content="Agregar evento" Click="AddTimelineEvent_Click" /></StackPanel>
+                <Grid Grid.Column="1" Margin="22,0,0,0"><Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><ListBox x:Name="TimelineList"><ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding When}" FontSize="9" Foreground="{DynamicResource Muted}" /><TextBlock Text="{Binding Title}" FontFamily="Georgia" FontSize="18" /><TextBlock Text="{Binding Summary}" FontSize="11" TextTrimming="CharacterEllipsis" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox><Button Grid.Row="1" Content="Eliminar evento seleccionado" Style="{StaticResource DangerButton}" Click="DeleteTimelineEvent_Click" Margin="0,8,0,0" HorizontalAlignment="Left" /></Grid>
+              </Grid>
+            </TabItem>
+          </TabControl>
+        </Grid>
+      </Grid>
+    </Grid>
+
+    <Border Grid.Row="2" Background="#100D0A" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="10,4">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock x:Name="StatusText" Text="Listo." Foreground="{DynamicResource Muted}" FontSize="10" /><TextBlock Grid.Column="1" Text="C# · .NET 10 · WPF" Foreground="{DynamicResource Muted}" FontSize="10" /></Grid>
+    </Border>
+  </Grid>
+</Window>
