@@ -21,6 +21,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
+#include <QListView>
 #include <QListWidget>
 #include <QMarginsF>
 #include <QMenuBar>
@@ -102,42 +103,55 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
 void MainWindow::createShell() {
     auto* central = new QWidget;
-    auto* root = new QHBoxLayout(central);
+    central->setObjectName(QStringLiteral("appRoot"));
+    auto* root = new QVBoxLayout(central);
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    auto* sidebar = new QWidget;
-    sidebar->setObjectName(QStringLiteral("sidebar"));
-    sidebar->setFixedWidth(235);
-    auto* sideLayout = new QVBoxLayout(sidebar);
-    sideLayout->setContentsMargins(18, 20, 18, 18);
-    sideLayout->setSpacing(12);
+    auto* top = new QWidget;
+    top->setObjectName(QStringLiteral("topShell"));
+    top->setFixedHeight(48);
+    auto* topLayout = new QHBoxLayout(top);
+    topLayout->setContentsMargins(14, 0, 14, 0);
+    topLayout->setSpacing(10);
 
-    auto* appName = new QLabel(QStringLiteral("WORLDBUILDER\nWRITER"));
-    appName->setObjectName(QStringLiteral("appName"));
+    navigation_ = new QListWidget;
+    navigation_->setObjectName(QStringLiteral("topNavigation"));
+    navigation_->setFlow(QListView::LeftToRight);
+    navigation_->setWrapping(false);
+    navigation_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    navigation_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    navigation_->setFixedHeight(47);
+    navigation_->setMinimumWidth(460);
+    navigation_->addItems({tr("Planificación"), tr("Escritura"), tr("Mundo"), tr("Revisión")});
+    navigation_->setCurrentRow(1);
+    for (int i = 0; i < navigation_->count(); ++i) {
+        navigation_->item(i)->setTextAlignment(Qt::AlignCenter);
+        navigation_->item(i)->setSizeHint(QSize(i == 0 ? 112 : 94, 46));
+    }
+
     projectTitle_ = new QLabel;
     projectTitle_->setObjectName(QStringLiteral("projectTitle"));
-    projectTitle_->setWordWrap(true);
+    projectTitle_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     saveState_ = new QLabel;
     saveState_->setObjectName(QStringLiteral("saveState"));
-    saveState_->setWordWrap(true);
-    navigation_ = new QListWidget;
-    navigation_->setObjectName(QStringLiteral("navigation"));
-    navigation_->addItems({tr("Planificación"), tr("Escritura"), tr("Mundo"), tr("Revisión y salida")});
-    navigation_->setCurrentRow(1);
-    sideLayout->addWidget(appName);
-    sideLayout->addWidget(projectTitle_);
-    sideLayout->addWidget(saveState_);
-    sideLayout->addSpacing(8);
-    sideLayout->addWidget(navigation_, 1);
+    saveState_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
     auto* quickSave = makeButton(tr("Guardar"));
+    quickSave->setObjectName(QStringLiteral("primarySave"));
     auto* focus = makeButton(tr("Modo enfoque"));
-    sideLayout->addWidget(quickSave);
-    sideLayout->addWidget(focus);
-    root->addWidget(sidebar);
+    focus->setObjectName(QStringLiteral("secondaryAction"));
+
+    topLayout->addWidget(navigation_);
+    topLayout->addStretch(1);
+    topLayout->addWidget(projectTitle_);
+    topLayout->addWidget(saveState_);
+    topLayout->addWidget(quickSave);
+    topLayout->addWidget(focus);
+    root->addWidget(top);
 
     pages_ = new QStackedWidget;
+    pages_->setObjectName(QStringLiteral("pageStack"));
     planningPage_ = new PlanningPage;
     writingPage_ = new WritingPage;
     worldPage_ = new WorldPage;
@@ -199,7 +213,7 @@ void MainWindow::createMenus() {
     QAction* planning = viewMenu->addAction(tr("Planificación"));
     QAction* writing = viewMenu->addAction(tr("Escritura"));
     QAction* world = viewMenu->addAction(tr("Mundo"));
-    QAction* review = viewMenu->addAction(tr("Revisión y salida"));
+    QAction* review = viewMenu->addAction(tr("Revisión"));
     viewMenu->addSeparator();
     QAction* focus = viewMenu->addAction(tr("Modo enfoque"));
     connect(planning, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(0); });
@@ -504,48 +518,49 @@ void MainWindow::updateWindowTitle() {
     const QString title = document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle();
     setWindowTitle(QStringLiteral("%1%2 — Worldbuilder Writer").arg(document_.isDirty() ? QStringLiteral("* ") : QString(), title.isEmpty() ? tr("Sin título") : title));
     projectTitle_->setText(title.isEmpty() ? tr("Sin título") : title);
-    if (document_.isDirty()) saveState_->setText(tr("Cambios pendientes · guardado automático activo"));
+    if (document_.isDirty()) saveState_->setText(tr("Cambios pendientes"));
     else saveState_->setText(document_.sourcePath().isEmpty() ? tr("Sin ubicación local") : tr("Guardado"));
 }
 
 void MainWindow::applyTheme() {
-    const QString theme = document_.object(QStringLiteral("profile")).value(QStringLiteral("theme")).toString(QStringLiteral("grim"));
-    QString background = QStringLiteral("#1b1c18");
-    QString panel = QStringLiteral("#22231e");
-    QString elevated = QStringLiteral("#292a24");
-    QString text = QStringLiteral("#eee9dd");
-    QString muted = QStringLiteral("#a4a197");
-    QString accent = QStringLiteral("#b6985c");
-    QString border = QStringLiteral("#3b3c34");
-    if (theme == QStringLiteral("chronicle")) {
-        background = QStringLiteral("#242019"); panel = QStringLiteral("#2d281f"); elevated = QStringLiteral("#373027"); text = QStringLiteral("#f0e2c6"); muted = QStringLiteral("#b5a58c"); accent = QStringLiteral("#c99858"); border = QStringLiteral("#514536");
-    } else if (theme == QStringLiteral("desk")) {
-        background = QStringLiteral("#1b2021"); panel = QStringLiteral("#222829"); elevated = QStringLiteral("#293132"); text = QStringLiteral("#e4e9e8"); muted = QStringLiteral("#9aa7a5"); accent = QStringLiteral("#77a5a0"); border = QStringLiteral("#3c4848");
-    } else if (theme == QStringLiteral("classic")) {
-        background = QStringLiteral("#252321"); panel = QStringLiteral("#302d29"); elevated = QStringLiteral("#393530"); text = QStringLiteral("#f2ede5"); muted = QStringLiteral("#aca39a"); accent = QStringLiteral("#bd8f67"); border = QStringLiteral("#514b44");
-    } else if (theme == QStringLiteral("kawaii")) {
-        background = QStringLiteral("#f2f0eb"); panel = QStringLiteral("#e8e5de"); elevated = QStringLiteral("#ffffff"); text = QStringLiteral("#292825"); muted = QStringLiteral("#6e6a63"); accent = QStringLiteral("#8a6e55"); border = QStringLiteral("#cbc5ba");
-    }
     setStyleSheet(QStringLiteral(
-        "QMainWindow,QDialog{background:%1;color:%4;}"
-        "QWidget{color:%4;font-family:'Segoe UI';font-size:10pt;}"
-        "#sidebar{background:%2;border-right:1px solid %7;}"
-        "#appName{font-size:15pt;font-weight:800;letter-spacing:2px;color:%6;}"
-        "#projectTitle{font-size:11pt;font-weight:700;}"
-        "#saveState{font-size:8.5pt;color:%5;}"
-        "QListWidget,QTreeWidget,QTextEdit,QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox,QGraphicsView{background:%3;border:1px solid %7;border-radius:4px;padding:4px;}"
-        "QListWidget::item,QTreeWidget::item{padding:7px;border-radius:3px;}"
-        "QListWidget::item:selected,QTreeWidget::item:selected{background:%6;color:%1;}"
-        "QPushButton,QToolButton{background:%3;border:1px solid %7;border-radius:4px;padding:7px 10px;}"
-        "QPushButton:hover,QToolButton:hover{border-color:%6;}"
-        "QToolButton:checked{background:%6;color:%1;}"
-        "QTabWidget::pane{border:0;}"
-        "QTabBar::tab{background:%2;color:%5;padding:9px 14px;border-bottom:2px solid transparent;}"
-        "QTabBar::tab:selected{color:%4;border-bottom-color:%6;}"
-        "QMenuBar,QMenu{background:%2;color:%4;}"
-        "QMenu::item:selected{background:%6;color:%1;}"
-        "QScrollBar:vertical{background:%2;width:10px;}QScrollBar::handle:vertical{background:%7;min-height:24px;border-radius:4px;}"
-    ).arg(background, panel, elevated, text, muted, accent, border));
+        "QMainWindow,QDialog{background:#edf1f5;color:#1f2937;}"
+        "QWidget{color:#1f2937;font-family:'Segoe UI';font-size:9.5pt;}"
+        "#appRoot,#pageStack{background:#edf1f5;}"
+        "#topShell{background:#ffffff;border-bottom:1px solid #d7dde5;}"
+        "#projectTitle{font-size:8.5pt;color:#667085;padding:0 4px;}"
+        "#saveState{font-size:8.5pt;color:#2f855a;padding:0 6px;}"
+        "#topNavigation{background:#ffffff;border:0;padding:0;margin:0;}"
+        "#topNavigation::item{border:0;border-bottom:2px solid transparent;padding:0 14px;color:#344054;background:#ffffff;}"
+        "#topNavigation::item:hover{background:#f6f8fb;color:#175cd3;}"
+        "#topNavigation::item:selected{background:#ffffff;color:#175cd3;border-bottom:2px solid #175cd3;}"
+        "QListWidget,QTreeWidget,QTextEdit,QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox,QGraphicsView{background:#ffffff;border:1px solid #cfd6df;border-radius:2px;padding:5px;selection-background-color:#dceafe;selection-color:#1f2937;}"
+        "QListWidget::item,QTreeWidget::item{padding:6px;border:0;border-radius:0;}"
+        "QListWidget::item:hover,QTreeWidget::item:hover{background:#f3f6fa;}"
+        "QListWidget::item:selected,QTreeWidget::item:selected{background:#e7f0ff;color:#175cd3;border-left:2px solid #175cd3;}"
+        "QPushButton,QToolButton{background:#ffffff;color:#344054;border:1px solid #cbd3dd;border-radius:2px;padding:7px 11px;}"
+        "QPushButton:hover,QToolButton:hover{background:#f6f8fb;border-color:#98a2b3;}"
+        "QPushButton:pressed,QToolButton:pressed{background:#edf2f7;}"
+        "QPushButton#primarySave{background:#1668d4;color:#ffffff;border-color:#1668d4;font-weight:600;}"
+        "QPushButton#primarySave:hover{background:#0f5fc8;border-color:#0f5fc8;}"
+        "QPushButton#secondaryAction{background:#ffffff;color:#344054;}"
+        "QToolButton:checked{background:#20262e;color:#ffffff;border-color:#20262e;}"
+        "QTabWidget::pane{border:0;background:transparent;}"
+        "QTabBar::tab{background:transparent;color:#475467;padding:10px 14px;border:0;border-bottom:2px solid transparent;}"
+        "QTabBar::tab:hover{color:#175cd3;background:#f4f7fb;}"
+        "QTabBar::tab:selected{color:#175cd3;background:transparent;border-bottom:2px solid #175cd3;}"
+        "QMenuBar{background:#ffffff;color:#344054;border-bottom:1px solid #e2e7ed;}"
+        "QMenuBar::item{background:transparent;padding:5px 9px;}"
+        "QMenuBar::item:selected{background:#f2f5f9;color:#175cd3;}"
+        "QMenu{background:#ffffff;color:#1f2937;border:1px solid #cfd6df;}"
+        "QMenu::item{padding:7px 22px;}"
+        "QMenu::item:selected{background:#e7f0ff;color:#175cd3;}"
+        "QScrollArea{background:transparent;border:0;}"
+        "QScrollBar:vertical{background:#edf1f5;width:10px;margin:0;}"
+        "QScrollBar::handle:vertical{background:#b7c0cb;min-height:28px;border-radius:4px;}"
+        "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
+        "QStatusBar{background:#ffffff;color:#667085;border-top:1px solid #d7dde5;}"
+    ));
 }
 
 void MainWindow::handleReference(const QString& kind, const QString& id) {
