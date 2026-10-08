@@ -5,6 +5,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <QCheckBox>
 #include <QColor>
 #include <QComboBox>
 #include <QFile>
@@ -82,6 +83,7 @@ QColor typeColor(const QString& type) {
     if (type == QStringLiteral("forest")) return QColor(61, 99, 61);
     if (type == QStringLiteral("mountain")) return QColor(82, 73, 65);
     if (type == QStringLiteral("settlement")) return QColor(84, 52, 38);
+    if (type == QStringLiteral("label")) return QColor(45, 42, 37);
     return QColor(58, 51, 43);
 }
 
@@ -97,6 +99,10 @@ QString toolType(PilinReyEditor::Tool tool) {
     }
 }
 
+int opacityByte(double opacity) {
+    return qRound(std::clamp(opacity, 0.0, 1.0) * 255.0);
+}
+
 } // namespace
 
 class PilinReyViewport final : public QWidget {
@@ -104,6 +110,7 @@ public:
     using Tool = PilinReyEditor::Tool;
     std::function<void(const QString&, const QJsonArray&)> onPath;
     std::function<void(double, double)> onSettlement;
+    std::function<void(double, double)> onLabel;
     std::function<void(const QString&)> onStatus;
 
     explicit PilinReyViewport(QWidget* parent = nullptr) : QWidget(parent) {
@@ -169,12 +176,19 @@ protected:
             return;
         }
         if (event->button() != Qt::LeftButton) return;
+
         const QPointF world = screenToWorld(event->position());
         if (tool_ == Tool::Settlement) {
             if (onSettlement) onSettlement(world.x(), world.y());
             event->accept();
             return;
         }
+        if (tool_ == Tool::Label) {
+            if (onLabel) onLabel(world.x(), world.y());
+            event->accept();
+            return;
+        }
+
         const QString type = toolType(tool_);
         if (!type.isEmpty()) {
             drawing_ = true;
@@ -243,6 +257,7 @@ private:
             return false;
         }
         SDL_SetRenderVSync(renderer_, 1);
+        SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
         return true;
     }
 
@@ -276,10 +291,15 @@ private:
         SDL_SetTextureScaleMode(templateTexture_, SDL_SCALEMODE_LINEAR);
     }
 
-    void drawPath(const QJsonObject& object) {
-        const QString type = object.value(QStringLiteral("type")).toString();
+    void setTypeColor(const QString& type, int alpha) {
         const QColor color = typeColor(type);
-        SDL_SetRenderDrawColor(renderer_, color.red(), color.green(), color.blue(), 255);
+        SDL_SetRenderDrawColor(renderer_, color.red(), color.green(), color.blue(), alpha);
+    }
+
+    void drawPath(const QJsonObject& object, double opacity = 1.0) {
+        const QString type = object.value(QStringLiteral("type")).toString();
+        const int alpha = opacityByte(opacity);
+        setTypeColor(type, alpha);
         const QJsonArray points = object.value(QStringLiteral("points")).toArray();
         if (points.size() < 2) return;
         std::vector<SDL_FPoint> line;
@@ -315,22 +335,29 @@ private:
         }
         SDL_RenderLines(renderer_, line.data(), static_cast<int>(line.size()));
         if (type == QStringLiteral("border")) {
-            SDL_SetRenderDrawColor(renderer_, color.red(), color.green(), color.blue(), 110);
+            setTypeColor(type, qRound(alpha * 0.55));
             for (size_t i = 0; i + 1 < line.size(); i += 4)
                 SDL_RenderLine(renderer_, line[i].x, line[i].y, line[i + 1].x, line[i + 1].y);
         }
     }
 
-    void drawSettlement(const QJsonObject& object) {
+    void drawSettlement(const QJsonObject& object, double opacity) {
         const QPointF p = worldToScreen(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble());
-        const QColor color = typeColor(QStringLiteral("settlement"));
-        SDL_SetRenderDrawColor(renderer_, color.red(), color.green(), color.blue(), 255);
+        const int alpha = opacityByte(opacity);
+        setTypeColor(QStringLiteral("settlement"), alpha);
         const float r = static_cast<float>(std::clamp(5.0 * zoom_, 3.0, 10.0));
         SDL_FRect rect{static_cast<float>(p.x() - r), static_cast<float>(p.y() - r), r * 2.0f, r * 2.0f};
         SDL_RenderFillRect(renderer_, &rect);
-        SDL_SetRenderDrawColor(renderer_, 238, 223, 184, 255);
+        SDL_SetRenderDrawColor(renderer_, 238, 223, 184, alpha);
         SDL_RenderLine(renderer_, static_cast<float>(p.x() - r), static_cast<float>(p.y()), static_cast<float>(p.x() + r), static_cast<float>(p.y()));
         SDL_RenderLine(renderer_, static_cast<float>(p.x()), static_cast<float>(p.y() - r), static_cast<float>(p.x()), static_cast<float>(p.y() + r));
+    }
+
+    void drawLabel(const QJsonObject& object, double opacity) {
+        const QPointF p = worldToScreen(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble());
+        setTypeColor(QStringLiteral("label"), opacityByte(opacity));
+        const QByteArray text = object.value(QStringLiteral("text")).toString().toUtf8();
+        if (!text.isEmpty()) SDL_RenderDebugText(renderer_, static_cast<float>(p.x()), static_cast<float>(p.y()), text.constData());
     }
 
     void renderFrame() {
@@ -348,22 +375,24 @@ private:
             const double docH = pilin.value(QStringLiteral("height")).toDouble(2304.0);
             const QPointF topLeft = worldToScreen(0.0, 0.0);
             SDL_FRect dest{static_cast<float>(topLeft.x()), static_cast<float>(topLeft.y()), static_cast<float>(docW * zoom_), static_cast<float>(docH * zoom_)};
-            SDL_SetTextureAlphaMod(templateTexture_, static_cast<Uint8>(std::clamp(templ.value(QStringLiteral("opacity")).toDouble(0.35), 0.0, 1.0) * 255.0));
+            SDL_SetTextureAlphaMod(templateTexture_, static_cast<Uint8>(opacityByte(templ.value(QStringLiteral("opacity")).toDouble(0.35))));
             SDL_RenderTexture(renderer_, templateTexture_, nullptr, &dest);
         }
 
         for (const QJsonValue layerValue : pilin.value(QStringLiteral("layers")).toArray()) {
             const QJsonObject layer = layerValue.toObject();
             if (!layer.value(QStringLiteral("visible")).toBool(true)) continue;
+            const double opacity = layer.value(QStringLiteral("opacity")).toDouble(1.0);
             for (const QJsonValue objectValue : layer.value(QStringLiteral("objects")).toArray()) {
                 const QJsonObject object = objectValue.toObject();
-                if (object.value(QStringLiteral("type")).toString() == QStringLiteral("settlement")) drawSettlement(object);
-                else drawPath(object);
+                const QString type = object.value(QStringLiteral("type")).toString();
+                if (type == QStringLiteral("settlement")) drawSettlement(object, opacity);
+                else if (type == QStringLiteral("label")) drawLabel(object, opacity);
+                else drawPath(object, opacity);
             }
         }
-        if (drawing_ && currentPoints_.size() >= 2) {
-            drawPath(QJsonObject{{QStringLiteral("type"), toolType(tool_)}, {QStringLiteral("points"), currentPoints_}});
-        }
+        if (drawing_ && currentPoints_.size() >= 2)
+            drawPath(QJsonObject{{QStringLiteral("type"), toolType(tool_)}, {QStringLiteral("points"), currentPoints_}}, 1.0);
         SDL_RenderPresent(renderer_);
     }
 
@@ -399,7 +428,7 @@ void PilinReyEditor::buildUi() {
     titleFont.setPointSize(titleFont.pointSize() + 2);
     title->setFont(titleFont);
     auto* subtitle = new QLabel(tr("cartografía por capas · SDL3"));
-    subtitle->setStyleSheet(QStringLiteral("color:#888;"));
+    subtitle->setStyleSheet(QStringLiteral("color:#667085;"));
     style_ = new QComboBox;
     style_->addItems({tr("Fantasía clásica"), tr("Portulano"), tr("Mappa mundi"), tr("Ptolemaico"), tr("Islámico medieval"), tr("Señorial"), tr("Militar"), tr("Político")});
     titleRow->addWidget(title);
@@ -414,7 +443,8 @@ void PilinReyEditor::buildUi() {
     const ToolDef defs[] = {
         {Tool::Select, "Seleccionar"}, {Tool::Pan, "Mover"}, {Tool::Coast, "Costa"},
         {Tool::River, "Río"}, {Tool::Road, "Camino"}, {Tool::Border, "Frontera"},
-        {Tool::Forest, "Bosque"}, {Tool::Mountain, "Montañas"}, {Tool::Settlement, "Asentamiento"}
+        {Tool::Forest, "Bosque"}, {Tool::Mountain, "Montañas"}, {Tool::Settlement, "Asentamiento"},
+        {Tool::Label, "Etiqueta"}
     };
     for (const auto& def : defs) {
         auto* button = new QToolButton;
@@ -437,27 +467,40 @@ void PilinReyEditor::buildUi() {
     viewport_ = new PilinReyViewport;
     viewport_->onPath = [this](const QString& type, const QJsonArray& points) { addPathObject(type, points); };
     viewport_->onSettlement = [this](double x, double y) { addSettlement(x, y); };
+    viewport_->onLabel = [this](double x, double y) { addLabel(x, y); };
     viewport_->onStatus = [this](const QString& text) { status_->setText(text); };
     body->addWidget(viewport_, 1);
 
     auto* panel = new QWidget;
-    panel->setFixedWidth(220);
+    panel->setFixedWidth(238);
     auto* panelLayout = new QVBoxLayout(panel);
-    panelLayout->setContentsMargins(6, 0, 0, 0);
+    panelLayout->setContentsMargins(8, 0, 0, 0);
     panelLayout->addWidget(new QLabel(tr("Capas")));
     layers_ = new QListWidget;
     panelLayout->addWidget(layers_, 1);
+
     auto* layerButtons = new QHBoxLayout;
     auto* add = new QPushButton(tr("+"));
+    auto* duplicate = new QPushButton(tr("Duplicar"));
     auto* remove = new QPushButton(tr("−"));
     auto* up = new QPushButton(tr("↑"));
     auto* down = new QPushButton(tr("↓"));
     layerButtons->addWidget(add);
+    layerButtons->addWidget(duplicate);
     layerButtons->addWidget(remove);
     layerButtons->addWidget(up);
     layerButtons->addWidget(down);
     panelLayout->addLayout(layerButtons);
-    panelLayout->addSpacing(6);
+
+    layerLocked_ = new QCheckBox(tr("Bloquear capa"));
+    layerOpacity_ = new QSlider(Qt::Horizontal);
+    layerOpacity_->setRange(0, 100);
+    layerOpacity_->setValue(100);
+    panelLayout->addWidget(layerLocked_);
+    panelLayout->addWidget(new QLabel(tr("Opacidad de capa")));
+    panelLayout->addWidget(layerOpacity_);
+
+    panelLayout->addSpacing(8);
     panelLayout->addWidget(new QLabel(tr("Plantilla")));
     auto* templateButtons = new QHBoxLayout;
     auto* loadTemplate = new QPushButton(tr("Cargar…"));
@@ -468,17 +511,17 @@ void PilinReyEditor::buildUi() {
     templateOpacity_ = new QSlider(Qt::Horizontal);
     templateOpacity_->setRange(0, 100);
     templateOpacity_->setValue(35);
-    panelLayout->addWidget(new QLabel(tr("Opacidad")));
+    panelLayout->addWidget(new QLabel(tr("Opacidad de plantilla")));
     panelLayout->addWidget(templateOpacity_);
     auto* templateHint = new QLabel(tr("Carga un boceto, mapa antiguo o referencia y dibuja en capas sobre él."));
     templateHint->setWordWrap(true);
-    templateHint->setStyleSheet(QStringLiteral("color:#888;"));
+    templateHint->setStyleSheet(QStringLiteral("color:#667085;"));
     panelLayout->addWidget(templateHint);
     body->addWidget(panel);
     root->addLayout(body, 1);
 
     status_ = new QLabel(tr("Pilín Rey listo"));
-    status_->setStyleSheet(QStringLiteral("color:#888; padding:2px 4px;"));
+    status_->setStyleSheet(QStringLiteral("color:#667085; padding:2px 4px;"));
     root->addWidget(status_);
 
     connect(style_, &QComboBox::currentTextChanged, this, [this](const QString& value) {
@@ -492,14 +535,22 @@ void PilinReyEditor::buildUi() {
             pilin.insert(QStringLiteral("template"), templ);
         });
     });
+    connect(layerLocked_, &QCheckBox::toggled, this, [this](bool checked) {
+        if (!refreshing_) setLayerLocked(checked);
+    });
+    connect(layerOpacity_, &QSlider::valueChanged, this, [this](int value) {
+        if (!refreshing_) setLayerOpacity(value);
+    });
     connect(loadTemplate, &QPushButton::clicked, this, &PilinReyEditor::chooseTemplate);
     connect(clearTemplateButton, &QPushButton::clicked, this, &PilinReyEditor::clearTemplate);
     connect(add, &QPushButton::clicked, this, &PilinReyEditor::addLayer);
+    connect(duplicate, &QPushButton::clicked, this, &PilinReyEditor::duplicateLayer);
     connect(remove, &QPushButton::clicked, this, &PilinReyEditor::removeLayer);
     connect(up, &QPushButton::clicked, this, [this]() { moveLayer(-1); });
     connect(down, &QPushButton::clicked, this, [this]() { moveLayer(1); });
     connect(undoButton_, &QPushButton::clicked, this, &PilinReyEditor::undo);
     connect(redoButton_, &QPushButton::clicked, this, &PilinReyEditor::redo);
+
     connect(layers_, &QListWidget::currentRowChanged, this, [this](int row) {
         if (refreshing_ || row < 0) return;
         QJsonObject pilin = map_.value(QStringLiteral("pilinRey")).toObject();
@@ -507,6 +558,7 @@ void PilinReyEditor::buildUi() {
         if (row >= array.size()) return;
         pilin.insert(QStringLiteral("activeLayerId"), array.at(row).toObject().value(QStringLiteral("id")).toString());
         map_.insert(QStringLiteral("pilinRey"), pilin);
+        refreshLayerControls();
         persistToArchive();
     });
     connect(layers_, &QListWidget::itemChanged, this, [this](QListWidgetItem* item) {
@@ -530,6 +582,8 @@ void PilinReyEditor::buildUi() {
 void PilinReyEditor::setMap(const QJsonObject& map) {
     map_ = map;
     ensurePilinDocument();
+    undoStack_.clear();
+    redoStack_.clear();
     refreshing_ = true;
     const QJsonObject pilin = map_.value(QStringLiteral("pilinRey")).toObject();
     const QString style = pilin.value(QStringLiteral("cartographicStyle")).toString(QStringLiteral("Fantasía clásica"));
@@ -543,10 +597,11 @@ void PilinReyEditor::setMap(const QJsonObject& map) {
 
 void PilinReyEditor::ensurePilinDocument() {
     QJsonObject pilin = map_.value(QStringLiteral("pilinRey")).toObject();
-    if (!pilin.contains(QStringLiteral("version"))) pilin.insert(QStringLiteral("version"), 1);
+    if (!pilin.contains(QStringLiteral("version"))) pilin.insert(QStringLiteral("version"), 2);
     if (!pilin.contains(QStringLiteral("width"))) pilin.insert(QStringLiteral("width"), 4096);
     if (!pilin.contains(QStringLiteral("height"))) pilin.insert(QStringLiteral("height"), 2304);
     if (!pilin.contains(QStringLiteral("cartographicStyle"))) pilin.insert(QStringLiteral("cartographicStyle"), QStringLiteral("Fantasía clásica"));
+
     QJsonObject templ = pilin.value(QStringLiteral("template")).toObject();
     if (!templ.contains(QStringLiteral("dataUrl"))) templ.insert(QStringLiteral("dataUrl"), map_.value(QStringLiteral("backgroundImageDataUrl")).toString());
     if (!templ.contains(QStringLiteral("opacity"))) templ.insert(QStringLiteral("opacity"), 0.35);
@@ -562,8 +617,16 @@ void PilinReyEditor::ensurePilinDocument() {
         }
         pilin.insert(QStringLiteral("layers"), layers);
         pilin.insert(QStringLiteral("activeLayerId"), layers.first().toObject().value(QStringLiteral("id")).toString());
-    } else if (!pilin.contains(QStringLiteral("activeLayerId"))) {
-        pilin.insert(QStringLiteral("activeLayerId"), layers.first().toObject().value(QStringLiteral("id")).toString());
+    } else {
+        for (int i = 0; i < layers.size(); ++i) {
+            QJsonObject layer = layers.at(i).toObject();
+            if (!layer.contains(QStringLiteral("locked"))) layer.insert(QStringLiteral("locked"), false);
+            if (!layer.contains(QStringLiteral("opacity"))) layer.insert(QStringLiteral("opacity"), 1.0);
+            layers.replace(i, layer);
+        }
+        pilin.insert(QStringLiteral("layers"), layers);
+        if (!pilin.contains(QStringLiteral("activeLayerId")))
+            pilin.insert(QStringLiteral("activeLayerId"), layers.first().toObject().value(QStringLiteral("id")).toString());
     }
     map_.insert(QStringLiteral("pilinRey"), pilin);
 }
@@ -577,8 +640,11 @@ void PilinReyEditor::refreshLayers() {
     int activeRow = 0;
     for (int i = 0; i < array.size(); ++i) {
         const QJsonObject layer = array.at(i).toObject();
-        auto* item = new QListWidgetItem(layer.value(QStringLiteral("name")).toString(tr("Capa")));
+        QString label = layer.value(QStringLiteral("name")).toString(tr("Capa"));
+        if (layer.value(QStringLiteral("locked")).toBool(false)) label.prepend(QStringLiteral("🔒 "));
+        auto* item = new QListWidgetItem(label);
         item->setData(Qt::UserRole, layer.value(QStringLiteral("id")).toString());
+        item->setData(Qt::UserRole + 1, layer.value(QStringLiteral("name")).toString(tr("Capa")));
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsEditable);
         item->setCheckState(layer.value(QStringLiteral("visible")).toBool(true) ? Qt::Checked : Qt::Unchecked);
         layers_->addItem(item);
@@ -586,8 +652,28 @@ void PilinReyEditor::refreshLayers() {
     }
     if (layers_->count()) layers_->setCurrentRow(activeRow);
     refreshing_ = false;
+    refreshLayerControls();
     undoButton_->setEnabled(!undoStack_.isEmpty());
     redoButton_->setEnabled(!redoStack_.isEmpty());
+}
+
+void PilinReyEditor::refreshLayerControls() {
+    const bool wasRefreshing = refreshing_;
+    refreshing_ = true;
+    const QString active = activeLayerId();
+    const QJsonArray layers = map_.value(QStringLiteral("pilinRey")).toObject().value(QStringLiteral("layers")).toArray();
+    bool found = false;
+    for (const QJsonValue value : layers) {
+        const QJsonObject layer = value.toObject();
+        if (layer.value(QStringLiteral("id")).toString() != active) continue;
+        layerLocked_->setChecked(layer.value(QStringLiteral("locked")).toBool(false));
+        layerOpacity_->setValue(qRound(layer.value(QStringLiteral("opacity")).toDouble(1.0) * 100.0));
+        found = true;
+        break;
+    }
+    layerLocked_->setEnabled(found);
+    layerOpacity_->setEnabled(found);
+    refreshing_ = wasRefreshing;
 }
 
 void PilinReyEditor::refreshViewport() {
@@ -631,7 +717,30 @@ void PilinReyEditor::addLayer() {
         pilin.insert(QStringLiteral("layers"), array);
         pilin.insert(QStringLiteral("activeLayerId"), id);
     });
-    refreshLayers();
+}
+
+void PilinReyEditor::duplicateLayer() {
+    const int row = layers_->currentRow();
+    if (row < 0) return;
+    mutateDocument([&](QJsonObject& pilin) {
+        QJsonArray array = pilin.value(QStringLiteral("layers")).toArray();
+        if (row >= array.size()) return;
+        QJsonObject copy = array.at(row).toObject();
+        const QString id = uid(QStringLiteral("layer"));
+        copy.insert(QStringLiteral("id"), id);
+        copy.insert(QStringLiteral("name"), copy.value(QStringLiteral("name")).toString(tr("Capa")) + tr(" copia"));
+        copy.insert(QStringLiteral("locked"), false);
+        QJsonArray objects = copy.value(QStringLiteral("objects")).toArray();
+        for (int i = 0; i < objects.size(); ++i) {
+            QJsonObject object = objects.at(i).toObject();
+            object.insert(QStringLiteral("id"), uid(QStringLiteral("mapobj")));
+            objects.replace(i, object);
+        }
+        copy.insert(QStringLiteral("objects"), objects);
+        array.insert(row + 1, copy);
+        pilin.insert(QStringLiteral("layers"), array);
+        pilin.insert(QStringLiteral("activeLayerId"), id);
+    });
 }
 
 void PilinReyEditor::removeLayer() {
@@ -644,7 +753,6 @@ void PilinReyEditor::removeLayer() {
         pilin.insert(QStringLiteral("layers"), array);
         pilin.insert(QStringLiteral("activeLayerId"), array.at(qMin(row, array.size() - 1)).toObject().value(QStringLiteral("id")).toString());
     });
-    refreshLayers();
 }
 
 void PilinReyEditor::moveLayer(int delta) {
@@ -659,8 +767,39 @@ void PilinReyEditor::moveLayer(int delta) {
         array.insert(target, value);
         pilin.insert(QStringLiteral("layers"), array);
     });
-    refreshLayers();
-    layers_->setCurrentRow(target);
+    if (target >= 0 && target < layers_->count()) layers_->setCurrentRow(target);
+}
+
+void PilinReyEditor::setLayerLocked(bool locked) {
+    const QString active = activeLayerId();
+    if (active.isEmpty()) return;
+    mutateDocument([&](QJsonObject& pilin) {
+        QJsonArray array = pilin.value(QStringLiteral("layers")).toArray();
+        for (int i = 0; i < array.size(); ++i) {
+            QJsonObject layer = array.at(i).toObject();
+            if (layer.value(QStringLiteral("id")).toString() != active) continue;
+            layer.insert(QStringLiteral("locked"), locked);
+            array.replace(i, layer);
+            break;
+        }
+        pilin.insert(QStringLiteral("layers"), array);
+    });
+}
+
+void PilinReyEditor::setLayerOpacity(int value) {
+    const QString active = activeLayerId();
+    if (active.isEmpty()) return;
+    mutateDocument([&](QJsonObject& pilin) {
+        QJsonArray array = pilin.value(QStringLiteral("layers")).toArray();
+        for (int i = 0; i < array.size(); ++i) {
+            QJsonObject layer = array.at(i).toObject();
+            if (layer.value(QStringLiteral("id")).toString() != active) continue;
+            layer.insert(QStringLiteral("opacity"), std::clamp(value / 100.0, 0.0, 1.0));
+            array.replace(i, layer);
+            break;
+        }
+        pilin.insert(QStringLiteral("layers"), array);
+    });
 }
 
 void PilinReyEditor::setActiveTool(Tool tool) {
@@ -704,6 +843,26 @@ void PilinReyEditor::addSettlement(double x, double y) {
             if (layer.value(QStringLiteral("id")).toString() != active || layer.value(QStringLiteral("locked")).toBool(false)) continue;
             QJsonArray objects = layer.value(QStringLiteral("objects")).toArray();
             objects.append(QJsonObject{{QStringLiteral("id"), uid(QStringLiteral("mapobj"))}, {QStringLiteral("type"), QStringLiteral("settlement")}, {QStringLiteral("kind"), kind}, {QStringLiteral("label"), label}, {QStringLiteral("x"), x}, {QStringLiteral("y"), y}});
+            layer.insert(QStringLiteral("objects"), objects);
+            layers.replace(i, layer);
+            break;
+        }
+        pilin.insert(QStringLiteral("layers"), layers);
+    });
+}
+
+void PilinReyEditor::addLabel(double x, double y) {
+    bool ok = false;
+    const QString text = QInputDialog::getText(this, tr("Etiqueta"), tr("Texto:"), QLineEdit::Normal, QString(), &ok).trimmed();
+    if (!ok || text.isEmpty()) return;
+    const QString active = activeLayerId();
+    mutateDocument([&](QJsonObject& pilin) {
+        QJsonArray layers = pilin.value(QStringLiteral("layers")).toArray();
+        for (int i = 0; i < layers.size(); ++i) {
+            QJsonObject layer = layers.at(i).toObject();
+            if (layer.value(QStringLiteral("id")).toString() != active || layer.value(QStringLiteral("locked")).toBool(false)) continue;
+            QJsonArray objects = layer.value(QStringLiteral("objects")).toArray();
+            objects.append(QJsonObject{{QStringLiteral("id"), uid(QStringLiteral("mapobj"))}, {QStringLiteral("type"), QStringLiteral("label")}, {QStringLiteral("text"), text}, {QStringLiteral("x"), x}, {QStringLiteral("y"), y}});
             layer.insert(QStringLiteral("objects"), objects);
             layers.replace(i, layer);
             break;
