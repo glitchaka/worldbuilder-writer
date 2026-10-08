@@ -1,130 +1,103 @@
 #include "ui/MainWindow.h"
 
 #include "storage/ProjectStore.h"
+#include "storage/WbwPackage.h"
+#include "ui/PlanningPage.h"
+#include "ui/ReviewPage.h"
+#include "ui/WorldPage.h"
+#include "ui/WritingPage.h"
 
 #include <QAction>
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QDialog>
+#include <QDialogButtonBox>
+#include <QDir>
 #include <QFileDialog>
-#include <QFormLayout>
+#include <QFileInfo>
+#include <QFont>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
-#include <QLineEdit>
 #include <QListWidget>
+#include <QMarginsF>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPageLayout>
+#include <QPageSize>
 #include <QPrinter>
 #include <QPushButton>
 #include <QRegularExpression>
-#include <QSplitter>
+#include <QSettings>
+#include <QSizeF>
 #include <QStackedWidget>
-#include <QTabWidget>
 #include <QTextDocument>
-#include <QTextEdit>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
+#include <QTimer>
 #include <QVBoxLayout>
-#include <QUuid>
 
 namespace wbw {
 namespace {
 
-QString uid(const QString& prefix) {
-    return prefix + "-" + QUuid::createUuid().toString(QUuid::Id128);
+QPushButton* makeButton(const QString& text) {
+    auto* button = new QPushButton(text);
+    button->setCursor(Qt::PointingHandCursor);
+    return button;
 }
 
-QPushButton* button(const QString& text) {
-    auto* b = new QPushButton(text);
-    b->setCursor(Qt::PointingHandCursor);
-    return b;
+QString safeFileName(QString value) {
+    value = value.trimmed();
+    value.replace(QRegularExpression(QStringLiteral("[<>:\"/\\\\|?*]+")), QStringLiteral("-"));
+    value.replace(QRegularExpression(QStringLiteral("\\s+")), QStringLiteral(" "));
+    if (value.isEmpty()) value = QStringLiteral("worldbuilder-writer");
+    return value.left(100);
 }
 
-QWidget* header(const QString& section, const QString& title, const QString& note) {
-    auto* widget = new QWidget;
-    auto* layout = new QVBoxLayout(widget);
-    layout->setContentsMargins(0, 0, 0, 10);
-    auto* eyebrow = new QLabel(section.toUpper());
-    eyebrow->setObjectName("Eyebrow");
-    auto* heading = new QLabel(title);
-    heading->setObjectName("PageTitle");
-    auto* description = new QLabel(note);
-    description->setObjectName("PageNote");
-    description->setWordWrap(true);
-    layout->addWidget(eyebrow);
-    layout->addWidget(heading);
-    layout->addWidget(description);
-    return widget;
+QString sceneBodyHtml(const QString& content) {
+    if (content.trimmed().isEmpty()) return QString();
+    const QRegularExpression body(QStringLiteral("<body[^>]*>([\\s\\S]*)</body>"), QRegularExpression::CaseInsensitiveOption);
+    const auto match = body.match(content);
+    if (match.hasMatch()) return match.captured(1);
+    return content;
 }
 
-QString text(const QJsonObject& object, const char* key) {
-    return object.value(QLatin1String(key)).toString();
+QJsonObject effectiveLayout(const ArchiveDocument& document) {
+    const QJsonObject profile = document.object(QStringLiteral("profile"));
+    QJsonObject layout = profile.value(QStringLiteral("manuscriptLayout")).toObject();
+    if (!layout.contains(QStringLiteral("pageWidthMm"))) layout.insert(QStringLiteral("pageWidthMm"), 152.4);
+    if (!layout.contains(QStringLiteral("pageHeightMm"))) layout.insert(QStringLiteral("pageHeightMm"), 228.6);
+    if (!layout.contains(QStringLiteral("marginTopMm"))) layout.insert(QStringLiteral("marginTopMm"), 20.0);
+    if (!layout.contains(QStringLiteral("marginRightMm"))) layout.insert(QStringLiteral("marginRightMm"), 19.0);
+    if (!layout.contains(QStringLiteral("marginBottomMm"))) layout.insert(QStringLiteral("marginBottomMm"), 22.0);
+    if (!layout.contains(QStringLiteral("marginLeftMm"))) layout.insert(QStringLiteral("marginLeftMm"), 19.0);
+    if (!layout.contains(QStringLiteral("fontFamily"))) layout.insert(QStringLiteral("fontFamily"), QStringLiteral("Garamond"));
+    if (!layout.contains(QStringLiteral("fontSizePt"))) layout.insert(QStringLiteral("fontSizePt"), 11.0);
+    if (!layout.contains(QStringLiteral("lineHeight"))) layout.insert(QStringLiteral("lineHeight"), 1.35);
+    if (!layout.contains(QStringLiteral("paragraphIndentMm"))) layout.insert(QStringLiteral("paragraphIndentMm"), 5.0);
+    if (!layout.contains(QStringLiteral("chapterOpening"))) layout.insert(QStringLiteral("chapterOpening"), QStringLiteral("Página nueva"));
+    if (!layout.contains(QStringLiteral("sceneSeparator"))) layout.insert(QStringLiteral("sceneSeparator"), QStringLiteral("⁂"));
+    if (!layout.contains(QStringLiteral("headerText"))) layout.insert(QStringLiteral("headerText"), QStringLiteral("{título}"));
+    if (!layout.contains(QStringLiteral("footerText"))) layout.insert(QStringLiteral("footerText"), QStringLiteral("{página}"));
+    return layout;
 }
 
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-    resize(1420, 900);
-    setMinimumSize(1050, 700);
-    createMenus();
+    resize(1480, 900);
+    setMinimumSize(1040, 680);
     createShell();
-    setDocument(ArchiveDocument::empty());
+    createMenus();
 
-    setStyleSheet(R"(
-        QMainWindow, QWidget { background:#171815; color:#ebe6dc; font-size:14px; }
-        QMenuBar { background:#11120f; border-bottom:1px solid #2f302a; }
-        QMenuBar::item:selected, QMenu::item:selected { background:#34352e; }
-        QMenu { background:#1d1e1a; border:1px solid #3c3d35; }
-        QListWidget#Navigation { background:#11120f; border:0; outline:0; }
-        QListWidget#Navigation::item { padding:13px 12px; margin:2px 0; border-radius:5px; color:#a8a69d; }
-        QListWidget#Navigation::item:selected { background:#302f28; color:#f4efe4; }
-        QLabel#ProjectName { font-size:16px; font-weight:700; }
-        QLabel#Eyebrow { color:#ae9157; font-size:11px; font-weight:700; }
-        QLabel#PageTitle { font-size:27px; font-weight:700; }
-        QLabel#PageNote { color:#aaa89f; }
-        QLineEdit, QTextEdit, QTreeWidget, QListWidget, QTabWidget::pane {
-            background:#20211d; border:1px solid #393a32; border-radius:4px; selection-background-color:#715b34;
-        }
-        QLineEdit { padding:7px; }
-        QTextEdit { padding:8px; }
-        QPushButton { background:#302f28; border:1px solid #484940; border-radius:4px; padding:7px 11px; }
-        QPushButton:hover { background:#3a3930; }
-        QTabBar::tab { background:#1d1e1a; padding:9px 15px; margin-right:2px; }
-        QTabBar::tab:selected { background:#302f28; color:#f2ecdc; }
-        QSplitter::handle { background:#2d2e28; width:1px; }
-    )");
-}
+    autosaveTimer_ = new QTimer(this);
+    autosaveTimer_->setInterval(15000);
+    connect(autosaveTimer_, &QTimer::timeout, this, [this]() {
+        if (document_.isDirty() && !document_.sourcePath().isEmpty()) saveProject(true);
+    });
+    autosaveTimer_->start();
 
-void MainWindow::createMenus() {
-    auto* file = menuBar()->addMenu(tr("Archivo"));
-    auto* actionNew = file->addAction(tr("Nueva obra"));
-    actionNew->setShortcut(QKeySequence::New);
-    connect(actionNew, &QAction::triggered, this, &MainWindow::newProject);
-
-    auto* actionOpen = file->addAction(tr("Abrir project.json…"));
-    actionOpen->setShortcut(QKeySequence::Open);
-    connect(actionOpen, &QAction::triggered, this, &MainWindow::openProject);
-
-    file->addSeparator();
-    auto* actionSave = file->addAction(tr("Guardar"));
-    actionSave->setShortcut(QKeySequence::Save);
-    connect(actionSave, &QAction::triggered, this, &MainWindow::saveProject);
-
-    auto* actionSaveAs = file->addAction(tr("Guardar como…"));
-    actionSaveAs->setShortcut(QKeySequence::SaveAs);
-    connect(actionSaveAs, &QAction::triggered, this, &MainWindow::saveProjectAs);
-
-    file->addSeparator();
-    auto* actionPdf = file->addAction(tr("Exportar manuscrito a PDF…"));
-    connect(actionPdf, &QAction::triggered, this, &MainWindow::exportManuscriptPdf);
-
-    auto* view = menuBar()->addMenu(tr("Vista"));
-    auto* focus = view->addAction(tr("Modo enfoque"));
-    focus->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F));
-    connect(focus, &QAction::triggered, this, &MainWindow::openFocusMode);
+    loadStartupProject();
 }
 
 void MainWindow::createShell() {
@@ -134,327 +107,371 @@ void MainWindow::createShell() {
     root->setSpacing(0);
 
     auto* sidebar = new QWidget;
-    sidebar->setFixedWidth(225);
-    sidebar->setStyleSheet("background:#11120f;border-right:1px solid #303129;");
-    auto* side = new QVBoxLayout(sidebar);
-    side->setContentsMargins(14, 18, 14, 14);
+    sidebar->setObjectName(QStringLiteral("sidebar"));
+    sidebar->setFixedWidth(235);
+    auto* sideLayout = new QVBoxLayout(sidebar);
+    sideLayout->setContentsMargins(18, 20, 18, 18);
+    sideLayout->setSpacing(12);
 
-    auto* identity = new QLabel(QStringLiteral("WW  Worldbuilder Writer"));
-    identity->setStyleSheet("font-weight:700;color:#c9ad71;padding:4px 4px 18px 4px;");
-    side->addWidget(identity);
-
+    auto* appName = new QLabel(QStringLiteral("WORLDBUILDER\nWRITER"));
+    appName->setObjectName(QStringLiteral("appName"));
+    projectTitle_ = new QLabel;
+    projectTitle_->setObjectName(QStringLiteral("projectTitle"));
+    projectTitle_->setWordWrap(true);
+    saveState_ = new QLabel;
+    saveState_->setObjectName(QStringLiteral("saveState"));
+    saveState_->setWordWrap(true);
     navigation_ = new QListWidget;
-    navigation_->setObjectName("Navigation");
+    navigation_->setObjectName(QStringLiteral("navigation"));
     navigation_->addItems({tr("Planificación"), tr("Escritura"), tr("Mundo"), tr("Revisión y salida")});
-    side->addWidget(navigation_, 1);
+    navigation_->setCurrentRow(1);
+    sideLayout->addWidget(appName);
+    sideLayout->addWidget(projectTitle_);
+    sideLayout->addWidget(saveState_);
+    sideLayout->addSpacing(8);
+    sideLayout->addWidget(navigation_, 1);
 
-    projectLabel_ = new QLabel;
-    projectLabel_->setObjectName("ProjectName");
-    projectLabel_->setWordWrap(true);
-    saveLabel_ = new QLabel;
-    saveLabel_->setStyleSheet("color:#85857d;");
-    side->addWidget(projectLabel_);
-    side->addWidget(saveLabel_);
+    auto* quickSave = makeButton(tr("Guardar"));
+    auto* focus = makeButton(tr("Modo enfoque"));
+    sideLayout->addWidget(quickSave);
+    sideLayout->addWidget(focus);
+    root->addWidget(sidebar);
 
     pages_ = new QStackedWidget;
-    pages_->addWidget(buildPlanningPage());
-    pages_->addWidget(buildWritingPage());
-    pages_->addWidget(buildWorldPage());
-    pages_->addWidget(buildReviewPage());
-
-    root->addWidget(sidebar);
+    planningPage_ = new PlanningPage;
+    writingPage_ = new WritingPage;
+    worldPage_ = new WorldPage;
+    reviewPage_ = new ReviewPage;
+    pages_->addWidget(planningPage_);
+    pages_->addWidget(writingPage_);
+    pages_->addWidget(worldPage_);
+    pages_->addWidget(reviewPage_);
+    pages_->setCurrentIndex(1);
     root->addWidget(pages_, 1);
     setCentralWidget(central);
 
     connect(navigation_, &QListWidget::currentRowChanged, pages_, &QStackedWidget::setCurrentIndex);
-    navigation_->setCurrentRow(1);
+    connect(quickSave, &QPushButton::clicked, this, [this]() { saveProject(); });
+    connect(focus, &QPushButton::clicked, writingPage_, &WritingPage::openFocusMode);
+    connect(planningPage_, &PlanningPage::changed, this, &MainWindow::onDocumentChanged);
+    connect(writingPage_, &WritingPage::changed, this, &MainWindow::onDocumentChanged);
+    connect(worldPage_, &WorldPage::changed, this, &MainWindow::onDocumentChanged);
+    connect(reviewPage_, &ReviewPage::changed, this, &MainWindow::onDocumentChanged);
+    connect(writingPage_, &WritingPage::referenceActivated, this, &MainWindow::handleReference);
+    connect(reviewPage_, &ReviewPage::requestExportPdf, this, &MainWindow::exportPdf);
+    connect(reviewPage_, &ReviewPage::requestExportWbw, this, &MainWindow::exportWbw);
+    connect(reviewPage_, &ReviewPage::requestBackup, this, &MainWindow::createBackup);
 }
 
-QWidget* MainWindow::buildPlanningPage() {
-    auto* page = new QWidget;
-    auto* outer = new QVBoxLayout(page);
-    outer->setContentsMargins(26, 22, 26, 22);
-    outer->addWidget(header("Planificación", "Personajes y estructura", "Tablero, relaciones, teorías y cronología quedan fuera del espacio de escritura."));
+void MainWindow::createMenus() {
+    auto* fileMenu = menuBar()->addMenu(tr("Archivo"));
+    QAction* library = fileMenu->addAction(tr("Biblioteca local…"));
+    QAction* create = fileMenu->addAction(tr("Nuevo proyecto"));
+    QAction* open = fileMenu->addAction(tr("Abrir proyecto…"));
+    QAction* import = fileMenu->addAction(tr("Importar .wbw…"));
+    fileMenu->addSeparator();
+    QAction* save = fileMenu->addAction(tr("Guardar"));
+    QAction* saveAs = fileMenu->addAction(tr("Guardar JSON como…"));
+    fileMenu->addSeparator();
+    QAction* exportProject = fileMenu->addAction(tr("Exportar proyecto .wbw…"));
+    QAction* pdf = fileMenu->addAction(tr("Exportar manuscrito PDF…"));
+    QAction* backup = fileMenu->addAction(tr("Crear copia de seguridad…"));
+    fileMenu->addSeparator();
+    QAction* exit = fileMenu->addAction(tr("Salir"));
 
-    auto* tabs = new QTabWidget;
-    auto* characters = new QWidget;
-    auto* split = new QSplitter;
-    characterList_ = new QListWidget;
-    split->addWidget(characterList_);
+    create->setShortcut(QKeySequence::New);
+    open->setShortcut(QKeySequence::Open);
+    save->setShortcut(QKeySequence::Save);
+    saveAs->setShortcut(QKeySequence::SaveAs);
 
-    auto* editor = new QWidget;
-    auto* form = new QFormLayout(editor);
-    characterName_ = new QLineEdit;
-    characterRole_ = new QLineEdit;
-    characterOrigin_ = new QLineEdit;
-    characterSummary_ = new QTextEdit;
-    form->addRow(tr("Nombre"), characterName_);
-    form->addRow(tr("Rol"), characterRole_);
-    form->addRow(tr("Origen"), characterOrigin_);
-    form->addRow(tr("Resumen"), characterSummary_);
-    auto* actions = new QHBoxLayout;
-    auto* add = button(tr("+ Personaje"));
-    auto* remove = button(tr("Eliminar"));
-    actions->addWidget(add);
-    actions->addWidget(remove);
-    actions->addStretch();
-    form->addRow(actions);
-    split->addWidget(editor);
-    split->setStretchFactor(1, 1);
-    auto* cLayout = new QVBoxLayout(characters);
-    cLayout->setContentsMargins(0, 0, 0, 0);
-    cLayout->addWidget(split);
-    tabs->addTab(characters, tr("Personajes"));
+    connect(library, &QAction::triggered, this, &MainWindow::openLibrary);
+    connect(create, &QAction::triggered, this, &MainWindow::newProject);
+    connect(open, &QAction::triggered, this, &MainWindow::openProject);
+    connect(import, &QAction::triggered, this, &MainWindow::importWbw);
+    connect(save, &QAction::triggered, this, [this]() { saveProject(); });
+    connect(saveAs, &QAction::triggered, this, &MainWindow::saveProjectAs);
+    connect(exportProject, &QAction::triggered, this, &MainWindow::exportWbw);
+    connect(pdf, &QAction::triggered, this, &MainWindow::exportPdf);
+    connect(backup, &QAction::triggered, this, &MainWindow::createBackup);
+    connect(exit, &QAction::triggered, this, &QWidget::close);
 
-    auto placeholder = [tabs](const QString& title, const QString& copy) {
-        auto* label = new QLabel(copy);
-        label->setWordWrap(true);
-        label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-        label->setMargin(18);
-        tabs->addTab(label, title);
-    };
-    placeholder(tr("Tablero"), tr("Lienzo nativo para fichas y relaciones. Se implementa separado del formulario de personaje para evitar la mezcla de controles de la edición anterior."));
-    placeholder(tr("Hilos"), tr("Teorías: estado, confianza, tesis, evidencias, contraargumento, personajes y etiquetas."));
-    placeholder(tr("Cronología"), tr("Eventos temporales con capítulo, fecha libre, resumen, personajes, intensidad y orden."));
-    outer->addWidget(tabs, 1);
-
-    connect(characterList_, &QListWidget::currentRowChanged, this, &MainWindow::selectCharacter);
-    connect(characterName_, &QLineEdit::editingFinished, this, &MainWindow::applyCharacterEdits);
-    connect(characterRole_, &QLineEdit::editingFinished, this, &MainWindow::applyCharacterEdits);
-    connect(characterOrigin_, &QLineEdit::editingFinished, this, &MainWindow::applyCharacterEdits);
-    connect(characterSummary_, &QTextEdit::textChanged, this, &MainWindow::applyCharacterEdits);
-    connect(add, &QPushButton::clicked, this, &MainWindow::addCharacter);
-    connect(remove, &QPushButton::clicked, this, &MainWindow::removeCharacter);
-    return page;
+    auto* viewMenu = menuBar()->addMenu(tr("Vista"));
+    QAction* planning = viewMenu->addAction(tr("Planificación"));
+    QAction* writing = viewMenu->addAction(tr("Escritura"));
+    QAction* world = viewMenu->addAction(tr("Mundo"));
+    QAction* review = viewMenu->addAction(tr("Revisión y salida"));
+    viewMenu->addSeparator();
+    QAction* focus = viewMenu->addAction(tr("Modo enfoque"));
+    connect(planning, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(0); });
+    connect(writing, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(1); });
+    connect(world, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(2); });
+    connect(review, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(3); });
+    connect(focus, &QAction::triggered, writingPage_, &WritingPage::openFocusMode);
 }
 
-QWidget* MainWindow::buildWritingPage() {
-    auto* page = new QWidget;
-    auto* outer = new QVBoxLayout(page);
-    outer->setContentsMargins(24, 20, 24, 20);
-    outer->addWidget(header("Escritura", "Manuscrito", "El texto es la superficie principal. Estructura a la izquierda; metadatos arriba; edición en el centro."));
-
-    auto* bar = new QHBoxLayout;
-    auto* chapter = button(tr("+ Capítulo"));
-    auto* scene = button(tr("+ Escena"));
-    auto* remove = button(tr("Eliminar"));
-    auto* focus = button(tr("Modo enfoque"));
-    bar->addWidget(chapter);
-    bar->addWidget(scene);
-    bar->addWidget(remove);
-    bar->addStretch();
-    bar->addWidget(focus);
-    outer->addLayout(bar);
-
-    auto* split = new QSplitter;
-    manuscriptTree_ = new QTreeWidget;
-    manuscriptTree_->setHeaderHidden(true);
-    manuscriptTree_->setMinimumWidth(230);
-    manuscriptTree_->setMaximumWidth(390);
-    split->addWidget(manuscriptTree_);
-
-    auto* writing = new QWidget;
-    auto* writingLayout = new QVBoxLayout(writing);
-    writingLayout->setContentsMargins(12, 0, 0, 0);
-    auto* meta = new QHBoxLayout;
-    sceneTitle_ = new QLineEdit;
-    sceneTitle_->setPlaceholderText(tr("Título de escena"));
-    scenePov_ = new QLineEdit;
-    scenePov_->setPlaceholderText(tr("POV"));
-    sceneLocation_ = new QLineEdit;
-    sceneLocation_->setPlaceholderText(tr("Ubicación"));
-    sceneStatus_ = new QLineEdit;
-    sceneStatus_->setPlaceholderText(tr("Estado"));
-    meta->addWidget(sceneTitle_, 3);
-    meta->addWidget(scenePov_, 1);
-    meta->addWidget(sceneLocation_, 1);
-    meta->addWidget(sceneStatus_, 1);
-    writingLayout->addLayout(meta);
-    sceneEditor_ = new QTextEdit;
-    sceneEditor_->setAcceptRichText(true);
-    sceneEditor_->setPlaceholderText(tr("Escribe aquí…"));
-    writingLayout->addWidget(sceneEditor_, 1);
-    split->addWidget(writing);
-    split->setStretchFactor(1, 1);
-    outer->addWidget(split, 1);
-
-    connect(manuscriptTree_, &QTreeWidget::itemSelectionChanged, this, &MainWindow::selectScene);
-    connect(sceneTitle_, &QLineEdit::editingFinished, this, &MainWindow::applySceneEdits);
-    connect(scenePov_, &QLineEdit::editingFinished, this, &MainWindow::applySceneEdits);
-    connect(sceneLocation_, &QLineEdit::editingFinished, this, &MainWindow::applySceneEdits);
-    connect(sceneStatus_, &QLineEdit::editingFinished, this, &MainWindow::applySceneEdits);
-    connect(sceneEditor_, &QTextEdit::textChanged, this, &MainWindow::applySceneEdits);
-    connect(chapter, &QPushButton::clicked, this, &MainWindow::addChapter);
-    connect(scene, &QPushButton::clicked, this, &MainWindow::addScene);
-    connect(remove, &QPushButton::clicked, this, &MainWindow::removeWritingItem);
-    connect(focus, &QPushButton::clicked, this, &MainWindow::openFocusMode);
-    return page;
-}
-
-QWidget* MainWindow::buildWorldPage() {
-    auto* page = new QWidget;
-    auto* outer = new QVBoxLayout(page);
-    outer->setContentsMargins(26, 22, 26, 22);
-    outer->addWidget(header("Mundo", "Atlas, mapas y magia", "Worldbuilding agrupado por dominio, no por controles dispersos."));
-
-    auto* tabs = new QTabWidget;
-
-    auto* atlas = new QWidget;
-    auto* atlasSplit = new QSplitter;
-    worldList_ = new QListWidget;
-    atlasSplit->addWidget(worldList_);
-    auto* atlasEditor = new QWidget;
-    auto* atlasForm = new QFormLayout(atlasEditor);
-    worldName_ = new QLineEdit;
-    worldKind_ = new QLineEdit;
-    worldSummary_ = new QTextEdit;
-    worldNotes_ = new QTextEdit;
-    atlasForm->addRow(tr("Nombre"), worldName_);
-    atlasForm->addRow(tr("Tipo"), worldKind_);
-    atlasForm->addRow(tr("Resumen"), worldSummary_);
-    atlasForm->addRow(tr("Notas"), worldNotes_);
-    auto* atlasActions = new QHBoxLayout;
-    auto* addWorld = button(tr("+ Entrada"));
-    auto* removeWorld = button(tr("Eliminar"));
-    atlasActions->addWidget(addWorld);
-    atlasActions->addWidget(removeWorld);
-    atlasActions->addStretch();
-    atlasForm->addRow(atlasActions);
-    atlasSplit->addWidget(atlasEditor);
-    atlasSplit->setStretchFactor(1, 1);
-    auto* atlasLayout = new QVBoxLayout(atlas);
-    atlasLayout->setContentsMargins(0, 0, 0, 0);
-    atlasLayout->addWidget(atlasSplit);
-    tabs->addTab(atlas, tr("Atlas"));
-
-    auto* magic = new QWidget;
-    auto* magicSplit = new QSplitter;
-    magicList_ = new QListWidget;
-    magicSplit->addWidget(magicList_);
-    auto* magicEditor = new QWidget;
-    auto* magicForm = new QFormLayout(magicEditor);
-    magicName_ = new QLineEdit;
-    magicCategory_ = new QLineEdit;
-    magicPrinciple_ = new QTextEdit;
-    magicLimits_ = new QTextEdit;
-    magicForm->addRow(tr("Nombre"), magicName_);
-    magicForm->addRow(tr("Categoría"), magicCategory_);
-    magicForm->addRow(tr("Principio"), magicPrinciple_);
-    magicForm->addRow(tr("Límites"), magicLimits_);
-    auto* magicActions = new QHBoxLayout;
-    auto* addMagic = button(tr("+ Sistema"));
-    auto* removeMagic = button(tr("Eliminar"));
-    magicActions->addWidget(addMagic);
-    magicActions->addWidget(removeMagic);
-    magicActions->addStretch();
-    magicForm->addRow(magicActions);
-    magicSplit->addWidget(magicEditor);
-    magicSplit->setStretchFactor(1, 1);
-    auto* magicLayout = new QVBoxLayout(magic);
-    magicLayout->setContentsMargins(0, 0, 0, 0);
-    magicLayout->addWidget(magicSplit);
-    tabs->addTab(magic, tr("Magia"));
-
-    auto* maps = new QLabel(tr("Mapas tendrán lienzo propio con imagen de fondo, semilla, estilos y marcadores; no reutilizarán recursos visuales de la edición anterior."));
-    maps->setWordWrap(true);
-    maps->setMargin(18);
-    maps->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    tabs->addTab(maps, tr("Mapas"));
-    outer->addWidget(tabs, 1);
-
-    connect(worldList_, &QListWidget::currentRowChanged, this, &MainWindow::selectWorldRecord);
-    connect(worldName_, &QLineEdit::editingFinished, this, &MainWindow::applyWorldEdits);
-    connect(worldKind_, &QLineEdit::editingFinished, this, &MainWindow::applyWorldEdits);
-    connect(worldSummary_, &QTextEdit::textChanged, this, &MainWindow::applyWorldEdits);
-    connect(worldNotes_, &QTextEdit::textChanged, this, &MainWindow::applyWorldEdits);
-    connect(addWorld, &QPushButton::clicked, this, &MainWindow::addWorldRecord);
-    connect(removeWorld, &QPushButton::clicked, this, &MainWindow::removeWorldRecord);
-
-    connect(magicList_, &QListWidget::currentRowChanged, this, &MainWindow::selectMagicRecord);
-    connect(magicName_, &QLineEdit::editingFinished, this, &MainWindow::applyMagicEdits);
-    connect(magicCategory_, &QLineEdit::editingFinished, this, &MainWindow::applyMagicEdits);
-    connect(magicPrinciple_, &QTextEdit::textChanged, this, &MainWindow::applyMagicEdits);
-    connect(magicLimits_, &QTextEdit::textChanged, this, &MainWindow::applyMagicEdits);
-    connect(addMagic, &QPushButton::clicked, this, &MainWindow::addMagicRecord);
-    connect(removeMagic, &QPushButton::clicked, this, &MainWindow::removeMagicRecord);
-    return page;
-}
-
-QWidget* MainWindow::buildReviewPage() {
-    auto* page = new QWidget;
-    auto* outer = new QVBoxLayout(page);
-    outer->setContentsMargins(26, 22, 26, 22);
-    outer->addWidget(header("Revisión y salida", "Revisión, maquetación y exportación", "Herramientas de salida apartadas del entorno de escritura para reducir distracciones."));
-    reviewStats_ = new QLabel;
-    reviewStats_->setWordWrap(true);
-    reviewStats_->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    reviewStats_->setStyleSheet("background:#20211d;border:1px solid #393a32;border-radius:4px;padding:18px;");
-    outer->addWidget(reviewStats_);
-    auto* actions = new QHBoxLayout;
-    auto* pdf = button(tr("Exportar manuscrito a PDF"));
-    actions->addWidget(pdf);
-    actions->addStretch();
-    outer->addLayout(actions);
-    outer->addStretch();
-    connect(pdf, &QPushButton::clicked, this, &MainWindow::exportManuscriptPdf);
-    return page;
+void MainWindow::loadStartupProject() {
+    const QStringList files = ProjectStore::projectFiles();
+    if (!files.isEmpty()) {
+        ArchiveDocument document;
+        QString error;
+        if (ProjectStore::loadJsonFile(files.first(), document, &error)) {
+            setDocument(std::move(document));
+            return;
+        }
+    }
+    ArchiveDocument document = ArchiveDocument::empty(tr("Nuevo proyecto"), tr("Nueva historia"));
+    const QString directory = ProjectStore::createProjectDirectory();
+    QString error;
+    ProjectStore::saveIntoProjectDirectory(directory, document, &error);
+    setDocument(std::move(document));
 }
 
 void MainWindow::newProject() {
     if (!confirmDiscard()) return;
     bool ok = false;
-    const QString archive = QInputDialog::getText(this, tr("Nueva obra"), tr("Nombre del archivo:"), QLineEdit::Normal, QString(), &ok).trimmed();
-    if (!ok || archive.isEmpty()) return;
-    const QString story = QInputDialog::getText(this, tr("Nueva obra"), tr("Título de la historia (opcional):"), QLineEdit::Normal, archive, &ok).trimmed();
+    const QString title = QInputDialog::getText(this, tr("Nuevo proyecto"), tr("Título de la historia:"), QLineEdit::Normal, tr("Nueva historia"), &ok).trimmed();
     if (!ok) return;
-    setDocument(ArchiveDocument::empty(archive, story));
+    ArchiveDocument document = ArchiveDocument::empty(title.isEmpty() ? tr("Nuevo proyecto") : title, title.isEmpty() ? tr("Nueva historia") : title);
+    const QString directory = ProjectStore::createProjectDirectory();
+    QString error;
+    if (!ProjectStore::saveIntoProjectDirectory(directory, document, &error)) {
+        QMessageBox::critical(this, tr("No se pudo crear el proyecto"), error);
+        return;
+    }
+    setDocument(std::move(document));
+    navigation_->setCurrentRow(1);
+}
+
+void MainWindow::openLibrary() {
+    if (!confirmDiscard()) return;
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Biblioteca local"));
+    dialog.resize(760, 520);
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* description = new QLabel(tr("Proyectos guardados en Documentos/Worldbuilder Writer/Projects. La biblioteca no mezcla archivos externos con los proyectos administrados por la aplicación."));
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto* list = new QListWidget;
+    const QStringList files = ProjectStore::projectFiles();
+    for (const QString& path : files) {
+        ArchiveDocument candidate;
+        QString error;
+        QString title = QFileInfo(path).dir().dirName();
+        if (ProjectStore::loadJsonFile(path, candidate, &error)) title = candidate.storyTitle().isEmpty() ? candidate.title() : candidate.storyTitle();
+        auto* item = new QListWidgetItem(title);
+        item->setData(Qt::UserRole, path);
+        item->setToolTip(path);
+        list->addItem(item);
+    }
+    layout->addWidget(list, 1);
+    auto* buttons = new QHBoxLayout;
+    auto* open = makeButton(tr("Abrir"));
+    auto* remove = makeButton(tr("Eliminar de la biblioteca"));
+    auto* cancel = makeButton(tr("Cerrar"));
+    buttons->addWidget(open);
+    buttons->addWidget(remove);
+    buttons->addStretch();
+    buttons->addWidget(cancel);
+    layout->addLayout(buttons);
+    connect(cancel, &QPushButton::clicked, &dialog, &QDialog::reject);
+    connect(open, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(list, &QListWidget::itemDoubleClicked, &dialog, [&dialog](QListWidgetItem*) { dialog.accept(); });
+    connect(remove, &QPushButton::clicked, &dialog, [this, list]() {
+        auto* item = list->currentItem();
+        if (!item) return;
+        const QString path = item->data(Qt::UserRole).toString();
+        if (QMessageBox::question(this, tr("Eliminar proyecto"), tr("¿Eliminar definitivamente este proyecto de la biblioteca local?")) != QMessageBox::Yes) return;
+        QString error;
+        if (!ProjectStore::removeProject(path, &error)) {
+            QMessageBox::critical(this, tr("No se pudo eliminar"), error);
+            return;
+        }
+        delete list->takeItem(list->row(item));
+    });
+    if (dialog.exec() != QDialog::Accepted) return;
+    auto* selected = list->currentItem();
+    if (!selected) return;
+    loadPath(selected->data(Qt::UserRole).toString());
 }
 
 void MainWindow::openProject() {
     if (!confirmDiscard()) return;
-    const QString path = QFileDialog::getOpenFileName(this, tr("Abrir proyecto"), QString(), tr("Worldbuilder project (project.json *.json)"));
-    if (path.isEmpty()) return;
-    ArchiveDocument candidate;
-    QString error;
-    if (!ProjectStore::loadJsonFile(path, candidate, &error)) {
-        QMessageBox::critical(this, tr("No se pudo abrir"), error);
-        return;
-    }
-    setDocument(std::move(candidate));
+    const QString path = QFileDialog::getOpenFileName(this, tr("Abrir proyecto"), QString(), tr("Proyectos Worldbuilder Writer (*.json *.wbw);;JSON (*.json);;Paquete WBW (*.wbw)"));
+    if (!path.isEmpty()) loadPath(path);
 }
 
-bool MainWindow::saveProject() {
-    applyCharacterEdits();
-    applySceneEdits();
-    applyWorldEdits();
-    applyMagicEdits();
-    if (document_.sourcePath().isEmpty()) return saveProjectAs();
+void MainWindow::importWbw() {
+    if (!confirmDiscard()) return;
+    const QString path = QFileDialog::getOpenFileName(this, tr("Importar proyecto .wbw"), QString(), tr("Paquete Worldbuilder Writer (*.wbw)"));
+    if (!path.isEmpty()) loadPath(path);
+}
+
+bool MainWindow::loadPath(const QString& path) {
+    ArchiveDocument candidate;
     QString error;
-    if (!ProjectStore::saveJsonFile(document_.sourcePath(), document_, &error)) {
-        QMessageBox::critical(this, tr("No se pudo guardar"), error);
+    if (QFileInfo(path).suffix().compare(QStringLiteral("wbw"), Qt::CaseInsensitive) == 0) {
+        if (!WbwPackage::importPackage(path, candidate, &error)) {
+            QMessageBox::critical(this, tr("No se pudo importar"), error);
+            return false;
+        }
+        const QString directory = ProjectStore::createProjectDirectory();
+        if (!ProjectStore::saveIntoProjectDirectory(directory, candidate, &error)) {
+            QMessageBox::critical(this, tr("No se pudo crear la copia editable"), error);
+            return false;
+        }
+    } else {
+        if (!ProjectStore::loadJsonFile(path, candidate, &error)) {
+            QMessageBox::critical(this, tr("No se pudo abrir"), error);
+            return false;
+        }
+    }
+    setDocument(std::move(candidate));
+    return true;
+}
+
+bool MainWindow::saveProject(bool quiet) {
+    QString error;
+    if (document_.sourcePath().isEmpty()) {
+        const QString directory = ProjectStore::createProjectDirectory();
+        if (!ProjectStore::saveIntoProjectDirectory(directory, document_, &error)) {
+            if (!quiet) QMessageBox::critical(this, tr("No se pudo guardar"), error);
+            return false;
+        }
+    } else if (!ProjectStore::saveJsonFile(document_.sourcePath(), document_, &error)) {
+        if (!quiet) QMessageBox::critical(this, tr("No se pudo guardar"), error);
         return false;
     }
-    setSaveLabel();
     updateWindowTitle();
     return true;
 }
 
 bool MainWindow::saveProjectAs() {
-    const QString path = QFileDialog::getSaveFileName(this, tr("Guardar proyecto"), document_.sourcePath().isEmpty() ? QStringLiteral("project.json") : document_.sourcePath(), tr("JSON (*.json)"));
+    const QString path = QFileDialog::getSaveFileName(this, tr("Guardar proyecto JSON"), document_.storyTitle().isEmpty() ? QStringLiteral("project.json") : safeFileName(document_.storyTitle()) + QStringLiteral(".json"), tr("JSON (*.json)"));
     if (path.isEmpty()) return false;
+    QString target = path;
+    if (!target.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive)) target += QStringLiteral(".json");
     QString error;
-    if (!ProjectStore::saveJsonFile(path, document_, &error)) {
+    if (!ProjectStore::saveJsonFile(target, document_, &error)) {
         QMessageBox::critical(this, tr("No se pudo guardar"), error);
         return false;
     }
-    setSaveLabel();
     updateWindowTitle();
     return true;
 }
 
+void MainWindow::exportWbw() {
+    saveProject(true);
+    const QString suggested = safeFileName(document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle()) + QStringLiteral(".wbw");
+    QString path = QFileDialog::getSaveFileName(this, tr("Exportar proyecto .wbw"), suggested, tr("Proyecto Worldbuilder Writer (*.wbw)"));
+    if (path.isEmpty()) return;
+    if (!path.endsWith(QStringLiteral(".wbw"), Qt::CaseInsensitive)) path += QStringLiteral(".wbw");
+    QString error;
+    if (!WbwPackage::exportPackage(path, document_, &error)) {
+        QMessageBox::critical(this, tr("No se pudo exportar"), error);
+        return;
+    }
+    statusBar()->showMessage(tr("Proyecto exportado: %1").arg(path), 6000);
+}
+
+void MainWindow::exportPdf() {
+    saveProject(true);
+    const QString suggested = safeFileName(document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle()) + QStringLiteral(".pdf");
+    QString path = QFileDialog::getSaveFileName(this, tr("Exportar manuscrito PDF"), suggested, tr("PDF (*.pdf)"));
+    if (path.isEmpty()) return;
+    if (!path.endsWith(QStringLiteral(".pdf"), Qt::CaseInsensitive)) path += QStringLiteral(".pdf");
+
+    const QJsonObject layout = effectiveLayout(document_);
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setOutputFileName(path);
+    QPageSize pageSize(QSizeF(layout.value(QStringLiteral("pageWidthMm")).toDouble(), layout.value(QStringLiteral("pageHeightMm")).toDouble()), QPageSize::Millimeter, QStringLiteral("Worldbuilder Writer"));
+    QPageLayout pageLayout(pageSize, QPageLayout::Portrait,
+        QMarginsF(layout.value(QStringLiteral("marginLeftMm")).toDouble(),
+                  layout.value(QStringLiteral("marginTopMm")).toDouble(),
+                  layout.value(QStringLiteral("marginRightMm")).toDouble(),
+                  layout.value(QStringLiteral("marginBottomMm")).toDouble()),
+        QPageLayout::Millimeter);
+    printer.setPageLayout(pageLayout);
+
+    const QString fontFamily = layout.value(QStringLiteral("fontFamily")).toString(QStringLiteral("Garamond"));
+    const double fontSize = layout.value(QStringLiteral("fontSizePt")).toDouble(11.0);
+    const double lineHeight = layout.value(QStringLiteral("lineHeight")).toDouble(1.35);
+    const double indent = layout.value(QStringLiteral("paragraphIndentMm")).toDouble(5.0);
+    const QString opening = layout.value(QStringLiteral("chapterOpening")).toString(QStringLiteral("Página nueva"));
+    const QString separator = layout.value(QStringLiteral("sceneSeparator")).toString(QStringLiteral("⁂"));
+    const QJsonObject profile = document_.object(QStringLiteral("profile"));
+
+    QString html = QStringLiteral("<html><head><meta charset='utf-8'><style>"
+        "body{font-family:'%1';font-size:%2pt;line-height:%3;}"
+        "p{margin:0 0 0.45em 0;text-indent:%4mm;}"
+        "h1{font-size:1.65em;text-align:center;margin:2.2em 0 2em 0;page-break-after:avoid;}"
+        ".subtitle{text-align:center;font-size:1.05em;margin-bottom:3em;text-indent:0;}"
+        ".chapter{margin-top:2em;}"
+        ".newpage{page-break-before:always;}"
+        ".separator{text-align:center;text-indent:0;margin:1.5em 0;}"
+        ".front-title{text-align:center;font-size:2.1em;font-weight:700;margin-top:7em;text-indent:0;}"
+        ".front-author{text-align:center;margin-top:2em;text-indent:0;}"
+        "</style></head><body>")
+        .arg(fontFamily.toHtmlEscaped())
+        .arg(fontSize, 0, 'f', 1)
+        .arg(lineHeight, 0, 'f', 2)
+        .arg(indent, 0, 'f', 1);
+
+    const QString storyTitle = document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle();
+    html += QStringLiteral("<p class='front-title'>%1</p>").arg(storyTitle.toHtmlEscaped());
+    const QString subtitle = profile.value(QStringLiteral("subtitle")).toString();
+    if (!subtitle.isEmpty()) html += QStringLiteral("<p class='subtitle'>%1</p>").arg(subtitle.toHtmlEscaped());
+    const QString author = profile.value(QStringLiteral("author")).toString();
+    if (!author.isEmpty()) html += QStringLiteral("<p class='front-author'>%1</p>").arg(author.toHtmlEscaped());
+
+    const QJsonArray chapters = document_.array(QStringLiteral("writingChapters"));
+    for (int c = 0; c < chapters.size(); ++c) {
+        const QJsonObject chapter = chapters.at(c).toObject();
+        const QString cssClass = (opening != QStringLiteral("Continuo") || c == 0) ? QStringLiteral("chapter newpage") : QStringLiteral("chapter");
+        QString heading = chapter.value(QStringLiteral("label")).toString();
+        const QString chapterTitle = chapter.value(QStringLiteral("title")).toString();
+        if (!chapterTitle.isEmpty()) heading += heading.isEmpty() ? chapterTitle : QStringLiteral(" — ") + chapterTitle;
+        html += QStringLiteral("<section class='%1'><h1>%2</h1>").arg(cssClass, heading.toHtmlEscaped());
+        const QJsonArray scenes = chapter.value(QStringLiteral("scenes")).toArray();
+        for (int s = 0; s < scenes.size(); ++s) {
+            if (s > 0 && !separator.isEmpty()) html += QStringLiteral("<p class='separator'>%1</p>").arg(separator.toHtmlEscaped());
+            html += sceneBodyHtml(scenes.at(s).toObject().value(QStringLiteral("content")).toString());
+        }
+        html += QStringLiteral("</section>");
+    }
+    html += QStringLiteral("</body></html>");
+
+    QTextDocument output;
+    QFont font(fontFamily);
+    font.setPointSizeF(fontSize);
+    output.setDefaultFont(font);
+    output.setHtml(html);
+    output.setDocumentMargin(0.0);
+    output.print(&printer);
+    statusBar()->showMessage(tr("PDF exportado: %1").arg(path), 6000);
+}
+
+void MainWindow::createBackup() {
+    saveProject(true);
+    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+    const QString previous = settings.value(QStringLiteral("backupDirectory"), QDir::homePath()).toString();
+    const QString directory = QFileDialog::getExistingDirectory(this, tr("Carpeta de copias de seguridad"), previous);
+    if (directory.isEmpty()) return;
+    settings.setValue(QStringLiteral("backupDirectory"), directory);
+    const QString base = safeFileName(document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle());
+    const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"));
+    const QString path = QDir(directory).filePath(QStringLiteral("%1-%2.wbw").arg(base, stamp));
+    QString error;
+    if (!WbwPackage::exportPackage(path, document_, &error)) {
+        QMessageBox::critical(this, tr("No se pudo crear la copia"), error);
+        return;
+    }
+    statusBar()->showMessage(tr("Copia de seguridad creada: %1").arg(path), 7000);
+}
+
 bool MainWindow::confirmDiscard() {
     if (!document_.isDirty()) return true;
-    const auto answer = QMessageBox::question(this, tr("Cambios sin guardar"), tr("Hay cambios sin guardar. ¿Quieres guardarlos antes de continuar?"), QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+    const QMessageBox::StandardButton answer = QMessageBox::warning(this, tr("Cambios sin guardar"), tr("Hay cambios sin guardar. ¿Quieres guardarlos antes de continuar?"), QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
     if (answer == QMessageBox::Cancel) return false;
     if (answer == QMessageBox::Save) return saveProject();
     return true;
@@ -462,215 +479,87 @@ bool MainWindow::confirmDiscard() {
 
 void MainWindow::setDocument(ArchiveDocument document) {
     document_ = std::move(document);
-    refreshAll();
+    planningPage_->setDocument(&document_);
+    writingPage_->setDocument(&document_);
+    worldPage_->setDocument(&document_);
+    reviewPage_->setDocument(&document_);
     updateWindowTitle();
-    setSaveLabel();
+    applyTheme();
 }
 
-void MainWindow::refreshAll() {
-    refreshing_ = true;
-    projectLabel_->setText(document_.storyTitle());
-    refreshPlanning();
-    refreshWriting();
-    refreshWorld();
-    refreshReview();
-    refreshing_ = false;
+void MainWindow::refreshPages() {
+    planningPage_->refresh();
+    writingPage_->refresh();
+    worldPage_->refresh();
+    reviewPage_->refresh();
+    updateWindowTitle();
 }
 
-void MainWindow::refreshPlanning() {
-    characterList_->clear();
-    for (const auto value : document_.array("characters")) characterList_->addItem(value.toObject().value("name").toString(tr("Personaje sin nombre")));
-    if (characterList_->count()) characterList_->setCurrentRow(0);
-}
-
-void MainWindow::refreshWriting() {
-    manuscriptTree_->clear();
-    const QJsonArray chapters = document_.array("writingChapters");
-    for (int c = 0; c < chapters.size(); ++c) {
-        const QJsonObject chapter = chapters.at(c).toObject();
-        auto* chapterItem = new QTreeWidgetItem({chapter.value("label").toString(tr("Capítulo")) + QStringLiteral(" — ") + chapter.value("title").toString()});
-        chapterItem->setData(0, Qt::UserRole, QStringLiteral("chapter"));
-        chapterItem->setData(0, Qt::UserRole + 1, c);
-        const QJsonArray scenes = chapter.value("scenes").toArray();
-        for (int s = 0; s < scenes.size(); ++s) {
-            auto* sceneItem = new QTreeWidgetItem({scenes.at(s).toObject().value("title").toString(tr("Escena"))});
-            sceneItem->setData(0, Qt::UserRole, QStringLiteral("scene"));
-            sceneItem->setData(0, Qt::UserRole + 1, c);
-            sceneItem->setData(0, Qt::UserRole + 2, s);
-            chapterItem->addChild(sceneItem);
-        }
-        manuscriptTree_->addTopLevelItem(chapterItem);
-        chapterItem->setExpanded(true);
-    }
-    if (manuscriptTree_->topLevelItemCount() && manuscriptTree_->topLevelItem(0)->childCount()) manuscriptTree_->setCurrentItem(manuscriptTree_->topLevelItem(0)->child(0));
-}
-
-void MainWindow::refreshWorld() {
-    worldList_->clear();
-    for (const auto value : document_.array("world")) worldList_->addItem(value.toObject().value("name").toString(tr("Entrada sin nombre")));
-    magicList_->clear();
-    for (const auto value : document_.array("magicSystems")) magicList_->addItem(value.toObject().value("name").toString(tr("Sistema sin nombre")));
-    if (worldList_->count()) worldList_->setCurrentRow(0);
-    if (magicList_->count()) magicList_->setCurrentRow(0);
-}
-
-void MainWindow::refreshReview() {
-    const auto characters = document_.array("characters").size();
-    const auto world = document_.array("world").size();
-    const auto magic = document_.array("magicSystems").size();
-    const auto chapters = document_.array("writingChapters");
-    int scenes = 0;
-    int words = 0;
-    for (const auto chapterValue : chapters) {
-        for (const auto sceneValue : chapterValue.toObject().value("scenes").toArray()) {
-            ++scenes;
-            const QString content = sceneValue.toObject().value("content").toString();
-            words += content.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
-        }
-    }
-    reviewStats_->setText(tr("Capítulos: %1\nEscenas: %2\nPalabras aproximadas: %3\nPersonajes: %4\nEntradas de mundo: %5\nSistemas de magia: %6").arg(chapters.size()).arg(scenes).arg(words).arg(characters).arg(world).arg(magic));
+void MainWindow::onDocumentChanged() {
+    updateWindowTitle();
+    applyTheme();
 }
 
 void MainWindow::updateWindowTitle() {
-    setWindowTitle(QStringLiteral("%1%2 — Worldbuilder Writer").arg(document_.isDirty() ? QStringLiteral("• ") : QString(), document_.storyTitle()));
+    const QString title = document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle();
+    setWindowTitle(QStringLiteral("%1%2 — Worldbuilder Writer").arg(document_.isDirty() ? QStringLiteral("* ") : QString(), title.isEmpty() ? tr("Sin título") : title));
+    projectTitle_->setText(title.isEmpty() ? tr("Sin título") : title);
+    if (document_.isDirty()) saveState_->setText(tr("Cambios pendientes · guardado automático activo"));
+    else saveState_->setText(document_.sourcePath().isEmpty() ? tr("Sin ubicación local") : tr("Guardado"));
 }
 
-void MainWindow::setSaveLabel() {
-    saveLabel_->setText(document_.isDirty() ? tr("Cambios sin guardar") : tr("Guardado"));
-}
-
-void MainWindow::selectCharacter(int row) {
-    refreshing_ = true;
-    const QJsonArray array = document_.array("characters");
-    const QJsonObject object = row >= 0 && row < array.size() ? array.at(row).toObject() : QJsonObject();
-    characterName_->setText(text(object, "name"));
-    characterRole_->setText(text(object, "role"));
-    characterOrigin_->setText(text(object, "origin"));
-    characterSummary_->setPlainText(text(object, "summary"));
-    refreshing_ = false;
-}
-
-void MainWindow::applyCharacterEdits() {
-    if (refreshing_) return;
-    const int row = characterList_->currentRow();
-    QJsonArray array = document_.array("characters");
-    if (row < 0 || row >= array.size()) return;
-    QJsonObject object = array.at(row).toObject();
-    object.insert("name", characterName_->text());
-    object.insert("role", characterRole_->text());
-    object.insert("origin", characterOrigin_->text());
-    object.insert("summary", characterSummary_->toPlainText());
-    array.replace(row, object);
-    document_.setArray("characters", array);
-    characterList_->item(row)->setText(characterName_->text().isEmpty() ? tr("Personaje sin nombre") : characterName_->text());
-    setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::addCharacter() {
-    QJsonArray array = document_.array("characters");
-    QJsonObject object{{"id", uid("character")}, {"name", tr("Personaje sin nombre")}, {"aliases", QJsonArray()}, {"category", tr("Secundario")}, {"status", tr("Activo")}, {"role", QString()}, {"occupation", QString()}, {"origin", QString()}, {"affiliation", QString()}, {"summary", QString()}, {"background", QString()}, {"physical", QString()}, {"traits", QJsonArray()}, {"evidence", QJsonArray()}, {"presence", QJsonArray()}, {"color", QStringLiteral("amber")}, {"board", QJsonObject{{"x", 120}, {"y", 120}, {"visible", true}}}};
-    array.append(object); document_.setArray("characters", array); refreshPlanning(); characterList_->setCurrentRow(array.size() - 1); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::removeCharacter() {
-    const int row = characterList_->currentRow(); if (row < 0) return;
-    QJsonArray array = document_.array("characters"); array.removeAt(row); document_.setArray("characters", array); refreshPlanning(); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::selectScene() {
-    refreshing_ = true;
-    auto* item = manuscriptTree_->currentItem();
-    if (!item || item->data(0, Qt::UserRole).toString() != "scene") {
-        sceneTitle_->clear(); scenePov_->clear(); sceneLocation_->clear(); sceneStatus_->clear(); sceneEditor_->clear(); refreshing_ = false; return;
+void MainWindow::applyTheme() {
+    const QString theme = document_.object(QStringLiteral("profile")).value(QStringLiteral("theme")).toString(QStringLiteral("grim"));
+    QString background = QStringLiteral("#1b1c18");
+    QString panel = QStringLiteral("#22231e");
+    QString elevated = QStringLiteral("#292a24");
+    QString text = QStringLiteral("#eee9dd");
+    QString muted = QStringLiteral("#a4a197");
+    QString accent = QStringLiteral("#b6985c");
+    QString border = QStringLiteral("#3b3c34");
+    if (theme == QStringLiteral("chronicle")) {
+        background = QStringLiteral("#242019"); panel = QStringLiteral("#2d281f"); elevated = QStringLiteral("#373027"); text = QStringLiteral("#f0e2c6"); muted = QStringLiteral("#b5a58c"); accent = QStringLiteral("#c99858"); border = QStringLiteral("#514536");
+    } else if (theme == QStringLiteral("desk")) {
+        background = QStringLiteral("#1b2021"); panel = QStringLiteral("#222829"); elevated = QStringLiteral("#293132"); text = QStringLiteral("#e4e9e8"); muted = QStringLiteral("#9aa7a5"); accent = QStringLiteral("#77a5a0"); border = QStringLiteral("#3c4848");
+    } else if (theme == QStringLiteral("classic")) {
+        background = QStringLiteral("#252321"); panel = QStringLiteral("#302d29"); elevated = QStringLiteral("#393530"); text = QStringLiteral("#f2ede5"); muted = QStringLiteral("#aca39a"); accent = QStringLiteral("#bd8f67"); border = QStringLiteral("#514b44");
+    } else if (theme == QStringLiteral("kawaii")) {
+        background = QStringLiteral("#f2f0eb"); panel = QStringLiteral("#e8e5de"); elevated = QStringLiteral("#ffffff"); text = QStringLiteral("#292825"); muted = QStringLiteral("#6e6a63"); accent = QStringLiteral("#8a6e55"); border = QStringLiteral("#cbc5ba");
     }
-    const int c = item->data(0, Qt::UserRole + 1).toInt();
-    const int s = item->data(0, Qt::UserRole + 2).toInt();
-    const QJsonObject scene = document_.array("writingChapters").at(c).toObject().value("scenes").toArray().at(s).toObject();
-    sceneTitle_->setText(text(scene, "title"));
-    scenePov_->setText(text(scene, "pov"));
-    sceneLocation_->setText(text(scene, "location"));
-    sceneStatus_->setText(text(scene, "status"));
-    sceneEditor_->setHtml(text(scene, "content"));
-    refreshing_ = false;
+    setStyleSheet(QStringLiteral(
+        "QMainWindow,QDialog{background:%1;color:%4;}"
+        "QWidget{color:%4;font-family:'Segoe UI';font-size:10pt;}"
+        "#sidebar{background:%2;border-right:1px solid %7;}"
+        "#appName{font-size:15pt;font-weight:800;letter-spacing:2px;color:%6;}"
+        "#projectTitle{font-size:11pt;font-weight:700;}"
+        "#saveState{font-size:8.5pt;color:%5;}"
+        "QListWidget,QTreeWidget,QTextEdit,QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox,QGraphicsView{background:%3;border:1px solid %7;border-radius:4px;padding:4px;}"
+        "QListWidget::item,QTreeWidget::item{padding:7px;border-radius:3px;}"
+        "QListWidget::item:selected,QTreeWidget::item:selected{background:%6;color:%1;}"
+        "QPushButton,QToolButton{background:%3;border:1px solid %7;border-radius:4px;padding:7px 10px;}"
+        "QPushButton:hover,QToolButton:hover{border-color:%6;}"
+        "QToolButton:checked{background:%6;color:%1;}"
+        "QTabWidget::pane{border:0;}"
+        "QTabBar::tab{background:%2;color:%5;padding:9px 14px;border-bottom:2px solid transparent;}"
+        "QTabBar::tab:selected{color:%4;border-bottom-color:%6;}"
+        "QMenuBar,QMenu{background:%2;color:%4;}"
+        "QMenu::item:selected{background:%6;color:%1;}"
+        "QScrollBar:vertical{background:%2;width:10px;}QScrollBar::handle:vertical{background:%7;min-height:24px;border-radius:4px;}"
+    ).arg(background, panel, elevated, text, muted, accent, border));
 }
 
-void MainWindow::applySceneEdits() {
-    if (refreshing_) return;
-    auto* item = manuscriptTree_->currentItem();
-    if (!item || item->data(0, Qt::UserRole).toString() != "scene") return;
-    const int c = item->data(0, Qt::UserRole + 1).toInt();
-    const int s = item->data(0, Qt::UserRole + 2).toInt();
-    QJsonArray chapters = document_.array("writingChapters");
-    QJsonObject chapter = chapters.at(c).toObject();
-    QJsonArray scenes = chapter.value("scenes").toArray();
-    QJsonObject scene = scenes.at(s).toObject();
-    scene.insert("title", sceneTitle_->text()); scene.insert("pov", scenePov_->text()); scene.insert("location", sceneLocation_->text()); scene.insert("status", sceneStatus_->text()); scene.insert("content", sceneEditor_->toHtml()); scene.insert("updatedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-    scenes.replace(s, scene); chapter.insert("scenes", scenes); chapters.replace(c, chapter); document_.setArray("writingChapters", chapters);
-    item->setText(0, sceneTitle_->text().isEmpty() ? tr("Escena") : sceneTitle_->text()); setSaveLabel(); updateWindowTitle(); refreshReview();
+void MainWindow::handleReference(const QString& kind, const QString& id) {
+    if (kind == tr("Personaje") || kind == QStringLiteral("character")) {
+        navigation_->setCurrentRow(0);
+        return;
+    }
+    navigation_->setCurrentRow(2);
+    worldPage_->openReference(kind, id);
 }
 
-void MainWindow::addChapter() {
-    QJsonArray chapters = document_.array("writingChapters"); const int number = chapters.size() + 1;
-    QJsonObject chapter{{"id", uid("chapter")}, {"label", tr("Capítulo %1").arg(number)}, {"title", tr("Sin título")}, {"order", chapters.size()}, {"scenes", QJsonArray()}};
-    chapters.append(chapter); document_.setArray("writingChapters", chapters); refreshWriting(); setSaveLabel(); updateWindowTitle(); refreshReview();
+void MainWindow::closeEvent(QCloseEvent* event) {
+    if (confirmDiscard()) event->accept();
+    else event->ignore();
 }
-
-void MainWindow::addScene() {
-    auto* current = manuscriptTree_->currentItem(); int chapterIndex = -1;
-    if (current) chapterIndex = current->data(0, Qt::UserRole + 1).toInt();
-    QJsonArray chapters = document_.array("writingChapters"); if (chapters.isEmpty()) { addChapter(); chapters = document_.array("writingChapters"); chapterIndex = 0; }
-    if (chapterIndex < 0 || chapterIndex >= chapters.size()) chapterIndex = 0;
-    QJsonObject chapter = chapters.at(chapterIndex).toObject(); QJsonArray scenes = chapter.value("scenes").toArray();
-    QJsonObject scene{{"id", uid("scene")}, {"chapterId", chapter.value("id")}, {"order", scenes.size()}, {"title", tr("Escena %1").arg(scenes.size() + 1)}, {"content", QString()}, {"pov", QString()}, {"location", QString()}, {"narrativeLayer", QString()}, {"status", tr("Borrador")}, {"updatedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}};
-    scenes.append(scene); chapter.insert("scenes", scenes); chapters.replace(chapterIndex, chapter); document_.setArray("writingChapters", chapters); refreshWriting(); auto* ch = manuscriptTree_->topLevelItem(chapterIndex); if (ch && ch->childCount()) manuscriptTree_->setCurrentItem(ch->child(ch->childCount() - 1)); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::removeWritingItem() {
-    auto* item = manuscriptTree_->currentItem(); if (!item) return; QJsonArray chapters = document_.array("writingChapters"); const QString kind = item->data(0, Qt::UserRole).toString(); const int c = item->data(0, Qt::UserRole + 1).toInt();
-    if (kind == "chapter") chapters.removeAt(c); else if (kind == "scene") { QJsonObject chapter = chapters.at(c).toObject(); QJsonArray scenes = chapter.value("scenes").toArray(); scenes.removeAt(item->data(0, Qt::UserRole + 2).toInt()); chapter.insert("scenes", scenes); chapters.replace(c, chapter); }
-    document_.setArray("writingChapters", chapters); refreshWriting(); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::openFocusMode() {
-    auto* item = manuscriptTree_->currentItem(); if (!item || item->data(0, Qt::UserRole).toString() != "scene") return;
-    QDialog dialog(this); dialog.setWindowTitle(tr("Modo enfoque")); dialog.setWindowState(Qt::WindowFullScreen); auto* layout = new QVBoxLayout(&dialog); layout->setContentsMargins(80, 40, 80, 40); auto* editor = new QTextEdit; editor->setAcceptRichText(true); editor->setHtml(sceneEditor_->toHtml()); editor->setStyleSheet("QTextEdit{font-size:18px;background:#181914;border:0;padding:30px;}"); layout->addWidget(editor); auto* close = button(tr("Cerrar enfoque")); layout->addWidget(close, 0, Qt::AlignRight); connect(close, &QPushButton::clicked, &dialog, &QDialog::accept); if (dialog.exec() == QDialog::Accepted) { sceneEditor_->setHtml(editor->toHtml()); applySceneEdits(); }
-}
-
-void MainWindow::selectWorldRecord(int row) {
-    refreshing_ = true; const QJsonArray array = document_.array("world"); const QJsonObject object = row >= 0 && row < array.size() ? array.at(row).toObject() : QJsonObject(); worldName_->setText(text(object, "name")); worldKind_->setText(text(object, "kind")); worldSummary_->setPlainText(text(object, "summary")); worldNotes_->setPlainText(text(object, "notes")); refreshing_ = false;
-}
-
-void MainWindow::applyWorldEdits() {
-    if (refreshing_) return; const int row = worldList_->currentRow(); QJsonArray array = document_.array("world"); if (row < 0 || row >= array.size()) return; QJsonObject object = array.at(row).toObject(); object.insert("name", worldName_->text()); object.insert("kind", worldKind_->text()); object.insert("summary", worldSummary_->toPlainText()); object.insert("notes", worldNotes_->toPlainText()); array.replace(row, object); document_.setArray("world", array); worldList_->item(row)->setText(worldName_->text().isEmpty() ? tr("Entrada sin nombre") : worldName_->text()); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::addWorldRecord() {
-    QJsonArray array = document_.array("world"); array.append(QJsonObject{{"id", uid("world")}, {"kind", tr("Otro")}, {"name", tr("Entrada sin nombre")}, {"aliases", QJsonArray()}, {"summary", QString()}, {"geography", QString()}, {"government", QString()}, {"peoples", QString()}, {"culture", QString()}, {"economy", QString()}, {"currency", QString()}, {"languages", QString()}, {"religions", QString()}, {"military", QString()}, {"history", QString()}, {"relations", QString()}, {"locations", QString()}, {"conflicts", QString()}, {"notes", QString()}, {"tags", QJsonArray()}, {"attachments", QJsonArray()}}); document_.setArray("world", array); refreshWorld(); worldList_->setCurrentRow(array.size() - 1); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::removeWorldRecord() { const int row = worldList_->currentRow(); if (row < 0) return; QJsonArray array = document_.array("world"); array.removeAt(row); document_.setArray("world", array); refreshWorld(); setSaveLabel(); updateWindowTitle(); refreshReview(); }
-
-void MainWindow::selectMagicRecord(int row) {
-    refreshing_ = true; const QJsonArray array = document_.array("magicSystems"); const QJsonObject object = row >= 0 && row < array.size() ? array.at(row).toObject() : QJsonObject(); magicName_->setText(text(object, "name")); magicCategory_->setText(text(object, "category")); magicPrinciple_->setPlainText(text(object, "principle")); magicLimits_->setPlainText(text(object, "limits")); refreshing_ = false;
-}
-
-void MainWindow::applyMagicEdits() {
-    if (refreshing_) return; const int row = magicList_->currentRow(); QJsonArray array = document_.array("magicSystems"); if (row < 0 || row >= array.size()) return; QJsonObject object = array.at(row).toObject(); object.insert("name", magicName_->text()); object.insert("category", magicCategory_->text()); object.insert("principle", magicPrinciple_->toPlainText()); object.insert("limits", magicLimits_->toPlainText()); array.replace(row, object); document_.setArray("magicSystems", array); magicList_->item(row)->setText(magicName_->text().isEmpty() ? tr("Sistema sin nombre") : magicName_->text()); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::addMagicRecord() {
-    QJsonArray array = document_.array("magicSystems"); array.append(QJsonObject{{"id", uid("magic")}, {"name", tr("Sistema sin nombre")}, {"category", QString()}, {"status", tr("En desarrollo")}, {"source", QString()}, {"principle", QString()}, {"access", QString()}, {"cost", QString()}, {"limits", QString()}, {"manifestations", QString()}, {"materials", QString()}, {"institutions", QString()}, {"users", QString()}, {"risks", QString()}, {"history", QString()}, {"notes", QString()}, {"evidence", QJsonArray()}, {"tags", QJsonArray()}, {"attachments", QJsonArray()}}); document_.setArray("magicSystems", array); refreshWorld(); magicList_->setCurrentRow(array.size() - 1); setSaveLabel(); updateWindowTitle(); refreshReview();
-}
-
-void MainWindow::removeMagicRecord() { const int row = magicList_->currentRow(); if (row < 0) return; QJsonArray array = document_.array("magicSystems"); array.removeAt(row); document_.setArray("magicSystems", array); refreshWorld(); setSaveLabel(); updateWindowTitle(); refreshReview(); }
-
-void MainWindow::exportManuscriptPdf() {
-    const QString path = QFileDialog::getSaveFileName(this, tr("Exportar manuscrito"), document_.storyTitle() + QStringLiteral(".pdf"), tr("PDF (*.pdf)")); if (path.isEmpty()) return;
-    QString html = QStringLiteral("<h1>%1</h1>").arg(document_.storyTitle().toHtmlEscaped());
-    for (const auto chapterValue : document_.array("writingChapters")) { const QJsonObject chapter = chapterValue.toObject(); html += QStringLiteral("<h2>%1 — %2</h2>").arg(chapter.value("label").toString().toHtmlEscaped(), chapter.value("title").toString().toHtmlEscaped()); for (const auto sceneValue : chapter.value("scenes").toArray()) { const QJsonObject scene = sceneValue.toObject(); html += QStringLiteral("<h3>%1</h3>").arg(scene.value("title").toString().toHtmlEscaped()); html += scene.value("content").toString(); } }
-    QTextDocument doc; doc.setHtml(html); QPrinter printer(QPrinter::HighResolution); printer.setOutputFormat(QPrinter::PdfFormat); printer.setOutputFileName(path); doc.print(&printer);
-}
-
-void MainWindow::closeEvent(QCloseEvent* event) { if (confirmDiscard()) event->accept(); else event->ignore(); }
 
 } // namespace wbw
