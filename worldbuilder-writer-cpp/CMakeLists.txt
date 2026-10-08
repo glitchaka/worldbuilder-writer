@@ -4,8 +4,6 @@ project(WorldbuilderWriter VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets)
 qt_standard_project_setup()
@@ -15,11 +13,6 @@ qt_add_executable(WorldbuilderWriter
     src/core/ArchiveDocument.cpp
     src/storage/ProjectStore.cpp
     src/ui/MainWindow.cpp
-    src/ui/FocusEditor.cpp
-    src/ui/pages/PlanningPage.cpp
-    src/ui/pages/WritingPage.cpp
-    src/ui/pages/WorldPage.cpp
-    src/ui/pages/ReviewPage.cpp
 )
 
 target_include_directories(WorldbuilderWriter PRIVATE src)
@@ -34,14 +27,6 @@ if(WIN32)
     set_target_properties(WorldbuilderWriter PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-install(TARGETS WorldbuilderWriter
-    BUNDLE DESTINATION .
-    RUNTIME DESTINATION .
-)
-
-qt_generate_deploy_app_script(
-    TARGET WorldbuilderWriter
-    OUTPUT_SCRIPT deploy_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-)
+install(TARGETS WorldbuilderWriter BUNDLE DESTINATION . RUNTIME DESTINATION .)
+qt_generate_deploy_app_script(TARGET WorldbuilderWriter OUTPUT_SCRIPT deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
 install(SCRIPT ${deploy_script})
