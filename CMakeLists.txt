@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(WorldbuilderWriter VERSION 0.3.0 LANGUAGES C CXX)
+project(WorldbuilderWriter VERSION 0.4.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,6 +10,7 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(INSTALL_PROJECT OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
     miniz
     GIT_REPOSITORY https://github.com/richgel999/miniz.git
@@ -17,6 +18,21 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(miniz)
+
+# Pilín Rey uses SDL3 for the interactive cartographic viewport. Build it
+# statically so the Windows bundle remains stand-alone.
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.4.18
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(SDL3)
 
 find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets)
 qt_standard_project_setup()
@@ -30,7 +46,7 @@ qt_add_executable(WorldbuilderWriter
     src/storage/WbwPackage.cpp
     src/import/ManuscriptImporter.cpp
     src/ui/RelationshipBoard.cpp
-    src/ui/MapCanvas.cpp
+    src/ui/PilinReyEditor.cpp
     src/ui/PlanningPage.cpp
     src/ui/WritingPage.cpp
     src/ui/WorldPage.cpp
@@ -44,6 +60,7 @@ target_link_libraries(WorldbuilderWriter PRIVATE
     Qt6::PrintSupport
     Qt6::Multimedia
     Qt6::MultimediaWidgets
+    SDL3::SDL3
     miniz
 )
 
