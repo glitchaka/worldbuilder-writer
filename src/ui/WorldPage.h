@@ -15,7 +15,6 @@ namespace wbw {
 
 class ArchiveDocument;
 class PilinReyEditor;
-using MapCanvas = PilinReyEditor;
 
 class WorldPage final : public QWidget {
     Q_OBJECT
@@ -128,7 +127,7 @@ private:
     QSpinBox* mapIslands_ = nullptr;
     QSpinBox* mapRoughness_ = nullptr;
     QListWidget* mapMarkers_ = nullptr;
-    MapCanvas* mapCanvas_ = nullptr;
+    PilinReyEditor* mapCanvas_ = nullptr;
 
     QListWidget* worldTextList_ = nullptr;
     QLineEdit* worldTextTitle_ = nullptr;
