@@ -78,6 +78,17 @@ if(WIN32)
     set_target_properties(WorldbuilderWriter PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-install(TARGETS WorldbuilderWriter BUNDLE DESTINATION . RUNTIME DESTINATION .)
-qt_generate_deploy_app_script(TARGET WorldbuilderWriter OUTPUT_SCRIPT deploy_script NO_UNSUPPORTED_PLATFORM_ERROR)
+# Keep the executable in the same install directory Qt uses for runtime DLLs.
+# qt_generate_deploy_app_script follows CMAKE_INSTALL_BINDIR on Windows, so
+# placing the executable there avoids an unusable layout with the EXE in the
+# prefix root and Qt6*.dll files under a sibling bin/ directory.
+install(TARGETS WorldbuilderWriter
+    BUNDLE DESTINATION .
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+qt_generate_deploy_app_script(
+    TARGET WorldbuilderWriter
+    OUTPUT_SCRIPT deploy_script
+    NO_UNSUPPORTED_PLATFORM_ERROR
+)
 install(SCRIPT ${deploy_script})
