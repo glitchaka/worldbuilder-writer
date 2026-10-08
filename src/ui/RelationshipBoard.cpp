@@ -1,12 +1,16 @@
 #include "ui/RelationshipBoard.h"
 
+#include <QFont>
+#include <QFrame>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
 #include <QGraphicsSimpleTextItem>
 #include <QHash>
+#include <QJsonObject>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPen>
+#include <QSet>
 #include <QWheelEvent>
 
 namespace wbw {
