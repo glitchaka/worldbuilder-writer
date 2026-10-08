@@ -7,6 +7,7 @@
 
 #include <functional>
 
+class QCheckBox;
 class QComboBox;
 class QLabel;
 class QListWidget;
@@ -30,7 +31,8 @@ public:
         Border,
         Forest,
         Mountain,
-        Settlement
+        Settlement,
+        Label
     };
 
     explicit PilinReyEditor(QWidget* parent = nullptr);
@@ -40,7 +42,7 @@ public:
     QJsonObject map() const { return map_; }
 
 signals:
-    // Compatibility signals kept only so old WorldPage connections remain source-compatible.
+    // Compatibility signals kept temporarily while legacy map records are migrated.
     void markerMoved(const QString& id, double x, double y);
     void addMarkerRequested(double x, double y);
     void markerActivated(const QString& id);
@@ -50,15 +52,20 @@ private:
     void buildUi();
     void ensurePilinDocument();
     void refreshLayers();
+    void refreshLayerControls();
     void refreshViewport();
     void chooseTemplate();
     void clearTemplate();
     void addLayer();
+    void duplicateLayer();
     void removeLayer();
     void moveLayer(int delta);
+    void setLayerLocked(bool locked);
+    void setLayerOpacity(int value);
     void setActiveTool(Tool tool);
     void addPathObject(const QString& type, const QJsonArray& points);
     void addSettlement(double x, double y);
+    void addLabel(double x, double y);
     void mutateDocument(const std::function<void(QJsonObject&)>& mutation);
     void persistToArchive();
     void pushUndo();
@@ -75,6 +82,8 @@ private:
     QListWidget* layers_ = nullptr;
     QComboBox* style_ = nullptr;
     QSlider* templateOpacity_ = nullptr;
+    QSlider* layerOpacity_ = nullptr;
+    QCheckBox* layerLocked_ = nullptr;
     QLabel* status_ = nullptr;
     QPushButton* undoButton_ = nullptr;
     QPushButton* redoButton_ = nullptr;
