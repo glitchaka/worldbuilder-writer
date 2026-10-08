@@ -1,10 +1,49 @@
 #include "core/ArchiveDocument.h"
 
-#include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QStringList>
 
 namespace wbw {
+namespace {
+
+QJsonObject defaultManuscriptLayout() {
+    return QJsonObject{
+        {QStringLiteral("preset"), QStringLiteral("editorial")},
+        {QStringLiteral("pageWidthMm"), 152.4},
+        {QStringLiteral("pageHeightMm"), 228.6},
+        {QStringLiteral("marginTopMm"), 20.0},
+        {QStringLiteral("marginRightMm"), 19.0},
+        {QStringLiteral("marginBottomMm"), 22.0},
+        {QStringLiteral("marginLeftMm"), 19.0},
+        {QStringLiteral("fontFamily"), QStringLiteral("Garamond")},
+        {QStringLiteral("fontSizePt"), 11.0},
+        {QStringLiteral("lineHeight"), 1.35},
+        {QStringLiteral("paragraphIndentMm"), 5.0},
+        {QStringLiteral("chapterOpening"), QStringLiteral("Página nueva")},
+        {QStringLiteral("sceneSeparator"), QStringLiteral("⁂")},
+        {QStringLiteral("headerText"), QStringLiteral("{título}")},
+        {QStringLiteral("footerText"), QStringLiteral("{página}")}
+    };
+}
+
+QJsonObject defaultWritingAnalysis() {
+    return QJsonObject{
+        {QStringLiteral("repetitionWindow"), 40},
+        {QStringLiteral("fillerPhrases"), QJsonArray{
+            QStringLiteral("de repente"),
+            QStringLiteral("entonces"),
+            QStringLiteral("bueno"),
+            QStringLiteral("en realidad"),
+            QStringLiteral("de alguna manera"),
+            QStringLiteral("era"),
+            QStringLiteral("estaba"),
+            QStringLiteral("había")
+        }}
+    };
+}
+
+} // namespace
 
 ArchiveDocument::ArchiveDocument() {
     normalizeMinimumStructure();
@@ -13,24 +52,26 @@ ArchiveDocument::ArchiveDocument() {
 
 ArchiveDocument ArchiveDocument::empty(const QString& archiveTitle, const QString& storyTitle) {
     ArchiveDocument document;
-    QJsonObject profile = document.object("profile");
+    QJsonObject profile = document.object(QStringLiteral("profile"));
     const QString archive = archiveTitle.trimmed().isEmpty() ? QStringLiteral("Nueva obra") : archiveTitle.trimmed();
     const QString story = storyTitle.trimmed().isEmpty() ? archive : storyTitle.trimmed();
-    profile.insert("archiveTitle", archive);
-    profile.insert("storyTitle", story);
-    profile.insert("subtitle", QStringLiteral("Biblia narrativa editable"));
-    profile.insert("projectLabel", QStringLiteral("Proyecto narrativo"));
-    profile.insert("homeHeading", story);
-    profile.insert("location", QString());
-    profile.insert("author", QString());
-    profile.insert("genre", QString());
-    profile.insert("status", QStringLiteral("Planificación"));
-    profile.insert("synopsis", QString());
-    profile.insert("chapterLabels", QJsonArray());
-    profile.insert("theme", QStringLiteral("grim"));
-    document.setObject("profile", profile);
-    document.root_.insert("title", archive);
-    document.root_.insert("dataVersion", 1);
+    profile.insert(QStringLiteral("archiveTitle"), archive);
+    profile.insert(QStringLiteral("storyTitle"), story);
+    profile.insert(QStringLiteral("subtitle"), QStringLiteral("Biblia narrativa editable"));
+    profile.insert(QStringLiteral("projectLabel"), QStringLiteral("Proyecto narrativo"));
+    profile.insert(QStringLiteral("homeHeading"), story);
+    profile.insert(QStringLiteral("location"), QString());
+    profile.insert(QStringLiteral("author"), QString());
+    profile.insert(QStringLiteral("genre"), QString());
+    profile.insert(QStringLiteral("status"), QStringLiteral("Planificación"));
+    profile.insert(QStringLiteral("synopsis"), QString());
+    profile.insert(QStringLiteral("chapterLabels"), QJsonArray());
+    profile.insert(QStringLiteral("theme"), QStringLiteral("grim"));
+    profile.insert(QStringLiteral("manuscriptLayout"), defaultManuscriptLayout());
+    profile.insert(QStringLiteral("writingAnalysis"), defaultWritingAnalysis());
+    document.setObject(QStringLiteral("profile"), profile);
+    document.root_.insert(QStringLiteral("title"), archive);
+    document.root_.insert(QStringLiteral("dataVersion"), 1);
     document.dirty_ = true;
     return document;
 }
@@ -80,51 +121,67 @@ void ArchiveDocument::setObject(const QString& key, const QJsonObject& value) {
 }
 
 QString ArchiveDocument::title() const {
-    const QString rootTitle = root_.value("title").toString().trimmed();
+    const QString rootTitle = root_.value(QStringLiteral("title")).toString().trimmed();
     if (!rootTitle.isEmpty()) return rootTitle;
-    return object("profile").value("archiveTitle").toString(QStringLiteral("Nueva obra"));
+    return object(QStringLiteral("profile")).value(QStringLiteral("archiveTitle")).toString(QStringLiteral("Nueva obra"));
 }
 
 QString ArchiveDocument::storyTitle() const {
-    return object("profile").value("storyTitle").toString(title());
+    return object(QStringLiteral("profile")).value(QStringLiteral("storyTitle")).toString(title());
 }
 
 void ArchiveDocument::setTitle(const QString& value) {
-    root_.insert("title", value);
-    QJsonObject profile = object("profile");
-    profile.insert("archiveTitle", value);
-    root_.insert("profile", profile);
+    root_.insert(QStringLiteral("title"), value);
+    QJsonObject profile = object(QStringLiteral("profile"));
+    profile.insert(QStringLiteral("archiveTitle"), value);
+    root_.insert(QStringLiteral("profile"), profile);
     dirty_ = true;
 }
 
 void ArchiveDocument::setStoryTitle(const QString& value) {
-    QJsonObject profile = object("profile");
-    profile.insert("storyTitle", value);
-    root_.insert("profile", profile);
+    QJsonObject profile = object(QStringLiteral("profile"));
+    profile.insert(QStringLiteral("storyTitle"), value);
+    root_.insert(QStringLiteral("profile"), profile);
     dirty_ = true;
 }
 
 void ArchiveDocument::normalizeMinimumStructure() {
-    if (!root_.contains("title")) root_.insert("title", QStringLiteral("Nueva obra"));
+    if (!root_.contains(QStringLiteral("title"))) root_.insert(QStringLiteral("title"), QStringLiteral("Nueva obra"));
+    if (!root_.contains(QStringLiteral("dataVersion"))) root_.insert(QStringLiteral("dataVersion"), 1);
 
-    QJsonObject profile = root_.value("profile").toObject();
-    if (!profile.contains("archiveTitle")) profile.insert("archiveTitle", root_.value("title").toString(QStringLiteral("Nueva obra")));
-    if (!profile.contains("storyTitle")) profile.insert("storyTitle", profile.value("archiveTitle"));
-    if (!profile.contains("status")) profile.insert("status", QStringLiteral("Planificación"));
-    if (!profile.contains("theme")) profile.insert("theme", QStringLiteral("grim"));
-    root_.insert("profile", profile);
+    QJsonObject profile = root_.value(QStringLiteral("profile")).toObject();
+    if (!profile.contains(QStringLiteral("archiveTitle"))) profile.insert(QStringLiteral("archiveTitle"), root_.value(QStringLiteral("title")).toString(QStringLiteral("Nueva obra")));
+    if (!profile.contains(QStringLiteral("storyTitle"))) profile.insert(QStringLiteral("storyTitle"), profile.value(QStringLiteral("archiveTitle")));
+    if (!profile.contains(QStringLiteral("subtitle"))) profile.insert(QStringLiteral("subtitle"), QString());
+    if (!profile.contains(QStringLiteral("projectLabel"))) profile.insert(QStringLiteral("projectLabel"), QStringLiteral("Proyecto narrativo"));
+    if (!profile.contains(QStringLiteral("homeHeading"))) profile.insert(QStringLiteral("homeHeading"), profile.value(QStringLiteral("storyTitle")));
+    if (!profile.contains(QStringLiteral("location"))) profile.insert(QStringLiteral("location"), QString());
+    if (!profile.contains(QStringLiteral("author"))) profile.insert(QStringLiteral("author"), QString());
+    if (!profile.contains(QStringLiteral("genre"))) profile.insert(QStringLiteral("genre"), QString());
+    if (!profile.contains(QStringLiteral("status"))) profile.insert(QStringLiteral("status"), QStringLiteral("Planificación"));
+    if (!profile.contains(QStringLiteral("synopsis"))) profile.insert(QStringLiteral("synopsis"), QString());
+    if (!profile.value(QStringLiteral("chapterLabels")).isArray()) profile.insert(QStringLiteral("chapterLabels"), QJsonArray());
+    if (!profile.contains(QStringLiteral("theme"))) profile.insert(QStringLiteral("theme"), QStringLiteral("grim"));
+    if (!profile.value(QStringLiteral("manuscriptLayout")).isObject()) profile.insert(QStringLiteral("manuscriptLayout"), defaultManuscriptLayout());
+    if (!profile.value(QStringLiteral("writingAnalysis")).isObject()) profile.insert(QStringLiteral("writingAnalysis"), defaultWritingAnalysis());
+    root_.insert(QStringLiteral("profile"), profile);
 
     const QStringList arrayKeys{
-        "characters", "relationships", "theories", "timeline", "world", "magicSystems",
-        "worldTexts", "magicTexts", "writingChapters", "maps", "narrativeHeat"
+        QStringLiteral("characters"), QStringLiteral("relationships"), QStringLiteral("theories"),
+        QStringLiteral("timeline"), QStringLiteral("world"), QStringLiteral("magicSystems"),
+        QStringLiteral("worldTexts"), QStringLiteral("magicTexts"), QStringLiteral("writingChapters"),
+        QStringLiteral("maps"), QStringLiteral("narrativeHeat"), QStringLiteral("mediaTracks")
     };
     for (const QString& key : arrayKeys) {
         if (!root_.value(key).isArray()) root_.insert(key, QJsonArray());
     }
 
-    if (!root_.value("manuscript").isObject()) {
-        root_.insert("manuscript", QJsonObject{
-            {"fileName", QString()}, {"words", 0}, {"chapters", 0}, {"updatedLabel", QString()}
+    if (!root_.value(QStringLiteral("manuscript")).isObject()) {
+        root_.insert(QStringLiteral("manuscript"), QJsonObject{
+            {QStringLiteral("fileName"), QString()},
+            {QStringLiteral("words"), 0},
+            {QStringLiteral("chapters"), 0},
+            {QStringLiteral("updatedLabel"), QString()}
         });
     }
 }
