@@ -1,7 +1,11 @@
 #pragma once
 
+#include <QJsonArray>
 #include <QJsonObject>
+#include <QList>
 #include <QWidget>
+
+#include <functional>
 
 class QComboBox;
 class QLabel;
@@ -17,21 +21,6 @@ class PilinReyViewport;
 class PilinReyEditor final : public QWidget {
     Q_OBJECT
 public:
-    explicit PilinReyEditor(QWidget* parent = nullptr);
-    ~PilinReyEditor() override;
-
-    void setMap(const QJsonObject& map);
-    QJsonObject map() const { return map_; }
-
-signals:
-    // Compatibility signals kept only so old WorldPage connections remain source-compatible.
-    void markerMoved(const QString& id, double x, double y);
-    void addMarkerRequested(double x, double y);
-    void markerActivated(const QString& id);
-
-    void mapEdited(const QJsonObject& map);
-
-private:
     enum class Tool {
         Select,
         Pan,
@@ -44,6 +33,20 @@ private:
         Settlement
     };
 
+    explicit PilinReyEditor(QWidget* parent = nullptr);
+    ~PilinReyEditor() override;
+
+    void setMap(const QJsonObject& map);
+    QJsonObject map() const { return map_; }
+
+signals:
+    // Compatibility signals kept only so old WorldPage connections remain source-compatible.
+    void markerMoved(const QString& id, double x, double y);
+    void addMarkerRequested(double x, double y);
+    void markerActivated(const QString& id);
+    void mapEdited(const QJsonObject& map);
+
+private:
     void buildUi();
     void ensurePilinDocument();
     void refreshLayers();
