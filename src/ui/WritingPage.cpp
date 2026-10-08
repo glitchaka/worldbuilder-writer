@@ -502,7 +502,7 @@ void WritingPage::importManuscript() {
     QJsonObject manuscript = document_->object(QStringLiteral("manuscript"));
     manuscript.insert(QStringLiteral("fileName"), QFileInfo(path).fileName());
     manuscript.insert(QStringLiteral("chapters"), chapters.size());
-    manuscript.insert(QStringLiteral("updatedLabel"), QDateTime::currentDateTime().toString(Qt::DefaultLocaleShortDate));
+    manuscript.insert(QStringLiteral("updatedLabel"), QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm")));
     document_->setObject(QStringLiteral("manuscript"), manuscript);
     refresh();
     emit changed();
