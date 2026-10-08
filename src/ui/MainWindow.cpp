@@ -19,6 +19,7 @@
 #include <QMessageBox>
 #include <QPrinter>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTabWidget>
@@ -632,7 +633,7 @@ void MainWindow::removeWritingItem() {
 
 void MainWindow::openFocusMode() {
     auto* item = manuscriptTree_->currentItem(); if (!item || item->data(0, Qt::UserRole).toString() != "scene") return;
-    QDialog dialog(this); dialog.setWindowTitle(tr("Modo enfoque")); dialog.setWindowState(Qt::WindowFullScreen); auto* layout = new QVBoxLayout(&dialog); layout->setContentsMargins(80, 40, 80, 40); auto* editor = new QTextEdit; editor->setAcceptRichText(true); editor->setHtml(sceneEditor_->toHtml()); editor->setStyleSheet("QTextEdit{font-size:18px;line-height:1.5;background:#181914;border:0;padding:30px;}"); layout->addWidget(editor); auto* close = button(tr("Cerrar enfoque")); layout->addWidget(close, 0, Qt::AlignRight); connect(close, &QPushButton::clicked, &dialog, &QDialog::accept); if (dialog.exec() == QDialog::Accepted) { sceneEditor_->setHtml(editor->toHtml()); applySceneEdits(); }
+    QDialog dialog(this); dialog.setWindowTitle(tr("Modo enfoque")); dialog.setWindowState(Qt::WindowFullScreen); auto* layout = new QVBoxLayout(&dialog); layout->setContentsMargins(80, 40, 80, 40); auto* editor = new QTextEdit; editor->setAcceptRichText(true); editor->setHtml(sceneEditor_->toHtml()); editor->setStyleSheet("QTextEdit{font-size:18px;background:#181914;border:0;padding:30px;}"); layout->addWidget(editor); auto* close = button(tr("Cerrar enfoque")); layout->addWidget(close, 0, Qt::AlignRight); connect(close, &QPushButton::clicked, &dialog, &QDialog::accept); if (dialog.exec() == QDialog::Accepted) { sceneEditor_->setHtml(editor->toHtml()); applySceneEdits(); }
 }
 
 void MainWindow::selectWorldRecord(int row) {
