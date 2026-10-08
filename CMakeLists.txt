@@ -1,9 +1,22 @@
 cmake_minimum_required(VERSION 3.24)
-project(WorldbuilderWriter VERSION 0.1.0 LANGUAGES CXX)
+project(WorldbuilderWriter VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+
+include(FetchContent)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(INSTALL_PROJECT OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    miniz
+    GIT_REPOSITORY https://github.com/richgel999/miniz.git
+    GIT_TAG 3.1.2
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(miniz)
 
 find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets)
 qt_standard_project_setup()
@@ -12,6 +25,10 @@ qt_add_executable(WorldbuilderWriter
     src/main.cpp
     src/core/ArchiveDocument.cpp
     src/storage/ProjectStore.cpp
+    src/storage/WbwPackage.cpp
+    src/import/ManuscriptImporter.cpp
+    src/ui/RelationshipBoard.cpp
+    src/ui/MapCanvas.cpp
     src/ui/MainWindow.cpp
 )
 
@@ -21,6 +38,7 @@ target_link_libraries(WorldbuilderWriter PRIVATE
     Qt6::PrintSupport
     Qt6::Multimedia
     Qt6::MultimediaWidgets
+    miniz
 )
 
 if(WIN32)
