@@ -1,45 +1,27 @@
 # Worldbuilder Writer
 
-Editor de escritura y construcción de mundos para novelas. Reúne manuscrito por capítulos y escenas, fichas, relaciones visuales, cronología, atlas, sistemas de magia, mapas, maquetación, revisión de estilo y exportaciones editoriales.
+Aplicación nativa de escritorio para escritura y construcción de mundos.
 
-## Estado del código
+## Estado
 
-La base activa está en `worldbuilder-writer-csharp/`. Incluye la aplicación local WPF, que genera un ejecutable nativo de Windows, y la versión web ASP.NET Core/Blazor. Todo el desarrollo nuevo se realiza en C#.
+La rama `main` contiene exclusivamente la reconstrucción en C++20 + Qt 6. No depende de navegador, Node, React, Blazor ni .NET.
 
-La antigua edición React/TypeScript permanece únicamente como fuente heredada del despliegue actual de ChatGPT Sites; no es la base de desarrollo ni debe usarse para continuar la aplicación. `desktop-csharp/`, `desktop-web/` y `desktop-native/` son prototipos anteriores y quedaron reemplazados por la solución nueva.
+La aplicación anterior se conserva únicamente como referencia funcional en la rama `legacy-web-reference`; no se reutilizan sus assets, fuentes, iconos ni arquitectura.
 
-## Desarrollo local en C#
+## Build
 
 Requisitos:
 
-- SDK de .NET 10.
-- Windows para ejecutar la interfaz WPF.
-
-Comandos principales:
+- CMake 3.24+
+- Qt 6.6+ con Widgets, PrintSupport, Multimedia y MultimediaWidgets
+- Compilador C++20
 
 ```powershell
-cd worldbuilder-writer-csharp
-dotnet restore src/WorldbuilderWriter.Desktop/WorldbuilderWriter.Desktop.csproj
-dotnet run --project src/WorldbuilderWriter.Desktop
+cmake -S . -B build
+cmake --build build --config Release
+cmake --install build --config Release --prefix dist
 ```
 
-Para crear el ejecutable autocontenido de Windows se usa `worldbuilder-writer-csharp/publish-windows.ps1`.
+En Windows, `qt_generate_deploy_app_script` copia las dependencias necesarias para distribuir la aplicación como programa stand-alone.
 
-## Paquetes de proyecto `.wbw`
-
-`.wbw` es un ZIP versionado que se importa directamente desde la biblioteca de Worldbuilder Writer. Incluye:
-
-- `manifest.json`: versión del formato e inventario de recursos.
-- `project.json`: todos los datos editables del proyecto.
-- `media/`: fotografías de personajes e imágenes de Mundo y Magia.
-
-El formato actual se identifica como `worldbuilder-writer-project`, versión 1. La exportación JSON antigua dejó de ser la copia visible de proyecto.
-
-## Organización
-
-- `worldbuilder-writer-csharp/src/WorldbuilderWriter.Desktop/`: aplicación local WPF.
-- `worldbuilder-writer-csharp/src/WorldbuilderWriter.Web/`: versión web en ASP.NET Core/Blazor.
-- `worldbuilder-writer-csharp/src/WorldbuilderWriter.Core/`: modelos compartidos.
-- `worldbuilder-writer-csharp/src/WorldbuilderWriter.Infrastructure/`: almacenamiento e importación.
-- `app/`, `lib/`, `db/` y `drizzle/`: edición web heredada de Sites.
-- `desktop-csharp/`, `desktop-web/` y `desktop-native/`: prototipos reemplazados.
+Consulta `FUNCTION_INVENTORY.md` para la lista de funciones que deben conservarse y `ARCHITECTURE.md` para la organización nueva.
