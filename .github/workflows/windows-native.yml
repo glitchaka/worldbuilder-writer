@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip aqtinstall
-          python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -O C:\Qt
+          python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -O C:\Qt --modules qtmultimedia
 
       - name: Configure
         shell: pwsh
