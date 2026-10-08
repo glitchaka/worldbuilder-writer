@@ -2,7 +2,10 @@
 
 #include "core/ArchiveDocument.h"
 
+#include <QKeySequence>
+#include <QLineEdit>
 #include <QMainWindow>
+#include <QStatusBar>
 
 class QCloseEvent;
 class QLabel;

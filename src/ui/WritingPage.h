@@ -1,5 +1,8 @@
 #pragma once
 
+#include <QFileInfo>
+#include <QKeySequence>
+#include <QPainter>
 #include <QWidget>
 
 class QCheckBox;

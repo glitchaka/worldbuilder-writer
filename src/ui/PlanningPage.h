@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QFrame>
+#include <QHash>
 #include <QWidget>
 
 class QCheckBox;

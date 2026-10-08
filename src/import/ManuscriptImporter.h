@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QJsonArray>
+#include <QList>
 #include <QString>
 
 namespace wbw {

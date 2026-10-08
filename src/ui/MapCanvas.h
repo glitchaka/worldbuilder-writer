@@ -2,6 +2,8 @@
 
 #include <QGraphicsView>
 #include <QJsonObject>
+#include <QPixmap>
+#include <QtMath>
 
 namespace wbw {
 
