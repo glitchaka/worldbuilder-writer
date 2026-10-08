@@ -7,25 +7,30 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets)
 qt_standard_project_setup()
 
 qt_add_executable(WorldbuilderWriter
     src/main.cpp
-    src/core/StoryProject.cpp
-    src/storage/ProjectRepository.cpp
+    src/core/ArchiveDocument.cpp
+    src/storage/ProjectStore.cpp
     src/ui/MainWindow.cpp
-    src/ui/pages/ManuscriptPage.cpp
-    src/ui/pages/CharactersPage.cpp
+    src/ui/FocusEditor.cpp
+    src/ui/pages/PlanningPage.cpp
+    src/ui/pages/WritingPage.cpp
     src/ui/pages/WorldPage.cpp
-    src/ui/pages/MagicPage.cpp
-    src/ui/pages/TimelinePage.cpp
+    src/ui/pages/ReviewPage.cpp
 )
 
 target_include_directories(WorldbuilderWriter PRIVATE src)
-target_link_libraries(WorldbuilderWriter PRIVATE Qt6::Widgets Qt6::PrintSupport)
+target_link_libraries(WorldbuilderWriter PRIVATE
+    Qt6::Widgets
+    Qt6::PrintSupport
+    Qt6::Multimedia
+    Qt6::MultimediaWidgets
+)
 
-if (WIN32)
+if(WIN32)
     set_target_properties(WorldbuilderWriter PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
