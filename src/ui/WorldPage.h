@@ -14,7 +14,8 @@ class QTextEdit;
 namespace wbw {
 
 class ArchiveDocument;
-class MapCanvas;
+class PilinReyEditor;
+using MapCanvas = PilinReyEditor;
 
 class WorldPage final : public QWidget {
     Q_OBJECT
@@ -29,6 +30,8 @@ signals:
     void changed();
 
 private:
+    friend class PilinReyEditor;
+
     QWidget* buildAtlasTab();
     QWidget* buildMagicTab();
     QWidget* buildMapsTab();
