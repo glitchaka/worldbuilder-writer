@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(WorldbuilderWriter VERSION 0.2.0 LANGUAGES C CXX)
+project(WorldbuilderWriter VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,10 @@ qt_add_executable(WorldbuilderWriter
     src/import/ManuscriptImporter.cpp
     src/ui/RelationshipBoard.cpp
     src/ui/MapCanvas.cpp
+    src/ui/PlanningPage.cpp
+    src/ui/WritingPage.cpp
+    src/ui/WorldPage.cpp
+    src/ui/ReviewPage.cpp
     src/ui/MainWindow.cpp
 )
 
