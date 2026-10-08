@@ -30,6 +30,10 @@ jobs:
         shell: pwsh
         run: cmake --build build --config Release --parallel
 
+      - name: Test
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
+
       - name: Install standalone bundle
         shell: pwsh
         run: cmake --install build --config Release --prefix "$pwd\dist"
