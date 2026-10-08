@@ -9,10 +9,12 @@
 #include <QDialog>
 #include <QFileDialog>
 #include <QFont>
+#include <QFrame>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
 #include <QGraphicsSimpleTextItem>
 #include <QGraphicsView>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonArray>
@@ -70,15 +72,41 @@ QString contentPlainText(const QString& content) {
     return doc.toPlainText();
 }
 
+QLabel* sectionLabel(const QString& text) {
+    auto* label = new QLabel(text);
+    label->setObjectName(QStringLiteral("sectionLabel"));
+    return label;
+}
+
 } // namespace
 
 WritingPage::WritingPage(QWidget* parent) : QWidget(parent) {
+    setObjectName(QStringLiteral("writingPage"));
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 0);
     tabs_ = new QTabWidget;
+    tabs_->setObjectName(QStringLiteral("writingTabs"));
     tabs_->addTab(buildEditorTab(), tr("Manuscrito"));
     tabs_->addTab(buildSceneBoardTab(), tr("Tablero de escenas"));
     root->addWidget(tabs_);
+
+    setStyleSheet(QStringLiteral(
+        "#writingPage{background:#edf1f5;}"
+        "#writingTabs::pane{border:0;background:#edf1f5;}"
+        "#writingTabs QTabBar::tab{padding:11px 16px;}"
+        "#writingEditorTab,#sceneBoardTab{background:#edf1f5;}"
+        "#writingHero{background:#f5f8fc;border:1px solid #d7dee8;}"
+        "#writingKicker,#sectionLabel{color:#8a6a52;font-size:8pt;font-weight:700;letter-spacing:1px;}"
+        "#writingTitle{color:#d2aa69;font-family:'Georgia';font-size:28pt;}"
+        "#writingDescription{color:#667085;font-family:'Georgia';font-size:10pt;}"
+        "#indexPanel,#editorPanel,#referencePanel{background:#ffffff;border:1px solid #d5dce5;}"
+        "#indexTitle,#editorPanelTitle,#referenceTitle{color:#344054;font-size:8pt;font-weight:700;letter-spacing:1px;}"
+        "#sceneEditor{background:#ffffff;border:0;border-top:1px solid #e1e6ed;padding:18px;font-family:'Georgia';font-size:11pt;}"
+        "#writingPrimary{background:#1668d4;color:#ffffff;border:1px solid #1668d4;font-weight:600;}"
+        "#writingPrimary:hover{background:#0f5fc8;}"
+        "#writingSubtle{background:#ffffff;color:#344054;border:1px solid #cbd3dd;}"
+        "#referenceHint{color:#667085;}"
+    ));
 }
 
 void WritingPage::setDocument(ArchiveDocument* document) {
@@ -88,54 +116,118 @@ void WritingPage::setDocument(ArchiveDocument* document) {
 
 QWidget* WritingPage::buildEditorTab() {
     auto* tab = new QWidget;
+    tab->setObjectName(QStringLiteral("writingEditorTab"));
     auto* outer = new QVBoxLayout(tab);
-    auto* actions = new QHBoxLayout;
-    auto* addChapterButton = makeButton(tr("+ Capítulo"));
+    outer->setContentsMargins(30, 22, 30, 30);
+    outer->setSpacing(18);
+
+    auto* hero = new QFrame;
+    hero->setObjectName(QStringLiteral("writingHero"));
+    auto* heroLayout = new QHBoxLayout(hero);
+    heroLayout->setContentsMargins(20, 16, 18, 16);
+    heroLayout->setSpacing(18);
+    auto* heroCopy = new QVBoxLayout;
+    heroCopy->setSpacing(3);
+    auto* kicker = new QLabel(tr("CAPÍTULOS / ESCENAS / CAPAS NARRATIVAS"));
+    kicker->setObjectName(QStringLiteral("writingKicker"));
+    auto* title = new QLabel(tr("Manuscrito"));
+    title->setObjectName(QStringLiteral("writingTitle"));
+    auto* description = new QLabel(tr("Escribe por escenas o reorganiza visualmente capítulos, puntos de vista y capas narrativas."));
+    description->setObjectName(QStringLiteral("writingDescription"));
+    description->setWordWrap(true);
+    heroCopy->addWidget(kicker);
+    heroCopy->addWidget(title);
+    heroCopy->addWidget(description);
+    heroLayout->addLayout(heroCopy, 1);
+
+    auto* heroActions = new QHBoxLayout;
+    auto* importButton = makeButton(tr("Importar manuscrito o capítulo"));
+    importButton->setObjectName(QStringLiteral("writingSubtle"));
+    auto* focusButton = makeButton(tr("Sin distracciones"));
+    focusButton->setObjectName(QStringLiteral("writingSubtle"));
     auto* addSceneButton = makeButton(tr("+ Escena"));
-    auto* renameButton = makeButton(tr("Renombrar capítulo"));
-    auto* removeButton = makeButton(tr("Eliminar"));
-    auto* upButton = makeButton(tr("Subir"));
-    auto* downButton = makeButton(tr("Bajar"));
-    auto* importButton = makeButton(tr("Importar manuscrito…"));
-    auto* focusButton = makeButton(tr("Modo enfoque"));
-    actions->addWidget(addChapterButton);
-    actions->addWidget(addSceneButton);
-    actions->addWidget(renameButton);
-    actions->addWidget(removeButton);
-    actions->addWidget(upButton);
-    actions->addWidget(downButton);
-    actions->addStretch();
-    actions->addWidget(importButton);
-    actions->addWidget(focusButton);
-    outer->addLayout(actions);
+    addSceneButton->setObjectName(QStringLiteral("writingSubtle"));
+    auto* addChapterButton = makeButton(tr("+ Capítulo"));
+    addChapterButton->setObjectName(QStringLiteral("writingPrimary"));
+    heroActions->addWidget(importButton);
+    heroActions->addWidget(focusButton);
+    heroActions->addWidget(addSceneButton);
+    heroActions->addWidget(addChapterButton);
+    heroLayout->addLayout(heroActions);
+    outer->addWidget(hero);
 
     auto* split = new QSplitter;
+    split->setChildrenCollapsible(false);
+    split->setHandleWidth(8);
+
+    auto* indexPanel = new QWidget;
+    indexPanel->setObjectName(QStringLiteral("indexPanel"));
+    auto* indexLayout = new QVBoxLayout(indexPanel);
+    indexLayout->setContentsMargins(12, 12, 12, 12);
+    indexLayout->setSpacing(9);
+    auto* indexHeader = new QHBoxLayout;
+    auto* indexTitle = new QLabel(tr("ÍNDICE"));
+    indexTitle->setObjectName(QStringLiteral("indexTitle"));
+    auto* removeButton = makeButton(tr("Eliminar"));
+    removeButton->setObjectName(QStringLiteral("writingSubtle"));
+    indexHeader->addWidget(indexTitle);
+    indexHeader->addStretch();
+    indexHeader->addWidget(removeButton);
+    indexLayout->addLayout(indexHeader);
     tree_ = new QTreeWidget;
     tree_->setHeaderHidden(true);
-    tree_->setMinimumWidth(230);
-    tree_->setMaximumWidth(380);
-    split->addWidget(tree_);
+    tree_->setMinimumWidth(235);
+    tree_->setMaximumWidth(340);
+    tree_->setIndentation(16);
+    indexLayout->addWidget(tree_, 1);
+    auto* indexActions = new QHBoxLayout;
+    auto* renameButton = makeButton(tr("Renombrar"));
+    auto* upButton = makeButton(tr("↑"));
+    auto* downButton = makeButton(tr("↓"));
+    indexActions->addWidget(renameButton, 1);
+    indexActions->addWidget(upButton);
+    indexActions->addWidget(downButton);
+    indexLayout->addLayout(indexActions);
+    split->addWidget(indexPanel);
 
     auto* center = new QWidget;
+    center->setObjectName(QStringLiteral("editorPanel"));
     auto* centerLayout = new QVBoxLayout(center);
-    centerLayout->setContentsMargins(12, 0, 8, 0);
+    centerLayout->setContentsMargins(14, 12, 14, 14);
+    centerLayout->setSpacing(10);
+    auto* editorHeading = new QHBoxLayout;
+    auto* editorPanelTitle = new QLabel(tr("EDITOR DE ESCENA"));
+    editorPanelTitle->setObjectName(QStringLiteral("editorPanelTitle"));
+    wordCount_ = new QLabel;
+    wordCount_->setStyleSheet(QStringLiteral("color:#667085;"));
+    editorHeading->addWidget(editorPanelTitle);
+    editorHeading->addStretch();
+    editorHeading->addWidget(wordCount_);
+    centerLayout->addLayout(editorHeading);
 
-    auto* metadata = new QHBoxLayout;
+    auto* metadata = new QGridLayout;
+    metadata->setHorizontalSpacing(8);
+    metadata->setVerticalSpacing(8);
     sceneTitle_ = new QLineEdit;
     sceneTitle_->setPlaceholderText(tr("Título de escena"));
     scenePov_ = new QLineEdit;
-    scenePov_->setPlaceholderText(tr("POV"));
+    scenePov_->setPlaceholderText(tr("Personaje focal"));
     sceneLocation_ = new QLineEdit;
-    sceneLocation_->setPlaceholderText(tr("Localización"));
+    sceneLocation_->setPlaceholderText(tr("Lugar de la escena"));
     sceneLayer_ = new QLineEdit;
     sceneLayer_->setPlaceholderText(tr("Capa narrativa"));
     sceneStatus_ = new QComboBox;
     sceneStatus_->addItems({tr("Borrador"), tr("Revisión"), tr("Final")});
-    metadata->addWidget(sceneTitle_, 3);
-    metadata->addWidget(scenePov_, 1);
-    metadata->addWidget(sceneLocation_, 1);
-    metadata->addWidget(sceneLayer_, 1);
-    metadata->addWidget(sceneStatus_, 1);
+    metadata->addWidget(sectionLabel(tr("Título de escena")), 0, 0);
+    metadata->addWidget(sectionLabel(tr("Estado")), 0, 2);
+    metadata->addWidget(sceneTitle_, 1, 0, 1, 2);
+    metadata->addWidget(sceneStatus_, 1, 2);
+    metadata->addWidget(sectionLabel(tr("POV")), 2, 0);
+    metadata->addWidget(sectionLabel(tr("Ubicación")), 2, 1);
+    metadata->addWidget(sectionLabel(tr("Capa narrativa")), 2, 2);
+    metadata->addWidget(scenePov_, 3, 0);
+    metadata->addWidget(sceneLocation_, 3, 1);
+    metadata->addWidget(sceneLayer_, 3, 2);
     centerLayout->addLayout(metadata);
 
     auto* format = new QHBoxLayout;
@@ -164,11 +256,10 @@ QWidget* WritingPage::buildEditorTab() {
     format->addWidget(undo);
     format->addWidget(redo);
     format->addStretch();
-    wordCount_ = new QLabel;
-    format->addWidget(wordCount_);
     centerLayout->addLayout(format);
 
     editor_ = new QTextEdit;
+    editor_->setObjectName(QStringLiteral("sceneEditor"));
     editor_->setAcceptRichText(true);
     editor_->setUndoRedoEnabled(true);
     editor_->setLineWrapMode(QTextEdit::WidgetWidth);
@@ -177,21 +268,26 @@ QWidget* WritingPage::buildEditorTab() {
     split->addWidget(center);
 
     auto* referencePanel = new QWidget;
+    referencePanel->setObjectName(QStringLiteral("referencePanel"));
     auto* referenceLayout = new QVBoxLayout(referencePanel);
-    referenceLayout->setContentsMargins(8, 0, 0, 0);
-    auto* referenceTitle = new QLabel(tr("Referencias detectadas"));
-    referenceTitle->setStyleSheet(QStringLiteral("font-weight:700;"));
+    referenceLayout->setContentsMargins(12, 12, 12, 12);
+    referenceLayout->setSpacing(8);
+    auto* referenceTitle = new QLabel(tr("REFERENCIAS DETECTADAS"));
+    referenceTitle->setObjectName(QStringLiteral("referenceTitle"));
     references_ = new QListWidget;
-    references_->setMinimumWidth(210);
-    references_->setMaximumWidth(320);
+    references_->setMinimumWidth(205);
+    references_->setMaximumWidth(300);
     auto* referenceHint = new QLabel(tr("Doble clic para abrir el registro."));
+    referenceHint->setObjectName(QStringLiteral("referenceHint"));
     referenceHint->setWordWrap(true);
-    referenceHint->setStyleSheet(QStringLiteral("color:#8f8e86;"));
     referenceLayout->addWidget(referenceTitle);
     referenceLayout->addWidget(references_, 1);
     referenceLayout->addWidget(referenceHint);
     split->addWidget(referencePanel);
+    split->setStretchFactor(0, 0);
     split->setStretchFactor(1, 1);
+    split->setStretchFactor(2, 0);
+    split->setSizes({275, 900, 245});
     outer->addWidget(split, 1);
 
     connect(tree_, &QTreeWidget::itemSelectionChanged, this, &WritingPage::selectItem);
@@ -224,12 +320,20 @@ QWidget* WritingPage::buildEditorTab() {
 
 QWidget* WritingPage::buildSceneBoardTab() {
     auto* tab = new QWidget;
+    tab->setObjectName(QStringLiteral("sceneBoardTab"));
     auto* layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(30, 22, 30, 30);
     auto* top = new QHBoxLayout;
+    auto* heading = new QLabel(tr("Tablero de escenas"));
+    QFont headingFont = heading->font();
+    headingFont.setFamily(QStringLiteral("Georgia"));
+    headingFont.setPointSize(20);
+    heading->setFont(headingFont);
     sceneBoardCompact_ = new QCheckBox(tr("Vista compacta"));
     auto* reset = makeButton(tr("Recentrar"));
-    top->addWidget(sceneBoardCompact_);
+    top->addWidget(heading);
     top->addStretch();
+    top->addWidget(sceneBoardCompact_);
     top->addWidget(reset);
     layout->addLayout(top);
     sceneBoard_ = new QGraphicsView;
@@ -279,6 +383,9 @@ void WritingPage::refreshTree() {
         auto* chapterItem = new QTreeWidgetItem({title.isEmpty() ? label : label + QStringLiteral(" — ") + title});
         chapterItem->setData(0, Qt::UserRole, QStringLiteral("chapter"));
         chapterItem->setData(0, Qt::UserRole + 1, c);
+        QFont chapterFont = chapterItem->font(0);
+        chapterFont.setBold(true);
+        chapterItem->setFont(0, chapterFont);
         const QJsonArray scenes = chapter.value(QStringLiteral("scenes")).toArray();
         for (int s = 0; s < scenes.size(); ++s) {
             const QJsonObject scene = scenes.at(s).toObject();
@@ -324,8 +431,7 @@ void WritingPage::selectItem() {
     sceneLayer_->setText(scene.value(QStringLiteral("narrativeLayer")).toString());
     const int status = sceneStatus_->findText(scene.value(QStringLiteral("status")).toString());
     sceneStatus_->setCurrentIndex(status >= 0 ? status : 0);
-    const QString content = scene.value(QStringLiteral("content")).toString();
-    editor_->setHtml(content);
+    editor_->setHtml(scene.value(QStringLiteral("content")).toString());
     refreshing_ = false;
     updateFormattingState();
     refreshReferences();
@@ -559,6 +665,7 @@ void WritingPage::refreshSceneBoard() {
     if (!sceneBoard_ || !sceneBoard_->scene() || !document_) return;
     auto* scene = sceneBoard_->scene();
     scene->clear();
+    scene->setBackgroundBrush(QColor(QStringLiteral("#f7f9fc")));
     const bool compact = sceneBoardCompact_->isChecked();
     const qreal cardWidth = compact ? 150.0 : 220.0;
     const qreal cardHeight = compact ? 58.0 : 92.0;
@@ -568,7 +675,7 @@ void WritingPage::refreshSceneBoard() {
     for (int c = 0; c < chapters.size(); ++c) {
         const QJsonObject chapter = chapters.at(c).toObject();
         auto* heading = scene->addSimpleText(chapter.value(QStringLiteral("label")).toString(tr("Capítulo")));
-        heading->setBrush(QColor(QStringLiteral("#d1b16e")));
+        heading->setBrush(QColor(QStringLiteral("#8a6a52")));
         QFont headingFont = heading->font();
         headingFont.setBold(true);
         heading->setFont(headingFont);
@@ -576,19 +683,19 @@ void WritingPage::refreshSceneBoard() {
         const QJsonArray scenes = chapter.value(QStringLiteral("scenes")).toArray();
         for (int s = 0; s < scenes.size(); ++s) {
             const QJsonObject sceneObject = scenes.at(s).toObject();
-            auto* card = scene->addRect(QRectF(0, 0, cardWidth, cardHeight), QPen(QColor(QStringLiteral("#484940"))), QBrush(QColor(QStringLiteral("#24251f"))));
+            auto* card = scene->addRect(QRectF(0, 0, cardWidth, cardHeight), QPen(QColor(QStringLiteral("#cfd7e2"))), QBrush(QColor(QStringLiteral("#ffffff"))));
             card->setPos(c * gapX, 38.0 + s * gapY);
-            auto* title = new QGraphicsSimpleTextItem(sceneObject.value(QStringLiteral("title")).toString(tr("Escena")), card);
-            title->setBrush(QColor(QStringLiteral("#efe9dc")));
-            title->setPos(10.0, 8.0);
+            auto* cardTitle = new QGraphicsSimpleTextItem(sceneObject.value(QStringLiteral("title")).toString(tr("Escena")), card);
+            cardTitle->setBrush(QColor(QStringLiteral("#1f2937")));
+            cardTitle->setPos(10.0, 8.0);
             if (!compact) {
                 const QString detail = QStringLiteral("%1 · %2").arg(sceneObject.value(QStringLiteral("pov")).toString(), sceneObject.value(QStringLiteral("location")).toString());
                 auto* meta = new QGraphicsSimpleTextItem(detail, card);
-                meta->setBrush(QColor(QStringLiteral("#98968d")));
+                meta->setBrush(QColor(QStringLiteral("#667085")));
                 meta->setPos(10.0, 34.0);
                 const int words = contentPlainText(sceneObject.value(QStringLiteral("content")).toString()).split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
                 auto* stats = new QGraphicsSimpleTextItem(tr("%1 palabras · %2").arg(words).arg(sceneObject.value(QStringLiteral("status")).toString()), card);
-                stats->setBrush(QColor(QStringLiteral("#8d8b83")));
+                stats->setBrush(QColor(QStringLiteral("#8a94a3")));
                 stats->setPos(10.0, 58.0);
             }
         }
@@ -601,18 +708,18 @@ void WritingPage::openFocusMode() {
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Modo enfoque"));
     dialog.setWindowState(Qt::WindowFullScreen);
+    dialog.setStyleSheet(QStringLiteral("QDialog{background:#f4f6f8;}QTextEdit{background:#ffffff;color:#20242b;border:1px solid #d8dee7;padding:36px;font-family:'Georgia';font-size:14pt;}"));
     auto* layout = new QVBoxLayout(&dialog);
-    layout->setContentsMargins(80, 36, 80, 36);
-    auto* title = new QLabel(sceneTitle_->text());
-    title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet(QStringLiteral("font-size:18px;font-weight:700;"));
+    layout->setContentsMargins(90, 38, 90, 38);
+    auto* focusTitle = new QLabel(sceneTitle_->text());
+    focusTitle->setAlignment(Qt::AlignCenter);
+    focusTitle->setStyleSheet(QStringLiteral("font-family:'Georgia';font-size:18px;font-weight:700;color:#344054;"));
     auto* focusEditor = new QTextEdit;
     focusEditor->setAcceptRichText(true);
     focusEditor->setUndoRedoEnabled(true);
     focusEditor->setHtml(editor_->toHtml());
-    focusEditor->setStyleSheet(QStringLiteral("QTextEdit{font-size:18px;background:#181914;border:0;padding:34px;}"));
     auto* close = makeButton(tr("Cerrar enfoque"));
-    layout->addWidget(title);
+    layout->addWidget(focusTitle);
     layout->addWidget(focusEditor, 1);
     layout->addWidget(close, 0, Qt::AlignRight);
     connect(close, &QPushButton::clicked, &dialog, &QDialog::accept);
