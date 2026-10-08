@@ -21,6 +21,8 @@ FetchContent_MakeAvailable(miniz)
 find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets)
 qt_standard_project_setup()
 
+enable_testing()
+
 qt_add_executable(WorldbuilderWriter
     src/main.cpp
     src/core/ArchiveDocument.cpp
@@ -44,6 +46,16 @@ target_link_libraries(WorldbuilderWriter PRIVATE
     Qt6::MultimediaWidgets
     miniz
 )
+
+add_executable(WorldbuilderWriterCoreSmoke
+    tests/CoreSmoke.cpp
+    src/core/ArchiveDocument.cpp
+    src/storage/WbwPackage.cpp
+    src/import/ManuscriptImporter.cpp
+)
+target_include_directories(WorldbuilderWriterCoreSmoke PRIVATE src)
+target_link_libraries(WorldbuilderWriterCoreSmoke PRIVATE Qt6::Widgets miniz)
+add_test(NAME core-smoke COMMAND WorldbuilderWriterCoreSmoke)
 
 if(WIN32)
     set_target_properties(WorldbuilderWriter PROPERTIES WIN32_EXECUTABLE TRUE)
