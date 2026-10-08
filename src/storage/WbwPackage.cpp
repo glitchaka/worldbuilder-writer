@@ -12,6 +12,7 @@
 #include <QMimeDatabase>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QUrl>
 
 #include <miniz.h>
 
@@ -115,12 +116,17 @@ void replaceAttachmentData(QJsonArray& records, const QString& recordId, const Q
             break;
         }
         if (!found) {
+            const QString kind = mimeType.startsWith(QStringLiteral("image/"))
+                ? QStringLiteral("image")
+                : mimeType.startsWith(QStringLiteral("text/"))
+                    ? QStringLiteral("text")
+                    : QStringLiteral("document");
             attachments.append(QJsonObject{
                 {QStringLiteral("id"), attachmentId},
                 {QStringLiteral("name"), name},
                 {QStringLiteral("mimeType"), mimeType},
                 {QStringLiteral("size"), static_cast<double>(size)},
-                {QStringLiteral("kind"), mimeType.startsWith(QStringLiteral("image/")) ? QStringLiteral("image") : QStringLiteral("document")},
+                {QStringLiteral("kind"), kind},
                 {QStringLiteral("dataUrl"), dataUrl}
             });
         }
@@ -215,7 +221,7 @@ bool WbwPackage::exportPackage(const QString& path, const ArchiveDocument& docum
     }
 
     QJsonObject manifest{
-        {QStringLiteral("format"), QStringLiteral(Format)},
+        {QStringLiteral("format"), QString::fromLatin1(Format)},
         {QStringLiteral("version"), Version},
         {QStringLiteral("application"), QStringLiteral("Worldbuilder Writer")},
         {QStringLiteral("createdAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},
@@ -298,7 +304,7 @@ bool WbwPackage::importPackage(const QString& path, ArchiveDocument& document, Q
         return false;
     }
     const QJsonObject manifest = manifestDoc.object();
-    if (manifest.value(QStringLiteral("format")).toString() != QStringLiteral(Format) ||
+    if (manifest.value(QStringLiteral("format")).toString() != QString::fromLatin1(Format) ||
         manifest.value(QStringLiteral("version")).toInt() != Version ||
         manifest.value(QStringLiteral("projectFile")).toString() != QStringLiteral("project.json")) {
         finish();
