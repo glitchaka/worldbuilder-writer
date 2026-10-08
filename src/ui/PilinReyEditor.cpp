@@ -5,35 +5,32 @@
 
 #include <SDL3/SDL.h>
 
-#include <QByteArray>
+#include <QColor>
 #include <QComboBox>
 #include <QFile>
 #include <QFileDialog>
+#include <QFont>
 #include <QHBoxLayout>
 #include <QImage>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMouseEvent>
+#include <QPaintEngine>
 #include <QPushButton>
 #include <QSlider>
 #include <QToolButton>
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QWheelEvent>
-#include <QWindow>
-#include <QPaintEngine>
 
 #include <algorithm>
 #include <cmath>
 #include <functional>
 #include <vector>
-
-#ifdef Q_OS_WIN
-#include <windows.h>
-#endif
 
 namespace wbw {
 namespace {
@@ -135,7 +132,7 @@ public:
     void setTool(Tool tool) {
         tool_ = tool;
         drawing_ = false;
-        currentPoints_.clear();
+        currentPoints_ = QJsonArray();
         renderFrame();
     }
 
@@ -148,7 +145,6 @@ protected:
 
     void resizeEvent(QResizeEvent* event) override {
         QWidget::resizeEvent(event);
-        if (window_) SDL_SetWindowSize(window_, width(), height());
         renderFrame();
     }
 
@@ -182,8 +178,7 @@ protected:
         const QString type = toolType(tool_);
         if (!type.isEmpty()) {
             drawing_ = true;
-            currentPoints_.clear();
-            currentPoints_.append(pointJson(world.x(), world.y()));
+            currentPoints_ = QJsonArray{pointJson(world.x(), world.y())};
             event->accept();
         }
     }
@@ -231,8 +226,8 @@ private:
         }
 #ifdef Q_OS_WIN
         SDL_PropertiesID props = SDL_CreateProperties();
-        SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, reinterpret_cast<void*>(static_cast<HWND>(winId())));
-        SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN, true);
+        SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER,
+                               reinterpret_cast<void*>(static_cast<quintptr>(winId())));
         window_ = SDL_CreateWindowWithProperties(props);
         SDL_DestroyProperties(props);
 #else
@@ -267,7 +262,7 @@ private:
             templateTexture_ = nullptr;
         }
         const QJsonObject pilin = map_.value(QStringLiteral("pilinRey")).toObject();
-        QJsonObject templ = pilin.value(QStringLiteral("template")).toObject();
+        const QJsonObject templ = pilin.value(QStringLiteral("template")).toObject();
         QString dataUrl = templ.value(QStringLiteral("dataUrl")).toString();
         if (dataUrl.isEmpty()) dataUrl = map_.value(QStringLiteral("backgroundImageDataUrl")).toString();
         if (dataUrl.isEmpty()) return;
@@ -321,7 +316,8 @@ private:
         SDL_RenderLines(renderer_, line.data(), static_cast<int>(line.size()));
         if (type == QStringLiteral("border")) {
             SDL_SetRenderDrawColor(renderer_, color.red(), color.green(), color.blue(), 110);
-            for (size_t i = 0; i + 1 < line.size(); i += 4) SDL_RenderLine(renderer_, line[i].x, line[i].y, line[i + 1].x, line[i + 1].y);
+            for (size_t i = 0; i + 1 < line.size(); i += 4)
+                SDL_RenderLine(renderer_, line[i].x, line[i].y, line[i + 1].x, line[i + 1].y);
         }
     }
 
@@ -346,7 +342,7 @@ private:
         SDL_RenderClear(renderer_);
 
         updateTemplateTexture();
-        QJsonObject templ = pilin.value(QStringLiteral("template")).toObject();
+        const QJsonObject templ = pilin.value(QStringLiteral("template")).toObject();
         if (templateTexture_ && templ.value(QStringLiteral("visible")).toBool(true)) {
             const double docW = pilin.value(QStringLiteral("width")).toDouble(4096.0);
             const double docH = pilin.value(QStringLiteral("height")).toDouble(2304.0);
@@ -356,8 +352,7 @@ private:
             SDL_RenderTexture(renderer_, templateTexture_, nullptr, &dest);
         }
 
-        const QJsonArray layers = pilin.value(QStringLiteral("layers")).toArray();
-        for (const QJsonValue layerValue : layers) {
+        for (const QJsonValue layerValue : pilin.value(QStringLiteral("layers")).toArray()) {
             const QJsonObject layer = layerValue.toObject();
             if (!layer.value(QStringLiteral("visible")).toBool(true)) continue;
             for (const QJsonValue objectValue : layer.value(QStringLiteral("objects")).toArray()) {
@@ -366,10 +361,8 @@ private:
                 else drawPath(object);
             }
         }
-
         if (drawing_ && currentPoints_.size() >= 2) {
-            QJsonObject preview{{QStringLiteral("type"), toolType(tool_)}, {QStringLiteral("points"), currentPoints_}};
-            drawPath(preview);
+            drawPath(QJsonObject{{QStringLiteral("type"), toolType(tool_)}, {QStringLiteral("points"), currentPoints_}});
         }
         SDL_RenderPresent(renderer_);
     }
@@ -489,8 +482,7 @@ void PilinReyEditor::buildUi() {
     root->addWidget(status_);
 
     connect(style_, &QComboBox::currentTextChanged, this, [this](const QString& value) {
-        if (refreshing_) return;
-        mutateDocument([&](QJsonObject& pilin) { pilin.insert(QStringLiteral("cartographicStyle"), value); });
+        if (!refreshing_) mutateDocument([&](QJsonObject& pilin) { pilin.insert(QStringLiteral("cartographicStyle"), value); });
     });
     connect(templateOpacity_, &QSlider::valueChanged, this, [this](int value) {
         if (refreshing_) return;
@@ -525,6 +517,7 @@ void PilinReyEditor::buildUi() {
             for (int i = 0; i < array.size(); ++i) {
                 QJsonObject layer = array.at(i).toObject();
                 if (layer.value(QStringLiteral("id")).toString() != id) continue;
+                layer.insert(QStringLiteral("name"), item->text());
                 layer.insert(QStringLiteral("visible"), item->checkState() == Qt::Checked);
                 array.replace(i, layer);
                 break;
