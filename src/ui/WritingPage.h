@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QKeySequence>
 #include <QPainter>
 #include <QWidget>
