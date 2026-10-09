@@ -7,7 +7,6 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
-#include <QDialog>
 #include <QFileDialog>
 #include <QFont>
 #include <QFrame>
@@ -27,6 +26,7 @@
 #include <QRegularExpression>
 #include <QShortcut>
 #include <QSplitter>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTextBlock>
 #include <QTextCharFormat>
@@ -109,6 +109,10 @@ WritingPage::WritingPage(QWidget* parent) : QWidget(parent) {
         "#writingPrimary:hover{background:#0f5fc8;}"
         "#writingSubtle{background:#ffffff;color:#344054;border:1px solid #cbd3dd;}"
         "#proofState{color:#667085;font-size:8.5pt;}"
+        "#focusBar{background:#ffffff;border-bottom:1px solid #d8dee7;}"
+        "#focusSceneName{color:#667085;font-size:9pt;}"
+        "#focusExit{background:transparent;border:0;color:#667085;padding:7px 10px;}"
+        "#focusExit:hover{background:#f3f6fa;color:#175cd3;}"
     ));
 }
 
@@ -119,13 +123,14 @@ void WritingPage::setDocument(ArchiveDocument* document) {
 }
 
 QWidget* WritingPage::buildEditorTab() {
-    auto* tab = new QWidget;
-    tab->setObjectName(QStringLiteral("writingEditorTab"));
-    auto* outer = new QVBoxLayout(tab);
-    outer->setContentsMargins(30, 22, 30, 30);
-    outer->setSpacing(14);
+    editorTab_ = new QWidget;
+    editorTab_->setObjectName(QStringLiteral("writingEditorTab"));
+    editorOuterLayout_ = new QVBoxLayout(editorTab_);
+    editorOuterLayout_->setContentsMargins(30, 22, 30, 30);
+    editorOuterLayout_->setSpacing(14);
 
     auto* hero = new QFrame;
+    heroPanel_ = hero;
     hero->setObjectName(QStringLiteral("writingHero"));
     auto* heroLayout = new QHBoxLayout(hero);
     heroLayout->setContentsMargins(20, 14, 18, 14);
@@ -138,6 +143,7 @@ QWidget* WritingPage::buildEditorTab() {
     title->setObjectName(QStringLiteral("writingTitle"));
     auto* description = new QLabel(tr("El texto es la superficie principal. Índice y detalles se abren solo cuando los necesitas."));
     description->setObjectName(QStringLiteral("writingDescription"));
+    description->setWordWrap(true);
     heroCopy->addWidget(kicker);
     heroCopy->addWidget(title);
     heroCopy->addWidget(description);
@@ -155,18 +161,20 @@ QWidget* WritingPage::buildEditorTab() {
     heroLayout->addWidget(focusButton);
     heroLayout->addWidget(addSceneButton);
     heroLayout->addWidget(addChapterButton);
-    outer->addWidget(hero);
+    editorOuterLayout_->addWidget(hero);
 
-    auto* commandBar = new QHBoxLayout;
+    commandBarPanel_ = new QWidget(editorTab_);
+    auto* commandBar = new QHBoxLayout(commandBarPanel_);
+    commandBar->setContentsMargins(0, 0, 0, 0);
     commandBar->setSpacing(6);
-    auto* toggleIndex = new QToolButton;
-    toggleIndex->setText(tr("Índice"));
-    toggleIndex->setCheckable(true);
-    toggleIndex->setChecked(true);
-    auto* toggleDetails = new QToolButton;
-    toggleDetails->setText(tr("Detalles"));
-    toggleDetails->setCheckable(true);
-    toggleDetails->setChecked(false);
+    toggleIndex_ = new QToolButton;
+    toggleIndex_->setText(tr("Índice"));
+    toggleIndex_->setCheckable(true);
+    toggleIndex_->setChecked(true);
+    toggleDetails_ = new QToolButton;
+    toggleDetails_->setText(tr("Detalles"));
+    toggleDetails_->setCheckable(true);
+    toggleDetails_->setChecked(false);
     bold_ = new QToolButton;
     bold_->setText(tr("B"));
     bold_->setToolTip(tr("Negrita"));
@@ -197,8 +205,8 @@ QWidget* WritingPage::buildEditorTab() {
     wordCount_ = new QLabel;
     wordCount_->setStyleSheet(QStringLiteral("color:#667085;"));
 
-    commandBar->addWidget(toggleIndex);
-    commandBar->addWidget(toggleDetails);
+    commandBar->addWidget(toggleIndex_);
+    commandBar->addWidget(toggleDetails_);
     commandBar->addSpacing(10);
     commandBar->addWidget(bold_);
     commandBar->addWidget(italic_);
@@ -210,7 +218,21 @@ QWidget* WritingPage::buildEditorTab() {
     commandBar->addWidget(proofState_);
     commandBar->addStretch();
     commandBar->addWidget(wordCount_);
-    outer->addLayout(commandBar);
+    editorOuterLayout_->addWidget(commandBarPanel_);
+
+    focusBar_ = new QWidget(editorTab_);
+    focusBar_->setObjectName(QStringLiteral("focusBar"));
+    auto* focusLayout = new QHBoxLayout(focusBar_);
+    focusLayout->setContentsMargins(18, 7, 18, 7);
+    focusSceneName_ = new QLabel;
+    focusSceneName_->setObjectName(QStringLiteral("focusSceneName"));
+    auto* focusExit = makeButton(tr("Salir de enfoque  Esc"));
+    focusExit->setObjectName(QStringLiteral("focusExit"));
+    focusLayout->addWidget(focusSceneName_);
+    focusLayout->addStretch();
+    focusLayout->addWidget(focusExit);
+    focusBar_->hide();
+    editorOuterLayout_->addWidget(focusBar_);
 
     editorSplit_ = new QSplitter;
     editorSplit_->setChildrenCollapsible(false);
@@ -290,10 +312,15 @@ QWidget* WritingPage::buildEditorTab() {
     editorSplit_->setStretchFactor(0, 0);
     editorSplit_->setStretchFactor(1, 1);
     editorSplit_->setSizes({260, 1100});
-    outer->addWidget(editorSplit_, 1);
+    editorOuterLayout_->addWidget(editorSplit_, 1);
 
-    connect(toggleIndex, &QToolButton::toggled, indexPanel_, &QWidget::setVisible);
-    connect(toggleDetails, &QToolButton::toggled, metadataPanel_, &QWidget::setVisible);
+    focusEscape_ = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    focusEscape_->setEnabled(false);
+
+    connect(toggleIndex_, &QToolButton::toggled, indexPanel_, &QWidget::setVisible);
+    connect(toggleDetails_, &QToolButton::toggled, metadataPanel_, &QWidget::setVisible);
+    connect(focusExit, &QPushButton::clicked, this, &WritingPage::closeFocusMode);
+    connect(focusEscape_, &QShortcut::activated, this, &WritingPage::closeFocusMode);
     connect(tree_, &QTreeWidget::itemSelectionChanged, this, &WritingPage::selectItem);
     connect(addChapterButton, &QPushButton::clicked, this, &WritingPage::addChapter);
     connect(addSceneButton, &QPushButton::clicked, this, &WritingPage::addScene);
@@ -321,7 +348,7 @@ QWidget* WritingPage::buildEditorTab() {
     connect(underline_, &QToolButton::toggled, this, [this](bool checked) { applyCharacterFormat(2, checked); });
     connect(undo, &QToolButton::clicked, editor_, &QTextEdit::undo);
     connect(redo, &QToolButton::clicked, editor_, &QTextEdit::redo);
-    return tab;
+    return editorTab_;
 }
 
 QWidget* WritingPage::buildSceneBoardTab() {
@@ -754,65 +781,59 @@ void WritingPage::refreshSceneBoard() {
 }
 
 void WritingPage::openFocusMode() {
-    if (!editor_ || !editor_->isEnabled()) return;
+    if (focusActive_ || !editor_ || !editor_->isEnabled()) return;
 
-    QWidget* originalParent = editor_->parentWidget();
-    QLayout* originalLayout = originalParent ? originalParent->layout() : nullptr;
-    if (!originalLayout) return;
-    originalLayout->removeWidget(editor_);
-
-    QDialog focus(window());
-    focus.setObjectName(QStringLiteral("realFocusMode"));
-    focus.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
-    focus.setWindowState(Qt::WindowFullScreen);
-    focus.setStyleSheet(QStringLiteral(
-        "#realFocusMode{background:#eef1f4;}"
-        "#focusPage{background:#ffffff;border:1px solid #d9dee5;}"
-        "#focusExit{background:transparent;border:0;color:#667085;padding:8px 12px;}"
-        "#focusExit:hover{color:#175cd3;background:#f5f7fa;}"
-    ));
-    auto* root = new QVBoxLayout(&focus);
-    root->setContentsMargins(0, 0, 0, 0);
-    root->setSpacing(0);
-
-    auto* top = new QHBoxLayout;
-    top->setContentsMargins(22, 8, 22, 8);
-    auto* sceneName = new QLabel(sceneTitle_->text());
-    sceneName->setStyleSheet(QStringLiteral("color:#667085;font-size:9pt;"));
-    auto* exit = makeButton(tr("Salir de enfoque  Esc"));
-    exit->setObjectName(QStringLiteral("focusExit"));
-    top->addWidget(sceneName);
-    top->addStretch();
-    top->addWidget(exit);
-    root->addLayout(top);
-
-    auto* page = new QWidget;
-    page->setObjectName(QStringLiteral("focusPage"));
-    page->setMaximumWidth(900);
-    auto* pageLayout = new QVBoxLayout(page);
-    pageLayout->setContentsMargins(80, 56, 80, 80);
-    pageLayout->addWidget(editor_);
-    auto* center = new QHBoxLayout;
-    center->setContentsMargins(0, 0, 0, 0);
-    center->addStretch();
-    center->addWidget(page, 1);
-    center->addStretch();
-    root->addLayout(center, 1);
-
-    auto closeFocus = [&focus]() { focus.accept(); };
-    connect(exit, &QPushButton::clicked, &focus, closeFocus);
-    QShortcut escape(QKeySequence(Qt::Key_Escape), &focus);
-    connect(&escape, &QShortcut::activated, &focus, closeFocus);
-
-    editor_->setFocus();
-    focus.exec();
-
-    pageLayout->removeWidget(editor_);
-    editor_->setParent(originalParent);
-    originalLayout->addWidget(editor_);
-    editor_->show();
-    editor_->setFocus();
     applyScene();
+    focusActive_ = true;
+    indexWasVisible_ = indexPanel_->isVisible();
+    detailsWereVisible_ = metadataPanel_->isVisible();
+    tabBarWasVisible_ = tabs_->tabBar()->isVisible();
+    previousWindowState_ = window()->windowState();
+
+    QWidget* topShell = window()->findChild<QWidget*>(QStringLiteral("topShell"));
+    topShellWasVisible_ = topShell && topShell->isVisible();
+    if (topShell) topShell->hide();
+    if (QWidget* titleBar = window()->findChild<QWidget*>(QStringLiteral("appTitleBar"))) titleBar->hide();
+
+    tabs_->tabBar()->hide();
+    heroPanel_->hide();
+    commandBarPanel_->hide();
+    indexPanel_->hide();
+    metadataPanel_->hide();
+    focusSceneName_->setText(sceneTitle_->text());
+    focusBar_->show();
+    editorOuterLayout_->setContentsMargins(0, 0, 0, 0);
+    editorOuterLayout_->setSpacing(0);
+    editorSplit_->setHandleWidth(0);
+    focusEscape_->setEnabled(true);
+
+    window()->showFullScreen();
+    editor_->setFocus();
+}
+
+void WritingPage::closeFocusMode() {
+    if (!focusActive_) return;
+
+    applyScene();
+    focusActive_ = false;
+    focusEscape_->setEnabled(false);
+    focusBar_->hide();
+    editorOuterLayout_->setContentsMargins(30, 22, 30, 30);
+    editorOuterLayout_->setSpacing(14);
+    editorSplit_->setHandleWidth(6);
+    heroPanel_->show();
+    commandBarPanel_->show();
+    tabs_->tabBar()->setVisible(tabBarWasVisible_);
+    indexPanel_->setVisible(indexWasVisible_);
+    metadataPanel_->setVisible(detailsWereVisible_);
+
+    if (QWidget* topShell = window()->findChild<QWidget*>(QStringLiteral("topShell")); topShell && topShellWasVisible_) topShell->show();
+    if (QWidget* titleBar = window()->findChild<QWidget*>(QStringLiteral("appTitleBar"))) titleBar->show();
+
+    if (previousWindowState_.testFlag(Qt::WindowMaximized)) window()->showMaximized();
+    else window()->showNormal();
+
+    editor_->setFocus();
 }
 
 } // namespace wbw
