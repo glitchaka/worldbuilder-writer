@@ -3,6 +3,7 @@
 #include "core/ArchiveDocument.h"
 #include "storage/ProjectStore.h"
 
+#include <QDir>
 #include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
