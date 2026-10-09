@@ -21,18 +21,18 @@ constexpr qreal CardHeight = 78.0;
 
 QColor relationshipColor(const QString& type) {
     const QString value = type.toLower();
-    if (value.contains(QStringLiteral("enem")) || value.contains(QStringLiteral("conflict"))) return QColor(QStringLiteral("#b7655f"));
-    if (value.contains(QStringLiteral("famil"))) return QColor(QStringLiteral("#8d78b5"));
-    if (value.contains(QStringLiteral("amor")) || value.contains(QStringLiteral("rom"))) return QColor(QStringLiteral("#b76f87"));
-    if (value.contains(QStringLiteral("ali")) || value.contains(QStringLiteral("amist"))) return QColor(QStringLiteral("#6f9b79"));
-    return QColor(QStringLiteral("#a88a56"));
+    if (value.contains(QStringLiteral("enem")) || value.contains(QStringLiteral("conflict"))) return QColor(QStringLiteral("#c7524c"));
+    if (value.contains(QStringLiteral("famil"))) return QColor(QStringLiteral("#7967ad"));
+    if (value.contains(QStringLiteral("amor")) || value.contains(QStringLiteral("rom"))) return QColor(QStringLiteral("#b64f79"));
+    if (value.contains(QStringLiteral("ali")) || value.contains(QStringLiteral("amist"))) return QColor(QStringLiteral("#4f8a61"));
+    if (value.contains(QStringLiteral("invest"))) return QColor(QStringLiteral("#3e6f9c"));
+    return QColor(QStringLiteral("#8c7350"));
 }
 
 QPointF boardPosition(const QJsonObject& character, int index) {
     const QJsonObject board = character.value(QStringLiteral("board")).toObject();
-    if (board.contains(QStringLiteral("x")) && board.contains(QStringLiteral("y"))) {
+    if (board.contains(QStringLiteral("x")) && board.contains(QStringLiteral("y")))
         return QPointF(board.value(QStringLiteral("x")).toDouble(), board.value(QStringLiteral("y")).toDouble());
-    }
     const int column = index % 4;
     const int row = index / 4;
     return QPointF(60.0 + column * 240.0, 60.0 + row * 140.0);
@@ -51,7 +51,7 @@ RelationshipBoard::RelationshipBoard(QWidget* parent) : QGraphicsView(parent) {
     setDragMode(QGraphicsView::ScrollHandDrag);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setResizeAnchor(QGraphicsView::AnchorViewCenter);
-    setBackgroundBrush(QColor(QStringLiteral("#181914")));
+    setBackgroundBrush(QColor(QStringLiteral("#f5f7fa")));
     setFrameShape(QFrame::NoFrame);
 }
 
@@ -111,7 +111,7 @@ void RelationshipBoard::rebuild() {
         const QString label = relationship.value(QStringLiteral("label")).toString();
         if (!label.isEmpty()) {
             auto* textItem = scene()->addSimpleText(label);
-            textItem->setBrush(QColor(QStringLiteral("#bcb7ab")));
+            textItem->setBrush(QColor(QStringLiteral("#667085")));
             textItem->setPos((a + b) / 2.0 + QPointF(6.0, -18.0));
             textItem->setZValue(1.0);
         }
@@ -120,7 +120,7 @@ void RelationshipBoard::rebuild() {
     for (auto it = positions.cbegin(); it != positions.cend(); ++it) {
         const QString id = it.key();
         const QJsonObject character = byId.value(id);
-        auto* card = scene()->addRect(QRectF(0.0, 0.0, CardWidth, CardHeight), QPen(QColor(QStringLiteral("#4b493f"))), QBrush(QColor(QStringLiteral("#262720"))));
+        auto* card = scene()->addRect(QRectF(0.0, 0.0, CardWidth, CardHeight), QPen(QColor(QStringLiteral("#cfd7e2"))), QBrush(QColor(QStringLiteral("#ffffff"))));
         card->setPos(it.value());
         card->setFlag(QGraphicsItem::ItemIsMovable, true);
         card->setFlag(QGraphicsItem::ItemIsSelectable, true);
@@ -128,7 +128,7 @@ void RelationshipBoard::rebuild() {
         card->setZValue(2.0);
 
         auto* name = new QGraphicsSimpleTextItem(character.value(QStringLiteral("name")).toString(QStringLiteral("Personaje")), card);
-        name->setBrush(QColor(QStringLiteral("#f0eadf")));
+        name->setBrush(QColor(QStringLiteral("#1f2937")));
         QFont nameFont = name->font();
         nameFont.setBold(true);
         nameFont.setPointSizeF(11.0);
@@ -139,7 +139,7 @@ void RelationshipBoard::rebuild() {
         const QString affiliation = character.value(QStringLiteral("affiliation")).toString();
         if (!affiliation.isEmpty()) detail += detail.isEmpty() ? affiliation : QStringLiteral(" · ") + affiliation;
         auto* sub = new QGraphicsSimpleTextItem(detail, card);
-        sub->setBrush(QColor(QStringLiteral("#aaa69b")));
+        sub->setBrush(QColor(QStringLiteral("#667085")));
         sub->setPos(12.0, 39.0);
     }
 
