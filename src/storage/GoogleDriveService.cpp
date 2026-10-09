@@ -5,7 +5,7 @@
 #include <QDesktopServices>
 #include <QFile>
 #include <QFileInfo>
-#include <QHttpMultiPart>
+#include <QHostAddress>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -26,8 +26,7 @@ QString base64Url(const QByteArray& bytes) {
 }
 
 QString randomToken(int bytes = 48) {
-    QByteArray data;
-    data.resize(bytes);
+    QByteArray data(bytes, Qt::Uninitialized);
     for (int i = 0; i < bytes; ++i) data[i] = static_cast<char>(QRandomGenerator::global()->generate() & 0xff);
     return base64Url(data);
 }
@@ -39,8 +38,12 @@ QNetworkRequest authorizedRequest(const QUrl& url, const QString& token) {
     return request;
 }
 
-QString settingsGroup() {
-    return QStringLiteral("googleDrive");
+QString settingsGroup() { return QStringLiteral("googleDrive"); }
+
+QString escapeDriveQuery(QString value) {
+    value.replace(QStringLiteral("\\"), QStringLiteral("\\\\"));
+    value.replace(QStringLiteral("'"), QStringLiteral("\\'"));
+    return value;
 }
 
 } // namespace
@@ -54,9 +57,7 @@ GoogleDriveService::GoogleDriveService(QObject* parent)
     settings.endGroup();
 }
 
-GoogleDriveService::~GoogleDriveService() {
-    stopLoopbackServer();
-}
+GoogleDriveService::~GoogleDriveService() { stopLoopbackServer(); }
 
 void GoogleDriveService::setClientCredentials(const QString& clientId, const QString& clientSecret) {
     clientId_ = clientId.trimmed();
@@ -69,9 +70,7 @@ void GoogleDriveService::setClientCredentials(const QString& clientId, const QSt
 }
 
 QString GoogleDriveService::clientId() const { return clientId_; }
-
 bool GoogleDriveService::isConfigured() const { return !clientId_.isEmpty(); }
-
 bool GoogleDriveService::isConnected() const { return !savedRefreshToken().isEmpty(); }
 
 void GoogleDriveService::saveRefreshToken(const QString& token) {
@@ -117,8 +116,8 @@ void GoogleDriveService::connectAccount() {
         QTcpSocket* socket = loopbackServer_->nextPendingConnection();
         if (!socket) return;
         connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
-            const QByteArray request = socket->readAll();
-            const QList<QByteArray> lines = request.split('\n');
+            const QByteArray requestBytes = socket->readAll();
+            const QList<QByteArray> lines = requestBytes.split('\n');
             if (lines.isEmpty()) return;
             const QList<QByteArray> firstLine = lines.first().trimmed().split(' ');
             if (firstLine.size() < 2) return;
@@ -130,13 +129,12 @@ void GoogleDriveService::connectAccount() {
             const QString error = query.queryItemValue(QStringLiteral("error"));
 
             QByteArray body;
-            if (!error.isEmpty()) {
+            if (!error.isEmpty())
                 body = "<html><body><h2>Worldbuilder Writer</h2><p>La autorización fue cancelada. Puedes cerrar esta pestaña.</p></body></html>";
-            } else if (state != oauthState_ || code.isEmpty()) {
+            else if (state != oauthState_ || code.isEmpty())
                 body = "<html><body><h2>Worldbuilder Writer</h2><p>La respuesta OAuth no es válida. Puedes cerrar esta pestaña.</p></body></html>";
-            } else {
+            else
                 body = "<html><body><h2>Worldbuilder Writer</h2><p>Google Drive quedó autorizado. Puedes cerrar esta pestaña y volver a la aplicación.</p></body></html>";
-            }
 
             const QByteArray response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "
                 + QByteArray::number(body.size()) + "\r\nConnection: close\r\n\r\n" + body;
@@ -229,8 +227,7 @@ void GoogleDriveService::handleTokenReply(QNetworkReply* reply, bool expectRefre
     const bool networkOk = reply->error() == QNetworkReply::NoError;
     reply->deleteLater();
 
-    const QJsonDocument document = QJsonDocument::fromJson(payload);
-    const QJsonObject object = document.object();
+    const QJsonObject object = QJsonDocument::fromJson(payload).object();
     const QString accessToken = object.value(QStringLiteral("access_token")).toString();
     if (!networkOk || accessToken.isEmpty()) {
         const QString description = object.value(QStringLiteral("error_description")).toString();
@@ -289,7 +286,9 @@ void GoogleDriveService::listBackups() {
     withAccessToken([this](const QString& token) {
         QUrl url(QStringLiteral("https://www.googleapis.com/drive/v3/files"));
         QUrlQuery query;
-        query.addQueryItem(QStringLiteral("q"), QStringLiteral("trashed = false and appProperties has { key='worldbuilderWriterBackup' and value='1' }"));
+        query.addQueryItem(QStringLiteral("q"), QStringLiteral("trashed = false and appProperties has { key='worldbuilderWriterBackup' and value='true' }"));
+        query.addQueryItem(QStringLiteral("spaces"), QStringLiteral("drive"));
+        query.addQueryItem(QStringLiteral("pageSize"), QStringLiteral("100"));
         query.addQueryItem(QStringLiteral("fields"), QStringLiteral("files(id,name,size,modifiedTime,createdTime,appProperties)"));
         query.addQueryItem(QStringLiteral("orderBy"), QStringLiteral("modifiedTime desc"));
         url.setQuery(query);
@@ -302,64 +301,96 @@ void GoogleDriveService::listBackups() {
                 emit errorOccurred(tr("No se pudieron listar las copias de Google Drive."));
                 return;
             }
-            const QJsonArray files = QJsonDocument::fromJson(payload).object().value(QStringLiteral("files")).toArray();
-            emit backupsListed(files);
+            emit backupsListed(QJsonDocument::fromJson(payload).object().value(QStringLiteral("files")).toArray());
             emit statusMessage(tr("Copias de Google Drive actualizadas."));
         });
     });
 }
 
-void GoogleDriveService::uploadBackup(const QString& localWbwPath) {
-    QFile* file = new QFile(localWbwPath);
-    if (!file->open(QIODevice::ReadOnly)) {
-        delete file;
+void GoogleDriveService::uploadBackup(const QString& localWbwPath, const QString& projectId) {
+    QFile file(localWbwPath);
+    if (!file.open(QIODevice::ReadOnly)) {
         emit errorOccurred(tr("No se pudo abrir la copia .wbw para subirla."));
         return;
     }
-    const QByteArray bytes = file->readAll();
-    file->close();
-    file->deleteLater();
+    const QByteArray bytes = file.readAll();
     const QString name = QFileInfo(localWbwPath).fileName();
+    const QString cleanProjectId = projectId.trimmed();
+    if (cleanProjectId.isEmpty()) {
+        emit errorOccurred(tr("El proyecto no tiene un identificador válido para el respaldo."));
+        return;
+    }
 
-    withAccessToken([this, bytes, name](const QString& token) {
-        const QByteArray boundary = "wbw_" + randomToken(16).toUtf8();
-        const QJsonObject metadata{
-            {QStringLiteral("name"), name},
-            {QStringLiteral("mimeType"), QStringLiteral("application/vnd.worldbuilder-writer.project+zip")},
-            {QStringLiteral("appProperties"), QJsonObject{{QStringLiteral("worldbuilderWriterBackup"), QStringLiteral("1")}}}
-        };
-
-        QByteArray body;
-        body += "--" + boundary + "\r\n";
-        body += "Content-Type: application/json; charset=UTF-8\r\n\r\n";
-        body += QJsonDocument(metadata).toJson(QJsonDocument::Compact) + "\r\n";
-        body += "--" + boundary + "\r\n";
-        body += "Content-Type: application/vnd.worldbuilder-writer.project+zip\r\n\r\n";
-        body += bytes + "\r\n";
-        body += "--" + boundary + "--\r\n";
-
-        QUrl url(QStringLiteral("https://www.googleapis.com/upload/drive/v3/files"));
+    withAccessToken([this, bytes, name, cleanProjectId](const QString& token) {
+        QUrl url(QStringLiteral("https://www.googleapis.com/drive/v3/files"));
         QUrlQuery query;
-        query.addQueryItem(QStringLiteral("uploadType"), QStringLiteral("multipart"));
-        query.addQueryItem(QStringLiteral("fields"), QStringLiteral("id,name"));
+        query.addQueryItem(QStringLiteral("q"), QStringLiteral("trashed = false and appProperties has { key='worldbuilderWriterProject' and value='%1' }").arg(escapeDriveQuery(cleanProjectId)));
+        query.addQueryItem(QStringLiteral("spaces"), QStringLiteral("drive"));
+        query.addQueryItem(QStringLiteral("pageSize"), QStringLiteral("10"));
+        query.addQueryItem(QStringLiteral("fields"), QStringLiteral("files(id,name,modifiedTime)"));
         url.setQuery(query);
-        QNetworkRequest request = authorizedRequest(url, token);
-        request.setRawHeader("Content-Type", "multipart/related; boundary=" + boundary);
-        QNetworkReply* reply = network_->post(request, body);
-        connect(reply, &QNetworkReply::finished, this, [this, reply, name]() {
+        QNetworkReply* reply = network_->get(authorizedRequest(url, token));
+        connect(reply, &QNetworkReply::finished, this, [this, reply, token, bytes, name, cleanProjectId]() {
             const QByteArray payload = reply->readAll();
             const auto error = reply->error();
             reply->deleteLater();
             if (error != QNetworkReply::NoError) {
-                const QJsonObject object = QJsonDocument::fromJson(payload).object();
-                const QString message = object.value(QStringLiteral("error")).toObject().value(QStringLiteral("message")).toString();
-                emit errorOccurred(message.isEmpty() ? tr("No se pudo subir la copia a Google Drive.") : message);
+                emit errorOccurred(tr("No se pudo comprobar si ya existe un respaldo para %1.").arg(name));
                 return;
             }
-            const QJsonObject object = QJsonDocument::fromJson(payload).object();
-            emit uploadFinished(object.value(QStringLiteral("id")).toString(), object.value(QStringLiteral("name")).toString(name));
-            emit statusMessage(tr("Copia subida a Google Drive."));
+            const QJsonArray files = QJsonDocument::fromJson(payload).object().value(QStringLiteral("files")).toArray();
+            const QString existingId = files.isEmpty() ? QString() : files.first().toObject().value(QStringLiteral("id")).toString();
+            performUpload(token, bytes, name, cleanProjectId, existingId);
         });
+    });
+}
+
+void GoogleDriveService::performUpload(const QString& token, const QByteArray& bytes, const QString& name,
+                                       const QString& projectId, const QString& existingFileId) {
+    const QByteArray boundary = "wbw_" + randomToken(16).toUtf8();
+    const QJsonObject metadata{
+        {QStringLiteral("name"), name},
+        {QStringLiteral("mimeType"), QStringLiteral("application/vnd.worldbuilder-writer.project+zip")},
+        {QStringLiteral("appProperties"), QJsonObject{
+            {QStringLiteral("worldbuilderWriterBackup"), QStringLiteral("true")},
+            {QStringLiteral("worldbuilderWriterProject"), projectId}
+        }}
+    };
+
+    QByteArray body;
+    body += "--" + boundary + "\r\n";
+    body += "Content-Type: application/json; charset=UTF-8\r\n\r\n";
+    body += QJsonDocument(metadata).toJson(QJsonDocument::Compact) + "\r\n";
+    body += "--" + boundary + "\r\n";
+    body += "Content-Type: application/vnd.worldbuilder-writer.project+zip\r\n\r\n";
+    body += bytes + "\r\n";
+    body += "--" + boundary + "--\r\n";
+
+    QUrl url(existingFileId.isEmpty()
+        ? QStringLiteral("https://www.googleapis.com/upload/drive/v3/files")
+        : QStringLiteral("https://www.googleapis.com/upload/drive/v3/files/%1").arg(existingFileId));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("uploadType"), QStringLiteral("multipart"));
+    query.addQueryItem(QStringLiteral("fields"), QStringLiteral("id,name,modifiedTime,size"));
+    url.setQuery(query);
+
+    QNetworkRequest request = authorizedRequest(url, token);
+    request.setRawHeader("Content-Type", "multipart/related; boundary=" + boundary);
+    QNetworkReply* reply = existingFileId.isEmpty()
+        ? network_->post(request, body)
+        : network_->sendCustomRequest(request, QByteArrayLiteral("PATCH"), body);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, name]() {
+        const QByteArray payload = reply->readAll();
+        const auto error = reply->error();
+        reply->deleteLater();
+        if (error != QNetworkReply::NoError) {
+            const QString message = QJsonDocument::fromJson(payload).object().value(QStringLiteral("error")).toObject().value(QStringLiteral("message")).toString();
+            emit errorOccurred(message.isEmpty() ? tr("No se pudo subir la copia a Google Drive.") : message);
+            return;
+        }
+        const QJsonObject object = QJsonDocument::fromJson(payload).object();
+        emit uploadFinished(object.value(QStringLiteral("id")).toString(), object.value(QStringLiteral("name")).toString(name));
+        emit statusMessage(tr("Copia subida a Google Drive."));
     });
 }
 
