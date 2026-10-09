@@ -1,8 +1,11 @@
 #include "ui/SettingsDialog.h"
 
 #include "storage/GoogleDriveService.h"
+#include "ui/ThemeManager.h"
 
+#include <QComboBox>
 #include <QFormLayout>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -18,7 +21,7 @@ namespace wbw {
 SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), drive_(new GoogleDriveService(this)) {
     setWindowTitle(tr("Configuración"));
     setModal(true);
-    resize(680, 560);
+    resize(680, 610);
 
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(24, 22, 24, 22);
@@ -26,14 +29,31 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), drive_(new Go
 
     auto* kicker = new QLabel(tr("CONFIGURACIÓN"));
     kicker->setObjectName(QStringLiteral("dialogKicker"));
-    auto* title = new QLabel(tr("Google Drive"));
+    auto* title = new QLabel(tr("Preferencias"));
     title->setObjectName(QStringLiteral("dialogTitle"));
-    auto* description = new QLabel(tr("Worldbuilder Writer usa Google Drive solo para respaldos. La biblioteca y los proyectos siguen siendo locales."));
+    auto* description = new QLabel(tr("Ajusta la apariencia de Worldbuilder Writer y, si quieres, configura respaldos en Google Drive."));
     description->setObjectName(QStringLiteral("dialogDescription"));
     description->setWordWrap(true);
     root->addWidget(kicker);
     root->addWidget(title);
     root->addWidget(description);
+
+    auto* appearanceCard = new QFrame;
+    appearanceCard->setObjectName(QStringLiteral("settingsCard"));
+    auto* appearanceLayout = new QFormLayout(appearanceCard);
+    appearanceLayout->setContentsMargins(14, 12, 14, 12);
+    appearanceLayout->setHorizontalSpacing(18);
+    appearanceLayout->setVerticalSpacing(10);
+    theme_ = new QComboBox;
+    theme_->addItem(tr("Claro"), QStringLiteral("light"));
+    theme_->addItem(tr("Oscuro"), QStringLiteral("dark"));
+    theme_->setCurrentIndex(ThemeManager::savedMode() == ThemeManager::Mode::Dark ? 1 : 0);
+    appearanceLayout->addRow(tr("Apariencia"), theme_);
+    root->addWidget(appearanceCard);
+
+    auto* driveTitle = new QLabel(tr("GOOGLE DRIVE · RESPALDOS OPCIONALES"));
+    driveTitle->setObjectName(QStringLiteral("fieldLabel"));
+    root->addWidget(driveTitle);
 
     auto* form = new QFormLayout;
     form->setVerticalSpacing(10);
@@ -80,6 +100,10 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), drive_(new Go
     root->addLayout(bottom);
 
     connect(close, &QPushButton::clicked, this, &QDialog::accept);
+    connect(theme_, &QComboBox::currentIndexChanged, this, [this](int index) {
+        const QString mode = theme_->itemData(index).toString();
+        ThemeManager::saveAndApply(mode == QStringLiteral("dark") ? ThemeManager::Mode::Dark : ThemeManager::Mode::Light);
+    });
     connect(saveCredentials, &QPushButton::clicked, this, [this]() {
         drive_->setClientCredentials(clientId_->text(), clientSecret_->text());
         refreshState();
