@@ -3,7 +3,9 @@
 #include <QWidget>
 
 class QGridLayout;
+class QHideEvent;
 class QLabel;
+class QShowEvent;
 class QScrollArea;
 class QVBoxLayout;
 
@@ -22,6 +24,10 @@ signals:
     void settingsRequested();
     void openProjectRequested(const QString& path);
     void projectDeleted();
+
+protected:
+    void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
 private:
     void rebuildCards();
