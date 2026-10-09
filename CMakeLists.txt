@@ -47,6 +47,7 @@ qt_add_executable(WorldbuilderWriter
     src/import/ManuscriptImporter.cpp
     src/ui/RelationshipBoard.cpp
     src/ui/MapExporter.cpp
+    src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.cpp
     src/ui/PlanningPage.cpp
     src/ui/WritingPage.cpp
