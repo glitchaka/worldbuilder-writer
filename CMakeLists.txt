@@ -55,7 +55,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/PlanningPage.cpp
     src/ui/WritingPage.cpp
     src/ui/WorldPage.cpp
-    src/ui/WorldPageChrome.cpp
+    src/ui/WorldPageChromeV2.cpp
     src/ui/ReviewPage.cpp
     src/ui/MainWindow.cpp
 )
