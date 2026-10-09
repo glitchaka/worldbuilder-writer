@@ -4,6 +4,7 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
 #include <QShowEvent>
@@ -11,7 +12,6 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-class QLineEdit;
 class QTabWidget;
 class QTextEdit;
 
