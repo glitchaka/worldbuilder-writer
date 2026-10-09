@@ -4,7 +4,6 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QTimer>
@@ -17,19 +16,11 @@ class AppTitleBar final : public QWidget {
 public:
     explicit AppTitleBar(QWidget* parent = nullptr) : QWidget(parent) {
         setObjectName(QStringLiteral("appTitleBar"));
-        setFixedHeight(34);
+        setFixedHeight(30);
 
         auto* layout = new QHBoxLayout(this);
-        layout->setContentsMargins(10, 0, 0, 0);
+        layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
-
-        auto* mark = new QLabel(QStringLiteral("WW"));
-        mark->setObjectName(QStringLiteral("titleMark"));
-        mark->setFixedWidth(30);
-        auto* title = new QLabel(QStringLiteral("Worldbuilder Writer"));
-        title->setObjectName(QStringLiteral("titleText"));
-        layout->addWidget(mark);
-        layout->addWidget(title);
         layout->addStretch(1);
 
         auto* minimize = windowButton(QStringLiteral("—"), QStringLiteral("windowMinimize"));
@@ -74,7 +65,7 @@ private:
     QPushButton* windowButton(const QString& text, const QString& name) {
         auto* button = new QPushButton(text, this);
         button->setObjectName(name);
-        button->setFixedSize(46, 34);
+        button->setFixedSize(44, 30);
         button->setFocusPolicy(Qt::NoFocus);
         return button;
     }
