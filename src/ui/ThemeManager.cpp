@@ -54,8 +54,18 @@ QString lightStyle() {
         "QSpinBox,QDoubleSpinBox{padding-right:8px;}QSpinBox::up-button,QSpinBox::down-button,QDoubleSpinBox::up-button,QDoubleSpinBox::down-button{width:0;height:0;border:0;background:transparent;}"
         "QSlider::groove:horizontal{height:4px;background:#d8dee8;border-radius:2px;}QSlider::handle:horizontal{width:14px;margin:-5px 0;background:#1668d4;border:1px solid #0f5fc8;border-radius:7px;}"
         "QCheckBox{spacing:7px;}QCheckBox::indicator{width:14px;height:14px;border:1px solid #aab4c0;background:#ffffff;border-radius:2px;}QCheckBox::indicator:checked{background:#1668d4;border-color:#1668d4;}"
-        "#appTitleBar{background:#ffffff;border-bottom:1px solid #d8dee8;}#titleMark{font-family:'Georgia';font-weight:700;color:#175cd3;}#titleText{font-weight:600;color:#344054;}"
+        "#appTitleBar{background:#ffffff;border-bottom:1px solid #d8dee8;}"
         "#windowMinimize,#windowMaximize,#windowClose{border:0;border-radius:0;background:transparent;padding:0;min-height:0;color:#475467;font-size:12pt;}#windowMinimize:hover,#windowMaximize:hover{background:#eef2f7;}#windowClose:hover{background:#c42b1c;color:#ffffff;}"
+        "#topShell{background:#ffffff;border-bottom:1px solid #d8dee8;}"
+        "#appIdentity{background:transparent;}"
+        "#appMark{background:#17233a;color:#ffffff;border-radius:3px;font-family:'Georgia';font-size:10.5pt;font-weight:700;}"
+        "#appName{color:#243247;font-size:10pt;font-weight:700;}"
+        "#appMode{color:#8b95a5;font-size:7.5pt;font-weight:600;}"
+        "#projectTitle{color:#344054;font-weight:600;}#saveState{color:#2f855a;font-size:8pt;}"
+        "QListWidget#topNavigation{background:transparent;border:0;padding:0;}"
+        "QListWidget#topNavigation::item{background:transparent;color:#344054;border:0;border-bottom:3px solid transparent;padding:0 14px;}"
+        "QListWidget#topNavigation::item:hover{background:#f7f9fc;}"
+        "QListWidget#topNavigation::item:selected{background:#eef5ff;color:#1668d4;border-bottom:3px solid #1668d4;}"
     );
 }
 
@@ -72,11 +82,13 @@ QString darkStyle() {
         "QCheckBox::indicator{width:14px;height:14px;border:1px solid #5c697b;background:#171c24;border-radius:2px;}QCheckBox::indicator:checked{background:#2670c9;border-color:#2670c9;}"
         "#appRoot,#pageStack,#planningPage,#planningCharacters,#planningBoard,#planningTheories,#planningTimeline,#writingPage,#writingEditorTab,#sceneBoardTab,#worldPage,#reviewPage,#projectHubPage,#hubShell,#hubCardsHost,#atlasTab,#magicTab,#mapsTab{background:#12161d;color:#e6eaf0;}"
         "#topShell,#hubDesktopBar,#appTitleBar{background:#171c24;border-color:#303a48;}"
-        "#writingHero,#indexPanel,#editorPanel,#metadataPanel,#writingInspector,#worldIndexPanel,#worldEditorCard,#magicIndexPanel,#magicEditorCard,#mapIndexPanel,#mapEditorCard,#legacyMarkers,#projectCard,#hubStorage,#generatorBar,#planningIndex,#planningEditor,#planningRelationPanel,#planningHero,#planningCard{background:#171c24;border-color:#394454;color:#e6eaf0;}"
-        "#sceneEditor,#writingReferences,#writingInspectorTabs::pane{background:#171c24;color:#e6eaf0;}"
+        "#writingHero,#indexPanel,#editorPanel,#metadataPanel,#worldIndexPanel,#worldEditorCard,#magicIndexPanel,#magicEditorCard,#mapIndexPanel,#mapEditorCard,#legacyMarkers,#projectCard,#hubStorage,#generatorBar,#planningIndex,#planningEditor,#planningRelationPanel,#planningHero,#planningCard{background:#171c24;border-color:#394454;color:#e6eaf0;}"
+        "#sceneEditor{background:#171c24;color:#e6eaf0;}"
+        "#appMark,#hubAppMark,#projectCardMark{background:#0d1728;color:#ffffff;border:1px solid #334155;border-radius:3px;font-family:'Georgia';font-weight:700;}"
         "#appName,#projectTitle,#hubAppName,#projectCardTitle,#newProjectTitle,#pageTitle,#dialogTitle,#planningTitle,#planningCardTitle,#writingTitle{color:#f2f4f7;}"
         "#appMode,#saveState,#hubAppMode,#hubKicker,#projectCardGenre,#newProjectMeta,#pageKicker,#fieldTitle,#panelTitle,#projectSaved,#projectStatLabel,#hubDescription,#pageDescription,#writingDescription,#proofState,#planningKicker,#planningField,#planningDescription,#planningIndexTitle{color:#9aa7b8;}"
-        "#appTitleBar{border-bottom:1px solid #303a48;}#titleMark{color:#72aef0;}#titleText{color:#e6eaf0;}"
+        "QListWidget#topNavigation{background:transparent;border:0;padding:0;}QListWidget#topNavigation::item{background:transparent;color:#c5ced9;border:0;border-bottom:3px solid transparent;padding:0 14px;}QListWidget#topNavigation::item:hover{background:#202936;}QListWidget#topNavigation::item:selected{background:#1b2d44;color:#72aef0;border-bottom:3px solid #4289d8;}"
+        "#appTitleBar{border-bottom:1px solid #303a48;}"
         "#windowMinimize,#windowMaximize,#windowClose{border:0;background:transparent;color:#c5ced9;}#windowMinimize:hover,#windowMaximize:hover{background:#283241;}#windowClose:hover{background:#c42b1c;color:#ffffff;}"
     );
 }
