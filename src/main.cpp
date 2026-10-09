@@ -5,7 +5,6 @@
 #include <QCoreApplication>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMenuBar>
 #include <QMouseEvent>
 #include <QPalette>
 #include <QPushButton>
@@ -130,8 +129,8 @@ int main(int argc, char* argv[]) {
     ));
 
     wbw::MainWindow window;
-    window.setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
-    window.menuBar()->hide();
+    window.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    window.setMenuBar(nullptr);
 
     if (auto* root = qobject_cast<QVBoxLayout*>(window.centralWidget()->layout())) {
         root->insertWidget(0, new AppTitleBar(window.centralWidget()));
