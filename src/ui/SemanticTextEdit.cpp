@@ -11,7 +11,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QRegularExpression>
+#include <QScopeGuard>
+#include <QSet>
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QTextFormat>
@@ -60,6 +61,7 @@ void SemanticTextEdit::refreshSemanticReferences() {
     references_.clear();
     if (!document_) {
         rebuildSelections();
+        emit referenceIndexChanged(QJsonArray());
         return;
     }
 
@@ -109,6 +111,20 @@ void SemanticTextEdit::refreshSemanticReferences() {
     }
     references_ = filtered;
     rebuildSelections();
+
+    QJsonArray index;
+    QSet<QString> seen;
+    for (const ReferenceHit& hit : references_) {
+        const QString key = hit.kind + QLatin1Char('|') + hit.id;
+        if (seen.contains(key)) continue;
+        seen.insert(key);
+        index.append(QJsonObject{
+            {QStringLiteral("label"), hit.label},
+            {QStringLiteral("kind"), hit.kind},
+            {QStringLiteral("id"), hit.id}
+        });
+    }
+    emit referenceIndexChanged(index);
 }
 
 void SemanticTextEdit::runProofread() {
@@ -146,7 +162,6 @@ void SemanticTextEdit::rebuildSelections() {
         selection.format.setForeground(QColor(QStringLiteral("#175cd3")));
         selection.format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
         selection.format.setUnderlineColor(QColor(QStringLiteral("#175cd3")));
-        selection.format.setProperty(QTextFormat::FullWidthSelection, false);
         selections.append(selection);
     }
 
@@ -182,9 +197,7 @@ void SemanticTextEdit::mouseReleaseEvent(QMouseEvent* event) {
     QTextEdit::mouseReleaseEvent(event);
     if (event->button() != Qt::LeftButton) return;
     const int position = cursorForPosition(event->position().toPoint()).position();
-    if (const ReferenceHit* hit = referenceAt(position)) {
-        emit referenceActivated(hit->kind, hit->id);
-    }
+    if (const ReferenceHit* hit = referenceAt(position)) emit referenceActivated(hit->kind, hit->id);
 }
 
 void SemanticTextEdit::contextMenuEvent(QContextMenuEvent* event) {
