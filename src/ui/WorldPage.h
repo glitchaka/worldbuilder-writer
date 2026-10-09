@@ -4,13 +4,14 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QListWidget>
+#include <QPushButton>
 #include <QShowEvent>
 #include <QSpinBox>
 #include <QVBoxLayout>
 #include <QWidget>
 
 class QLineEdit;
-class QListWidget;
 class QTabWidget;
 class QTextEdit;
 
@@ -34,79 +35,83 @@ signals:
 protected:
     void showEvent(QShowEvent* event) override {
         QWidget::showEvent(event);
-        if (mapGeneratorOrganized_ || !mapStyle_ || !mapSeed_ || !mapContinents_ || !mapIslands_ || !mapRoughness_) return;
+        if (mapsChromeApplied_ || !mapList_ || !mapCanvas_) return;
 
+        auto* mapsTab = findChild<QWidget*>(QStringLiteral("mapsTab"));
+        auto* center = findChild<QWidget*>(QStringLiteral("mapEditorCard"));
+        auto* left = findChild<QWidget*>(QStringLiteral("mapIndexPanel"));
+        auto* right = findChild<QWidget*>(QStringLiteral("legacyMarkers"));
         auto* generator = findChild<QFrame*>(QStringLiteral("generatorBar"));
-        auto* row = generator ? qobject_cast<QHBoxLayout*>(generator->layout()) : nullptr;
-        if (!generator || !row) return;
-        mapGeneratorOrganized_ = true;
+        if (!mapsTab || !center) return;
 
-        while (QLayoutItem* item = row->takeAt(0)) {
-            if (QWidget* widget = item->widget()) {
-                const bool keep = widget == mapStyle_ || widget == mapSeed_ || widget == mapContinents_ || widget == mapIslands_ || widget == mapRoughness_;
-                if (!keep) widget->deleteLater();
-            }
-            delete item;
+        mapsChromeApplied_ = true;
+
+        if (left) left->hide();
+        if (right) right->hide();
+        if (generator) generator->hide();
+        if (mapDescription_) mapDescription_->hide();
+
+        if (auto* tabLayout = qobject_cast<QVBoxLayout*>(mapsTab->layout())) {
+            tabLayout->setContentsMargins(8, 8, 8, 8);
+            tabLayout->setSpacing(6);
         }
 
-        generator->setObjectName(QStringLiteral("generatorBar"));
-        row->setContentsMargins(12, 8, 12, 8);
-        row->setSpacing(10);
+        auto* centerLayout = qobject_cast<QVBoxLayout*>(center->layout());
+        if (!centerLayout || centerLayout->count() < 1) return;
+        auto* titleRow = qobject_cast<QHBoxLayout*>(centerLayout->itemAt(0)->layout());
+        if (!titleRow) return;
 
-        auto* heading = new QWidget(generator);
-        heading->setObjectName(QStringLiteral("mapGeneratorHeading"));
-        auto* headingLayout = new QVBoxLayout(heading);
-        headingLayout->setContentsMargins(0, 0, 8, 0);
-        headingLayout->setSpacing(0);
-        auto* title = new QLabel(tr("Generador"), heading);
-        title->setObjectName(QStringLiteral("mapGeneratorTitle"));
-        auto* subtitle = new QLabel(tr("AUXILIAR"), heading);
-        subtitle->setObjectName(QStringLiteral("mapGeneratorSubtitle"));
-        headingLayout->addWidget(title);
-        headingLayout->addWidget(subtitle);
-        row->addWidget(heading);
+        for (int i = 0; i < titleRow->count(); ++i) {
+            QWidget* widget = titleRow->itemAt(i)->widget();
+            if (widget && widget != mapName_) widget->hide();
+        }
 
-        auto addField = [generator, row](const QString& labelText, QWidget* field, int width) {
-            auto* box = new QWidget(generator);
-            box->setObjectName(QStringLiteral("mapGeneratorField"));
-            auto* layout = new QVBoxLayout(box);
-            layout->setContentsMargins(0, 0, 0, 0);
-            layout->setSpacing(2);
-            auto* label = new QLabel(labelText, box);
-            label->setObjectName(QStringLiteral("mapGeneratorLabel"));
-            field->setObjectName(QStringLiteral("mapGeneratorValue"));
-            field->setFixedWidth(width);
-            field->setFixedHeight(28);
-            layout->addWidget(label);
-            layout->addWidget(field);
-            row->addWidget(box);
-        };
+        mapPicker_ = new QComboBox(center);
+        mapPicker_->setObjectName(QStringLiteral("mapPicker"));
+        mapPicker_->setMinimumWidth(180);
+        mapPicker_->setMaximumWidth(260);
+        for (int i = 0; i < mapList_->count(); ++i) mapPicker_->addItem(mapList_->item(i)->text());
+        mapPicker_->setCurrentIndex(mapList_->currentRow());
 
-        mapSeed_->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        mapContinents_->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        mapIslands_->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        mapRoughness_->setButtonSymbols(QAbstractSpinBox::NoButtons);
-        mapSeed_->setAlignment(Qt::AlignCenter);
-        mapContinents_->setAlignment(Qt::AlignCenter);
-        mapIslands_->setAlignment(Qt::AlignCenter);
-        mapRoughness_->setAlignment(Qt::AlignCenter);
+        auto* addMapButton = new QPushButton(QStringLiteral("+"), center);
+        addMapButton->setObjectName(QStringLiteral("mapChromeButton"));
+        addMapButton->setToolTip(tr("Nuevo mapa"));
+        addMapButton->setFixedWidth(30);
+        auto* removeMapButton = new QPushButton(QStringLiteral("−"), center);
+        removeMapButton->setObjectName(QStringLiteral("mapChromeButton"));
+        removeMapButton->setToolTip(tr("Eliminar mapa"));
+        removeMapButton->setFixedWidth(30);
 
-        addField(tr("Estilo"), mapStyle_, 118);
-        addField(tr("Semilla"), mapSeed_, 96);
-        addField(tr("Continentes"), mapContinents_, 76);
-        addField(tr("Islas"), mapIslands_, 64);
-        addField(tr("Rugosidad"), mapRoughness_, 76);
-        row->addStretch(1);
+        titleRow->insertWidget(0, mapPicker_);
+        titleRow->insertWidget(1, addMapButton);
+        titleRow->insertWidget(2, removeMapButton);
+        if (mapName_) {
+            mapName_->setPlaceholderText(tr("Nombre del mapa"));
+            mapName_->setMaximumWidth(420);
+        }
+
+        connect(mapPicker_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
+            if (index >= 0 && mapList_ && mapList_->currentRow() != index) mapList_->setCurrentRow(index);
+        });
+        connect(mapList_, &QListWidget::currentRowChanged, this, [this](int row) {
+            if (!mapPicker_) return;
+            mapPicker_->blockSignals(true);
+            mapPicker_->setCurrentIndex(row);
+            mapPicker_->blockSignals(false);
+        });
+        connect(addMapButton, &QPushButton::clicked, this, &WorldPage::addMap);
+        connect(removeMapButton, &QPushButton::clicked, this, &WorldPage::removeMap);
+        connect(mapName_, &QLineEdit::editingFinished, this, [this]() {
+            if (!mapPicker_ || !mapList_) return;
+            const int row = mapList_->currentRow();
+            if (row >= 0 && row < mapPicker_->count()) mapPicker_->setItemText(row, mapName_->text().trimmed().isEmpty() ? tr("Mapa sin nombre") : mapName_->text().trimmed());
+        });
 
         setStyleSheet(styleSheet() + QStringLiteral(
-            "#generatorBar{background:#f7f9fc;border:1px solid #d8dee7;border-radius:3px;}"
-            "#mapGeneratorTitle{font-weight:600;color:#344054;}"
-            "#mapGeneratorSubtitle,#mapGeneratorLabel{font-size:7.5pt;font-weight:700;color:#7a8697;letter-spacing:.45px;}"
-            "#mapGeneratorValue{background:#ffffff;border:1px solid #cfd6df;border-radius:2px;padding:3px 7px;}"
-            "#mapGeneratorValue:focus{border-color:#6ea3e2;}"
-            "#mapGeneratorValue::up-button,#mapGeneratorValue::down-button{width:0;height:0;border:0;}"
-            "#mapGeneratorValue::drop-down{width:0;border:0;}"
-            "#mapGeneratorValue::down-arrow{image:none;width:0;height:0;}"
+            "#mapEditorCard{border:0;background:transparent;}"
+            "#mapPicker{border:0;background:transparent;font-weight:600;padding-left:4px;}"
+            "#mapChromeButton{background:transparent;border:0;font-size:13pt;padding:2px;}"
+            "#mapChromeButton:hover{background:rgba(100,120,145,0.12);}"
         ));
     }
 
@@ -156,7 +161,7 @@ private:
 
     ArchiveDocument* document_ = nullptr;
     bool refreshing_ = false;
-    bool mapGeneratorOrganized_ = false;
+    bool mapsChromeApplied_ = false;
     QTabWidget* tabs_ = nullptr;
 
     QListWidget* worldList_ = nullptr;
@@ -202,6 +207,7 @@ private:
     QListWidget* magicAttachments_ = nullptr;
 
     QListWidget* mapList_ = nullptr;
+    QComboBox* mapPicker_ = nullptr;
     QLineEdit* mapName_ = nullptr;
     QTextEdit* mapDescription_ = nullptr;
     QSpinBox* mapSeed_ = nullptr;
