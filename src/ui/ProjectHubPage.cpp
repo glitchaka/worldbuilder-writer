@@ -2,6 +2,7 @@
 
 #include "core/ArchiveDocument.h"
 #include "storage/ProjectStore.h"
+#include "ui/SettingsDialog.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -105,7 +106,11 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
 
     connect(create, &QPushButton::clicked, this, &ProjectHubPage::newProjectRequested);
     connect(import, &QPushButton::clicked, this, &ProjectHubPage::importProjectRequested);
-    connect(settings, &QPushButton::clicked, this, &ProjectHubPage::settingsRequested);
+    connect(settings, &QPushButton::clicked, this, [this]() {
+        SettingsDialog dialog(this);
+        dialog.exec();
+        emit settingsRequested();
+    });
     refresh();
 }
 
