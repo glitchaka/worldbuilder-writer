@@ -13,16 +13,50 @@
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QShowEvent>
 #include <QVBoxLayout>
 
+#include <functional>
+
 namespace wbw {
 namespace {
+
+class ClickableCard final : public QFrame {
+public:
+    explicit ClickableCard(QWidget* parent = nullptr) : QFrame(parent) {
+        setCursor(Qt::PointingHandCursor);
+        setFocusPolicy(Qt::StrongFocus);
+        setAttribute(Qt::WA_Hover, true);
+    }
+
+    std::function<void()> activated;
+
+protected:
+    void mouseReleaseEvent(QMouseEvent* event) override {
+        if (event->button() == Qt::LeftButton && rect().contains(event->position().toPoint())) {
+            if (activated) activated();
+            event->accept();
+            return;
+        }
+        QFrame::mouseReleaseEvent(event);
+    }
+
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter || event->key() == Qt::Key_Space) {
+            if (activated) activated();
+            event->accept();
+            return;
+        }
+        QFrame::keyPressEvent(event);
+    }
+};
 
 QPushButton* button(const QString& text, const QString& objectName = {}) {
     auto* result = new QPushButton(text);
@@ -35,8 +69,13 @@ int manuscriptWords(const ArchiveDocument& document) {
     int words = 0;
     for (const QJsonValue chapterValue : document.array(QStringLiteral("writingChapters"))) {
         for (const QJsonValue sceneValue : chapterValue.toObject().value(QStringLiteral("scenes")).toArray()) {
-            QString content = sceneValue.toObject().value(QStringLiteral("content")).toString();
-            content.remove(QRegularExpression(QStringLiteral("<[^>]+>")));
+            const QJsonObject scene = sceneValue.toObject();
+            QString content;
+            if (scene.contains(QStringLiteral("text"))) content = scene.value(QStringLiteral("text")).toString();
+            else {
+                content = scene.value(QStringLiteral("content")).toString();
+                content.remove(QRegularExpression(QStringLiteral("<[^>]+>")));
+            }
             words += content.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
         }
     }
@@ -105,6 +144,7 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
     title->setObjectName(QStringLiteral("hubTitle"));
     auto* description = new QLabel(tr("Los proyectos guardados localmente aparecen como tarjetas independientes."));
     description->setObjectName(QStringLiteral("hubDescription"));
+    description->setWordWrap(true);
     copy->addWidget(kicker);
     copy->addWidget(title);
     copy->addWidget(description);
@@ -167,8 +207,8 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
         "#projectStatValue{font-weight:700;color:#344054;font-size:10pt;}"
         "#projectStatLabel,#projectSaved{color:#98a2b3;font-size:8pt;}"
         "QPushButton#projectDelete{background:transparent;color:#b42318;border:0;padding:5px 8px;}"
-        "QPushButton#projectCardNew{background:#f8fafc;color:#344054;border:1px dashed #b8c2cf;border-radius:4px;text-align:left;}"
-        "QPushButton#projectCardNew:hover{background:#f1f6ff;border-color:#8bb5ef;}"
+        "QFrame#projectCardNew{background:#f8fafc;border:1px dashed #b8c2cf;border-radius:4px;}"
+        "QFrame#projectCardNew:hover,QFrame#projectCardNew:focus{background:#f1f6ff;border-color:#8bb5ef;}"
         "#newProjectMark{background:#eaf2ff;color:#1668d4;border:1px solid #c8dbfb;border-radius:23px;font-size:20pt;font-weight:300;}"
     ));
 
@@ -205,9 +245,9 @@ void ProjectHubPage::rebuildCards() {
     int row = 0;
     int column = 0;
 
-    auto* newCard = new QPushButton;
+    auto* newCard = new ClickableCard;
     newCard->setObjectName(QStringLiteral("projectCardNew"));
-    newCard->setCursor(Qt::PointingHandCursor);
+    newCard->setAccessibleName(tr("Nueva obra"));
     newCard->setMinimumSize(300, 250);
     newCard->setMaximumWidth(390);
     auto* newLayout = new QVBoxLayout(newCard);
@@ -217,20 +257,24 @@ void ProjectHubPage::rebuildCards() {
     plus->setObjectName(QStringLiteral("newProjectMark"));
     plus->setAlignment(Qt::AlignCenter);
     plus->setFixedSize(46, 46);
+    plus->setAttribute(Qt::WA_TransparentForMouseEvents);
     auto* newTitle = new QLabel(tr("Nueva obra"));
     newTitle->setObjectName(QStringLiteral("newProjectTitle"));
+    newTitle->setAttribute(Qt::WA_TransparentForMouseEvents);
     auto* newCopy = new QLabel(tr("Comienza con un archivo completamente vacío."));
     newCopy->setObjectName(QStringLiteral("newProjectCopy"));
     newCopy->setWordWrap(true);
+    newCopy->setAttribute(Qt::WA_TransparentForMouseEvents);
     auto* newMeta = new QLabel(tr("CREAR DESDE CERO"));
     newMeta->setObjectName(QStringLiteral("newProjectMeta"));
+    newMeta->setAttribute(Qt::WA_TransparentForMouseEvents);
     newLayout->addWidget(plus, 0, Qt::AlignLeft);
     newLayout->addStretch(1);
     newLayout->addWidget(newTitle);
     newLayout->addWidget(newCopy);
     newLayout->addStretch(1);
     newLayout->addWidget(newMeta);
-    connect(newCard, &QPushButton::clicked, this, &ProjectHubPage::newProjectRequested);
+    newCard->activated = [this]() { emit newProjectRequested(); };
     cards_->addWidget(newCard, row, column++);
 
     for (const QString& path : ProjectStore::projectFiles()) {
