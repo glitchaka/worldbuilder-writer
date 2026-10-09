@@ -12,6 +12,7 @@ class QComboBox;
 class QGraphicsView;
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QSplitter;
 class QTabWidget;
 class QToolButton;
@@ -54,13 +55,15 @@ private:
     void loadSceneContent(const QJsonObject& scene);
     QJsonArray serializeFormatting() const;
     void applyFormatting(const QJsonArray& formatting);
+    void updateReferenceInspector(const QJsonArray& references);
 
     ArchiveDocument* document_ = nullptr;
     bool refreshing_ = false;
     QTabWidget* tabs_ = nullptr;
     QSplitter* editorSplit_ = nullptr;
     QWidget* indexPanel_ = nullptr;
-    QWidget* metadataPanel_ = nullptr;
+    QWidget* inspectorPanel_ = nullptr;
+    QTabWidget* inspectorTabs_ = nullptr;
     QTreeWidget* tree_ = nullptr;
     QLineEdit* sceneTitle_ = nullptr;
     QLineEdit* scenePov_ = nullptr;
@@ -70,6 +73,7 @@ private:
     SemanticTextEdit* editor_ = nullptr;
     QLabel* wordCount_ = nullptr;
     QLabel* proofState_ = nullptr;
+    QListWidget* references_ = nullptr;
     QToolButton* bold_ = nullptr;
     QToolButton* italic_ = nullptr;
     QToolButton* underline_ = nullptr;
