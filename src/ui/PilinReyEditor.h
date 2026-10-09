@@ -11,7 +11,6 @@ class QCheckBox;
 class QFrame;
 class QLabel;
 class QListWidget;
-class QPushButton;
 class QResizeEvent;
 class QShowEvent;
 class QSlider;
@@ -28,13 +27,16 @@ public:
         Select,
         Pan,
         Coast,
+        Region,
         River,
         Road,
         Border,
         Forest,
         Mountain,
         Settlement,
-        Label
+        Label,
+        Eraser,
+        Measure
     };
 
     explicit PilinReyEditor(QWidget* parent = nullptr);
@@ -79,7 +81,10 @@ private:
     void movePointObject(const QString& id, double x, double y);
     void movePathPoint(const QString& id, int pointIndex, double x, double y);
     void editSelectedObject();
+    void duplicateSelectedObject();
     void deleteSelectedObject();
+    void copySelectedObject();
+    void pasteCopiedObject();
     void linkSelectedToAtlas();
     QJsonObject selectedObject() const;
     void mutateDocument(const std::function<void(QJsonObject&)>& mutation);
@@ -91,6 +96,7 @@ private:
     QString activeLayerId() const;
 
     QJsonObject map_;
+    QJsonObject copiedObject_;
     QList<QJsonObject> undoStack_;
     QList<QJsonObject> redoStack_;
     bool refreshing_ = false;
@@ -108,15 +114,17 @@ private:
     QSlider* templateOpacity_ = nullptr;
     QSlider* layerOpacity_ = nullptr;
     QCheckBox* layerLocked_ = nullptr;
+    QCheckBox* snapCheck_ = nullptr;
     QLabel* status_ = nullptr;
     QLabel* selectionLabel_ = nullptr;
-    QPushButton* undoButton_ = nullptr;
-    QPushButton* redoButton_ = nullptr;
-    QPushButton* editObjectButton_ = nullptr;
-    QPushButton* linkAtlasButton_ = nullptr;
-    QPushButton* deleteObjectButton_ = nullptr;
-    QPushButton* layersButton_ = nullptr;
-    QPushButton* templateButton_ = nullptr;
+    QToolButton* undoButton_ = nullptr;
+    QToolButton* redoButton_ = nullptr;
+    QToolButton* editObjectButton_ = nullptr;
+    QToolButton* duplicateObjectButton_ = nullptr;
+    QToolButton* linkAtlasButton_ = nullptr;
+    QToolButton* deleteObjectButton_ = nullptr;
+    QToolButton* layersButton_ = nullptr;
+    QToolButton* templateButton_ = nullptr;
     QList<QToolButton*> toolButtons_;
 };
 
