@@ -19,8 +19,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniz)
 
-# Pilín Rey uses SDL3 for the interactive cartographic viewport. Build it
-# statically so the Windows bundle remains stand-alone.
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
@@ -34,7 +32,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL3)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets Network)
 qt_standard_project_setup()
 
 enable_testing()
@@ -44,6 +42,7 @@ qt_add_executable(WorldbuilderWriter
     src/core/ArchiveDocument.cpp
     src/storage/ProjectStore.cpp
     src/storage/WbwPackage.cpp
+    src/storage/GoogleDriveService.cpp
     src/import/ManuscriptImporter.cpp
     src/ui/RelationshipBoard.cpp
     src/ui/MapExporter.cpp
@@ -63,6 +62,7 @@ target_link_libraries(WorldbuilderWriter PRIVATE
     Qt6::PrintSupport
     Qt6::Multimedia
     Qt6::MultimediaWidgets
+    Qt6::Network
     SDL3::SDL3
     miniz
 )
