@@ -9,11 +9,11 @@
 #include <QPushButton>
 #include <QShowEvent>
 #include <QSpinBox>
+#include <QTextEdit>
 #include <QVBoxLayout>
 #include <QWidget>
 
 class QTabWidget;
-class QTextEdit;
 
 namespace wbw {
 
@@ -99,8 +99,24 @@ protected:
             mapPicker_->setCurrentIndex(row);
             mapPicker_->blockSignals(false);
         });
-        connect(addMapButton, &QPushButton::clicked, this, &WorldPage::addMap);
-        connect(removeMapButton, &QPushButton::clicked, this, &WorldPage::removeMap);
+        connect(addMapButton, &QPushButton::clicked, this, [this]() {
+            addMap();
+            if (!mapPicker_ || !mapList_) return;
+            mapPicker_->blockSignals(true);
+            mapPicker_->clear();
+            for (int i = 0; i < mapList_->count(); ++i) mapPicker_->addItem(mapList_->item(i)->text());
+            mapPicker_->setCurrentIndex(mapList_->currentRow());
+            mapPicker_->blockSignals(false);
+        });
+        connect(removeMapButton, &QPushButton::clicked, this, [this]() {
+            removeMap();
+            if (!mapPicker_ || !mapList_) return;
+            mapPicker_->blockSignals(true);
+            mapPicker_->clear();
+            for (int i = 0; i < mapList_->count(); ++i) mapPicker_->addItem(mapList_->item(i)->text());
+            mapPicker_->setCurrentIndex(mapList_->currentRow());
+            mapPicker_->blockSignals(false);
+        });
         connect(mapName_, &QLineEdit::editingFinished, this, [this]() {
             if (!mapPicker_ || !mapList_) return;
             const int row = mapList_->currentRow();
