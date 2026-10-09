@@ -1,21 +1,23 @@
 #pragma once
 
+#include "core/ArchiveDocument.h"
+
+#include <QCheckBox>
+#include <QComboBox>
 #include <QFrame>
 #include <QHash>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QSpinBox>
+#include <QTabWidget>
+#include <QTextEdit>
 #include <QWidget>
-
-class QCheckBox;
-class QComboBox;
-class QLabel;
-class QLineEdit;
-class QListWidget;
-class QSpinBox;
-class QTabWidget;
-class QTextEdit;
 
 namespace wbw {
 
-class ArchiveDocument;
 class RelationshipBoard;
 
 class PlanningPage final : public QWidget {
@@ -25,6 +27,18 @@ public:
 
     void setDocument(ArchiveDocument* document);
     void refresh();
+
+    void openCharacter(const QString& id) {
+        if (!document_ || id.isEmpty() || !tabs_ || !characterList_) return;
+        const QJsonArray characters = document_->array(QStringLiteral("characters"));
+        for (int i = 0; i < characters.size(); ++i) {
+            if (characters.at(i).toObject().value(QStringLiteral("id")).toString() != id) continue;
+            tabs_->setCurrentIndex(0);
+            characterList_->setCurrentRow(i);
+            characterList_->scrollToItem(characterList_->item(i));
+            return;
+        }
+    }
 
 signals:
     void changed();
