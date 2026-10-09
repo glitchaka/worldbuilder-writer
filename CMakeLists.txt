@@ -44,6 +44,7 @@ qt_add_executable(WorldbuilderWriter
     src/storage/WbwPackage.cpp
     src/storage/GoogleDriveService.cpp
     src/import/ManuscriptImporter.cpp
+    src/ui/ThemeManager.cpp
     src/ui/RelationshipBoard.cpp
     src/ui/MapExporter.cpp
     src/ui/MapExportDialog.cpp
