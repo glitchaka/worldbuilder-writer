@@ -3,6 +3,7 @@
 #include <QDialog>
 #include <QJsonArray>
 #include <QString>
+#include <QStringList>
 
 class QLabel;
 class QLineEdit;
