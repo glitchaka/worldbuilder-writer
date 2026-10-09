@@ -2,6 +2,7 @@
 
 #include "core/ArchiveDocument.h"
 
+#include <QApplication>
 #include <QContextMenuEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -45,6 +46,10 @@ bool boundary(const QString& text, int index) {
     return !(ch.isLetterOrNumber() || ch == QLatin1Char('_'));
 }
 
+void rememberCharacterReference(const QString& kind, const QString& id) {
+    if (kind == QStringLiteral("character") && qApp) qApp->setProperty("wbwPendingCharacterReference", id);
+}
+
 } // namespace
 
 SemanticTextEdit::SemanticTextEdit(QWidget* parent)
@@ -83,9 +88,7 @@ void SemanticTextEdit::refreshSemanticReferences() {
                     const int pos = plain.indexOf(label, from, Qt::CaseInsensitive);
                     if (pos < 0) break;
                     const int end = pos + labelLength;
-                    if (boundary(plain, pos - 1) && boundary(plain, end)) {
-                        references_.append({pos, labelLength, kind, id, label});
-                    }
+                    if (boundary(plain, pos - 1) && boundary(plain, end)) references_.append({pos, labelLength, kind, id, label});
                     from = qMax(end, pos + 1);
                 }
             }
@@ -119,11 +122,7 @@ void SemanticTextEdit::refreshSemanticReferences() {
         const QString key = hit.kind + QLatin1Char('|') + hit.id;
         if (seen.contains(key)) continue;
         seen.insert(key);
-        index.append(QJsonObject{
-            {QStringLiteral("label"), hit.label},
-            {QStringLiteral("kind"), hit.kind},
-            {QStringLiteral("id"), hit.id}
-        });
+        index.append(QJsonObject{{QStringLiteral("label"), hit.label}, {QStringLiteral("kind"), hit.kind}, {QStringLiteral("id"), hit.id}});
     }
     emit referenceIndexChanged(index);
 }
@@ -155,7 +154,6 @@ void SemanticTextEdit::clearProofread() {
 
 void SemanticTextEdit::rebuildSelections() {
     QList<QTextEdit::ExtraSelection> selections;
-
     for (const ReferenceHit& hit : references_) {
         QTextCursor cursor(document());
         cursor.setPosition(hit.start);
@@ -167,7 +165,6 @@ void SemanticTextEdit::rebuildSelections() {
         selection.format.setUnderlineColor(QColor(QStringLiteral("#175cd3")));
         selections.append(selection);
     }
-
     for (const ProofIssue& issue : proofIssues_) {
         QTextCursor cursor(document());
         cursor.setPosition(issue.start);
@@ -178,21 +175,16 @@ void SemanticTextEdit::rebuildSelections() {
         selection.format.setUnderlineColor(QColor(QStringLiteral("#c62828")));
         selections.append(selection);
     }
-
     setExtraSelections(selections);
 }
 
 const SemanticTextEdit::ReferenceHit* SemanticTextEdit::referenceAt(int position) const {
-    for (const ReferenceHit& hit : references_) {
-        if (position >= hit.start && position <= hit.start + hit.length) return &hit;
-    }
+    for (const ReferenceHit& hit : references_) if (position >= hit.start && position <= hit.start + hit.length) return &hit;
     return nullptr;
 }
 
 const SemanticTextEdit::ProofIssue* SemanticTextEdit::proofIssueAt(int position) const {
-    for (const ProofIssue& issue : proofIssues_) {
-        if (position >= issue.start && position <= issue.start + issue.length) return &issue;
-    }
+    for (const ProofIssue& issue : proofIssues_) if (position >= issue.start && position <= issue.start + issue.length) return &issue;
     return nullptr;
 }
 
@@ -200,7 +192,10 @@ void SemanticTextEdit::mouseReleaseEvent(QMouseEvent* event) {
     QTextEdit::mouseReleaseEvent(event);
     if (event->button() != Qt::LeftButton) return;
     const int position = cursorForPosition(event->position().toPoint()).position();
-    if (const ReferenceHit* hit = referenceAt(position)) emit referenceActivated(hit->kind, hit->id);
+    if (const ReferenceHit* hit = referenceAt(position)) {
+        rememberCharacterReference(hit->kind, hit->id);
+        emit referenceActivated(hit->kind, hit->id);
+    }
 }
 
 void SemanticTextEdit::contextMenuEvent(QContextMenuEvent* event) {
@@ -209,7 +204,12 @@ void SemanticTextEdit::contextMenuEvent(QContextMenuEvent* event) {
     if (const ReferenceHit* hit = referenceAt(position)) {
         menu->insertSeparator(menu->actions().isEmpty() ? nullptr : menu->actions().first());
         QAction* open = new QAction(tr("Abrir ficha: %1").arg(hit->label), menu);
-        connect(open, &QAction::triggered, this, [this, hit]() { emit referenceActivated(hit->kind, hit->id); });
+        const QString kind = hit->kind;
+        const QString id = hit->id;
+        connect(open, &QAction::triggered, this, [this, kind, id]() {
+            rememberCharacterReference(kind, id);
+            emit referenceActivated(kind, id);
+        });
         menu->insertAction(menu->actions().isEmpty() ? nullptr : menu->actions().first(), open);
     }
     if (const ProofIssue* issue = proofIssueAt(position)) {
@@ -217,7 +217,7 @@ void SemanticTextEdit::contextMenuEvent(QContextMenuEvent* event) {
         QAction* info = menu->addAction(issue->message);
         info->setEnabled(false);
         for (const QString& replacement : issue->replacements.mid(0, 8)) {
-            QAction* action = menu->addAction(tr("Reemplazar por “%1").arg(replacement));
+            QAction* action = menu->addAction(tr("Reemplazar por “%1”").arg(replacement));
             const ProofIssue copy = *issue;
             connect(action, &QAction::triggered, this, [this, copy, replacement]() { applyReplacement(copy, replacement); });
         }
@@ -241,7 +241,6 @@ void SemanticTextEdit::parseProofreadReply(QNetworkReply* reply) {
         emit proofreadError(tr("LanguageTool no respondió. Comprueba la conexión e inténtalo de nuevo."));
         return;
     }
-
     const QJsonDocument json = QJsonDocument::fromJson(reply->readAll());
     if (!json.isObject()) {
         emit proofreadError(tr("LanguageTool devolvió una respuesta inválida."));
