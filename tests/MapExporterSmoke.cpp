@@ -1,6 +1,6 @@
 #include "ui/MapExporter.h"
 
-#include <QCoreApplication>
+#include <QApplication>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -53,7 +53,8 @@ QJsonObject sampleMap() {
 } // namespace
 
 int main(int argc, char** argv) {
-    QCoreApplication app(argc, argv);
+    qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
+    QApplication app(argc, argv);
     QTemporaryDir directory;
     if (!require(directory.isValid(), "temporary directory could not be created")) return 1;
 
