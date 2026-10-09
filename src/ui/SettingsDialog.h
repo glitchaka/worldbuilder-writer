@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QJsonArray>
 
 class QLabel;
 class QLineEdit;
