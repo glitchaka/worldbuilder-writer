@@ -77,13 +77,14 @@ void SemanticTextEdit::refreshSemanticReferences() {
             labels.removeDuplicates();
             for (const QString& label : labels) {
                 if (label.size() < 2) continue;
+                const int labelLength = static_cast<int>(label.size());
                 int from = 0;
                 while (from < plain.size()) {
                     const int pos = plain.indexOf(label, from, Qt::CaseInsensitive);
                     if (pos < 0) break;
-                    const int end = pos + label.size();
+                    const int end = pos + labelLength;
                     if (boundary(plain, pos - 1) && boundary(plain, end)) {
-                        references_.append({pos, label.size(), kind, id, label});
+                        references_.append({pos, labelLength, kind, id, label});
                     }
                     from = qMax(end, pos + 1);
                 }
