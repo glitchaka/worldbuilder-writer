@@ -2,6 +2,7 @@
 
 #include "core/ArchiveDocument.h"
 
+#include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFrame>
@@ -11,6 +12,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QShowEvent>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -42,6 +44,16 @@ public:
 
 signals:
     void changed();
+
+protected:
+    void showEvent(QShowEvent* event) override {
+        QWidget::showEvent(event);
+        if (!qApp) return;
+        const QString pending = qApp->property("wbwPendingCharacterReference").toString();
+        if (pending.isEmpty()) return;
+        qApp->setProperty("wbwPendingCharacterReference", QVariant());
+        openCharacter(pending);
+    }
 
 private:
     QWidget* buildCharactersTab();
