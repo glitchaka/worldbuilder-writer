@@ -1,7 +1,7 @@
 #include "ui/WorldPage.h"
 
 #include "core/ArchiveDocument.h"
-#include "ui/MapCanvas.h"
+#include "ui/PilinReyEditor.h"
 
 #include <QComboBox>
 #include <QDateTime>
@@ -9,10 +9,13 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
@@ -42,8 +45,20 @@ QPushButton* makeButton(const QString& text) {
 
 QTextEdit* shortText() {
     auto* edit = new QTextEdit;
-    edit->setMaximumHeight(92);
+    edit->setMaximumHeight(88);
     return edit;
+}
+
+QWidget* fieldBlock(const QString& title, QWidget* field) {
+    auto* box = new QWidget;
+    auto* layout = new QVBoxLayout(box);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(5);
+    auto* label = new QLabel(title);
+    label->setObjectName(QStringLiteral("fieldTitle"));
+    layout->addWidget(label);
+    layout->addWidget(field);
+    return box;
 }
 
 QString jsonStrings(const QJsonArray& array) {
@@ -95,18 +110,6 @@ void setCombo(QComboBox* combo, const QString& value) {
     }
 }
 
-QWidget* scrollForm(QFormLayout*& form) {
-    auto* content = new QWidget;
-    form = new QFormLayout(content);
-    form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    form->setLabelAlignment(Qt::AlignTop | Qt::AlignLeft);
-    auto* scroll = new QScrollArea;
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setWidget(content);
-    return scroll;
-}
-
 QString fileDataUrl(const QString& path, QByteArray* bytesOut = nullptr, QString* mimeOut = nullptr) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return {};
@@ -135,14 +138,28 @@ QString attachmentKind(const QString& mime, const QString& name) {
 } // namespace
 
 WorldPage::WorldPage(QWidget* parent) : QWidget(parent) {
+    setObjectName(QStringLiteral("worldPage"));
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 0);
     tabs_ = new QTabWidget;
+    tabs_->setObjectName(QStringLiteral("worldTabs"));
     tabs_->addTab(buildAtlasTab(), tr("Atlas"));
     tabs_->addTab(buildMagicTab(), tr("Magia"));
     tabs_->addTab(buildMapsTab(), tr("Mapas"));
     tabs_->addTab(buildTextsTab(), tr("Textos de referencia"));
     root->addWidget(tabs_);
+
+    setStyleSheet(QStringLiteral(
+        "#worldPage{background:#edf1f5;}"
+        "#worldTabs::pane{border:0;background:#edf1f5;}"
+        "#atlasTab,#magicTab,#mapsTab{background:#edf1f5;}"
+        "#worldIndexPanel,#worldEditorCard,#magicIndexPanel,#magicEditorCard,#mapIndexPanel,#mapEditorCard,#legacyMarkers{background:#ffffff;border:1px solid #d5dce5;}"
+        "#pageKicker,#fieldTitle,#panelTitle{color:#667085;font-size:8pt;font-weight:700;letter-spacing:.6px;}"
+        "#pageTitle{font-family:'Georgia';font-size:24pt;color:#344054;}"
+        "#pageDescription{font-family:'Georgia';color:#667085;}"
+        "#generatorBar{background:#f7f9fc;border:1px solid #d8dee7;}"
+        "QTextEdit{min-height:62px;}"
+    ));
 }
 
 void WorldPage::setDocument(ArchiveDocument* document) {
@@ -152,18 +169,64 @@ void WorldPage::setDocument(ArchiveDocument* document) {
 
 QWidget* WorldPage::buildAtlasTab() {
     auto* tab = new QWidget;
-    auto* layout = new QVBoxLayout(tab);
-    auto* split = new QSplitter;
-    worldList_ = new QListWidget;
-    worldList_->setMinimumWidth(230);
-    split->addWidget(worldList_);
+    tab->setObjectName(QStringLiteral("atlasTab"));
+    auto* root = new QVBoxLayout(tab);
+    root->setContentsMargins(30, 22, 30, 30);
+    root->setSpacing(16);
 
-    QFormLayout* form = nullptr;
-    QWidget* editor = scrollForm(form);
+    auto* heading = new QVBoxLayout;
+    auto* kicker = new QLabel(tr("PAÍSES / REGIONES / CULTURAS / LUGARES"));
+    kicker->setObjectName(QStringLiteral("pageKicker"));
+    auto* title = new QLabel(tr("Atlas"));
+    title->setObjectName(QStringLiteral("pageTitle"));
+    auto* description = new QLabel(tr("Organiza el mundo por entradas relacionadas, sin convertir cada ficha en un formulario interminable."));
+    description->setObjectName(QStringLiteral("pageDescription"));
+    description->setWordWrap(true);
+    heading->addWidget(kicker);
+    heading->addWidget(title);
+    heading->addWidget(description);
+    root->addLayout(heading);
+
+    auto* split = new QSplitter;
+    split->setChildrenCollapsible(false);
+    split->setHandleWidth(8);
+
+    auto* left = new QWidget;
+    left->setObjectName(QStringLiteral("worldIndexPanel"));
+    auto* leftLayout = new QVBoxLayout(left);
+    leftLayout->setContentsMargins(12, 12, 12, 12);
+    auto* leftTitle = new QLabel(tr("ENTRADAS"));
+    leftTitle->setObjectName(QStringLiteral("panelTitle"));
+    leftLayout->addWidget(leftTitle);
+    worldList_ = new QListWidget;
+    worldList_->setMinimumWidth(235);
+    worldList_->setMaximumWidth(340);
+    leftLayout->addWidget(worldList_, 1);
+    auto* listActions = new QHBoxLayout;
+    auto* add = makeButton(tr("+ Entrada"));
+    auto* remove = makeButton(tr("Eliminar"));
+    listActions->addWidget(add, 1);
+    listActions->addWidget(remove);
+    leftLayout->addLayout(listActions);
+    split->addWidget(left);
+
+    auto* scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto* editor = new QWidget;
+    editor->setObjectName(QStringLiteral("worldEditorCard"));
+    auto* editorLayout = new QVBoxLayout(editor);
+    editorLayout->setContentsMargins(18, 16, 18, 20);
+    editorLayout->setSpacing(12);
+    auto* editorTitle = new QLabel(tr("FICHA DE MUNDO"));
+    editorTitle->setObjectName(QStringLiteral("panelTitle"));
+    editorLayout->addWidget(editorTitle);
+
     worldKind_ = new QComboBox;
     worldKind_->addItems({tr("País/Reino"), tr("Región"), tr("Ciudad/Lugar"), tr("Pueblo/Cultura"), tr("Moneda"), tr("Idioma"), tr("Religión"), tr("Organización"), tr("Objeto/Artefacto"), tr("Cosmología"), tr("Concepto"), tr("Otro")});
     worldName_ = new QLineEdit;
     worldAliases_ = new QLineEdit;
+    worldAliases_->setPlaceholderText(tr("Separados por comas"));
     worldSummary_ = shortText();
     worldGeography_ = shortText();
     worldGovernment_ = shortText();
@@ -180,30 +243,40 @@ QWidget* WorldPage::buildAtlasTab() {
     worldConflicts_ = shortText();
     worldNotes_ = shortText();
     worldTags_ = new QLineEdit;
+    worldTags_->setPlaceholderText(tr("Separadas por comas"));
     worldAttachments_ = new QListWidget;
     worldAttachments_->setMaximumHeight(110);
-    worldAliases_->setPlaceholderText(tr("Separados por comas"));
-    worldTags_->setPlaceholderText(tr("Separadas por comas"));
-    form->addRow(tr("Tipo"), worldKind_);
-    form->addRow(tr("Nombre"), worldName_);
-    form->addRow(tr("Alias"), worldAliases_);
-    form->addRow(tr("Resumen"), worldSummary_);
-    form->addRow(tr("Geografía"), worldGeography_);
-    form->addRow(tr("Gobierno"), worldGovernment_);
-    form->addRow(tr("Pueblos"), worldPeoples_);
-    form->addRow(tr("Cultura"), worldCulture_);
-    form->addRow(tr("Economía"), worldEconomy_);
-    form->addRow(tr("Moneda"), worldCurrency_);
-    form->addRow(tr("Idiomas"), worldLanguages_);
-    form->addRow(tr("Religiones"), worldReligions_);
-    form->addRow(tr("Fuerza militar"), worldMilitary_);
-    form->addRow(tr("Historia"), worldHistory_);
-    form->addRow(tr("Relaciones"), worldRelations_);
-    form->addRow(tr("Localizaciones"), worldLocations_);
-    form->addRow(tr("Conflictos"), worldConflicts_);
-    form->addRow(tr("Notas"), worldNotes_);
-    form->addRow(tr("Etiquetas"), worldTags_);
-    form->addRow(tr("Adjuntos"), worldAttachments_);
+
+    auto* identity = new QGridLayout;
+    identity->setHorizontalSpacing(10);
+    identity->setVerticalSpacing(10);
+    identity->addWidget(fieldBlock(tr("Tipo"), worldKind_), 0, 0);
+    identity->addWidget(fieldBlock(tr("Nombre"), worldName_), 0, 1);
+    identity->addWidget(fieldBlock(tr("Alias"), worldAliases_), 0, 2);
+    identity->addWidget(fieldBlock(tr("Resumen"), worldSummary_), 1, 0, 1, 3);
+    editorLayout->addLayout(identity);
+
+    auto* grid = new QGridLayout;
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(12);
+    grid->addWidget(fieldBlock(tr("Geografía"), worldGeography_), 0, 0);
+    grid->addWidget(fieldBlock(tr("Gobierno"), worldGovernment_), 0, 1);
+    grid->addWidget(fieldBlock(tr("Pueblos"), worldPeoples_), 1, 0);
+    grid->addWidget(fieldBlock(tr("Cultura"), worldCulture_), 1, 1);
+    grid->addWidget(fieldBlock(tr("Economía"), worldEconomy_), 2, 0);
+    grid->addWidget(fieldBlock(tr("Moneda"), worldCurrency_), 2, 1);
+    grid->addWidget(fieldBlock(tr("Idiomas"), worldLanguages_), 3, 0);
+    grid->addWidget(fieldBlock(tr("Religiones"), worldReligions_), 3, 1);
+    grid->addWidget(fieldBlock(tr("Fuerza militar"), worldMilitary_), 4, 0);
+    grid->addWidget(fieldBlock(tr("Historia"), worldHistory_), 4, 1);
+    grid->addWidget(fieldBlock(tr("Relaciones"), worldRelations_), 5, 0);
+    grid->addWidget(fieldBlock(tr("Localizaciones"), worldLocations_), 5, 1);
+    grid->addWidget(fieldBlock(tr("Conflictos"), worldConflicts_), 6, 0);
+    grid->addWidget(fieldBlock(tr("Notas"), worldNotes_), 6, 1);
+    editorLayout->addLayout(grid);
+    editorLayout->addWidget(fieldBlock(tr("Etiquetas"), worldTags_));
+    editorLayout->addWidget(fieldBlock(tr("Adjuntos"), worldAttachments_));
+
     auto* attachmentActions = new QHBoxLayout;
     auto* attach = makeButton(tr("Añadir adjunto…"));
     auto* detach = makeButton(tr("Quitar"));
@@ -212,17 +285,13 @@ QWidget* WorldPage::buildAtlasTab() {
     attachmentActions->addWidget(detach);
     attachmentActions->addWidget(exportAttachment);
     attachmentActions->addStretch();
-    form->addRow(attachmentActions);
-    auto* actions = new QHBoxLayout;
-    auto* add = makeButton(tr("+ Entrada"));
-    auto* remove = makeButton(tr("Eliminar"));
-    actions->addWidget(add);
-    actions->addWidget(remove);
-    actions->addStretch();
-    form->addRow(actions);
-    split->addWidget(editor);
+    editorLayout->addLayout(attachmentActions);
+    editorLayout->addStretch();
+    scroll->setWidget(editor);
+    split->addWidget(scroll);
     split->setStretchFactor(1, 1);
-    layout->addWidget(split);
+    split->setSizes({270, 1050});
+    root->addWidget(split, 1);
 
     connect(worldList_, &QListWidget::currentRowChanged, this, &WorldPage::selectWorld);
     connect(add, &QPushButton::clicked, this, &WorldPage::addWorld);
@@ -241,13 +310,54 @@ QWidget* WorldPage::buildAtlasTab() {
 
 QWidget* WorldPage::buildMagicTab() {
     auto* tab = new QWidget;
-    auto* layout = new QVBoxLayout(tab);
+    tab->setObjectName(QStringLiteral("magicTab"));
+    auto* root = new QVBoxLayout(tab);
+    root->setContentsMargins(30, 22, 30, 30);
+    root->setSpacing(16);
+
+    auto* heading = new QVBoxLayout;
+    auto* kicker = new QLabel(tr("FUENTE / ACCESO / COSTE / LÍMITES"));
+    kicker->setObjectName(QStringLiteral("pageKicker"));
+    auto* title = new QLabel(tr("Sistemas de magia"));
+    title->setObjectName(QStringLiteral("pageTitle"));
+    heading->addWidget(kicker);
+    heading->addWidget(title);
+    root->addLayout(heading);
+
     auto* split = new QSplitter;
+    split->setChildrenCollapsible(false);
+    split->setHandleWidth(8);
+    auto* left = new QWidget;
+    left->setObjectName(QStringLiteral("magicIndexPanel"));
+    auto* leftLayout = new QVBoxLayout(left);
+    leftLayout->setContentsMargins(12, 12, 12, 12);
+    auto* leftTitle = new QLabel(tr("SISTEMAS"));
+    leftTitle->setObjectName(QStringLiteral("panelTitle"));
+    leftLayout->addWidget(leftTitle);
     magicList_ = new QListWidget;
-    magicList_->setMinimumWidth(230);
-    split->addWidget(magicList_);
-    QFormLayout* form = nullptr;
-    QWidget* editor = scrollForm(form);
+    magicList_->setMinimumWidth(235);
+    magicList_->setMaximumWidth(340);
+    leftLayout->addWidget(magicList_, 1);
+    auto* listActions = new QHBoxLayout;
+    auto* add = makeButton(tr("+ Sistema"));
+    auto* remove = makeButton(tr("Eliminar"));
+    listActions->addWidget(add, 1);
+    listActions->addWidget(remove);
+    leftLayout->addLayout(listActions);
+    split->addWidget(left);
+
+    auto* scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto* editor = new QWidget;
+    editor->setObjectName(QStringLiteral("magicEditorCard"));
+    auto* editorLayout = new QVBoxLayout(editor);
+    editorLayout->setContentsMargins(18, 16, 18, 20);
+    editorLayout->setSpacing(12);
+    auto* editorTitle = new QLabel(tr("FICHA DEL SISTEMA"));
+    editorTitle->setObjectName(QStringLiteral("panelTitle"));
+    editorLayout->addWidget(editorTitle);
+
     magicName_ = new QLineEdit;
     magicCategory_ = new QLineEdit;
     magicStatus_ = new QComboBox;
@@ -270,24 +380,33 @@ QWidget* WorldPage::buildMagicTab() {
     magicTags_->setPlaceholderText(tr("Separadas por comas"));
     magicAttachments_ = new QListWidget;
     magicAttachments_->setMaximumHeight(110);
-    form->addRow(tr("Nombre"), magicName_);
-    form->addRow(tr("Categoría"), magicCategory_);
-    form->addRow(tr("Estado"), magicStatus_);
-    form->addRow(tr("Fuente"), magicSource_);
-    form->addRow(tr("Principio"), magicPrinciple_);
-    form->addRow(tr("Acceso"), magicAccess_);
-    form->addRow(tr("Coste"), magicCost_);
-    form->addRow(tr("Límites"), magicLimits_);
-    form->addRow(tr("Manifestaciones"), magicManifestations_);
-    form->addRow(tr("Materiales"), magicMaterials_);
-    form->addRow(tr("Instituciones"), magicInstitutions_);
-    form->addRow(tr("Usuarios"), magicUsers_);
-    form->addRow(tr("Riesgos"), magicRisks_);
-    form->addRow(tr("Historia"), magicHistory_);
-    form->addRow(tr("Notas"), magicNotes_);
-    form->addRow(tr("Evidencias"), magicEvidence_);
-    form->addRow(tr("Etiquetas"), magicTags_);
-    form->addRow(tr("Adjuntos"), magicAttachments_);
+
+    auto* identity = new QGridLayout;
+    identity->setHorizontalSpacing(10);
+    identity->addWidget(fieldBlock(tr("Nombre"), magicName_), 0, 0);
+    identity->addWidget(fieldBlock(tr("Categoría"), magicCategory_), 0, 1);
+    identity->addWidget(fieldBlock(tr("Estado"), magicStatus_), 0, 2);
+    editorLayout->addLayout(identity);
+
+    auto* grid = new QGridLayout;
+    grid->setHorizontalSpacing(12);
+    grid->setVerticalSpacing(12);
+    grid->addWidget(fieldBlock(tr("Fuente"), magicSource_), 0, 0);
+    grid->addWidget(fieldBlock(tr("Principio"), magicPrinciple_), 0, 1);
+    grid->addWidget(fieldBlock(tr("Acceso"), magicAccess_), 1, 0);
+    grid->addWidget(fieldBlock(tr("Coste"), magicCost_), 1, 1);
+    grid->addWidget(fieldBlock(tr("Límites"), magicLimits_), 2, 0);
+    grid->addWidget(fieldBlock(tr("Manifestaciones"), magicManifestations_), 2, 1);
+    grid->addWidget(fieldBlock(tr("Materiales"), magicMaterials_), 3, 0);
+    grid->addWidget(fieldBlock(tr("Instituciones"), magicInstitutions_), 3, 1);
+    grid->addWidget(fieldBlock(tr("Usuarios"), magicUsers_), 4, 0);
+    grid->addWidget(fieldBlock(tr("Riesgos"), magicRisks_), 4, 1);
+    grid->addWidget(fieldBlock(tr("Historia"), magicHistory_), 5, 0);
+    grid->addWidget(fieldBlock(tr("Notas"), magicNotes_), 5, 1);
+    grid->addWidget(fieldBlock(tr("Evidencias"), magicEvidence_), 6, 0, 1, 2);
+    editorLayout->addLayout(grid);
+    editorLayout->addWidget(fieldBlock(tr("Etiquetas"), magicTags_));
+    editorLayout->addWidget(fieldBlock(tr("Adjuntos"), magicAttachments_));
     auto* attachmentActions = new QHBoxLayout;
     auto* attach = makeButton(tr("Añadir adjunto…"));
     auto* detach = makeButton(tr("Quitar"));
@@ -296,17 +415,13 @@ QWidget* WorldPage::buildMagicTab() {
     attachmentActions->addWidget(detach);
     attachmentActions->addWidget(exportAttachment);
     attachmentActions->addStretch();
-    form->addRow(attachmentActions);
-    auto* actions = new QHBoxLayout;
-    auto* add = makeButton(tr("+ Sistema"));
-    auto* remove = makeButton(tr("Eliminar"));
-    actions->addWidget(add);
-    actions->addWidget(remove);
-    actions->addStretch();
-    form->addRow(actions);
-    split->addWidget(editor);
+    editorLayout->addLayout(attachmentActions);
+    editorLayout->addStretch();
+    scroll->setWidget(editor);
+    split->addWidget(scroll);
     split->setStretchFactor(1, 1);
-    layout->addWidget(split);
+    split->setSizes({270, 1050});
+    root->addWidget(split, 1);
 
     connect(magicList_, &QListWidget::currentRowChanged, this, &WorldPage::selectMagic);
     connect(add, &QPushButton::clicked, this, &WorldPage::addMagic);
@@ -325,77 +440,104 @@ QWidget* WorldPage::buildMagicTab() {
 
 QWidget* WorldPage::buildMapsTab() {
     auto* tab = new QWidget;
-    auto* layout = new QVBoxLayout(tab);
+    tab->setObjectName(QStringLiteral("mapsTab"));
+    auto* root = new QVBoxLayout(tab);
+    root->setContentsMargins(30, 22, 30, 30);
+    root->setSpacing(12);
+
     auto* split = new QSplitter;
+    split->setChildrenCollapsible(false);
+    split->setHandleWidth(8);
     auto* left = new QWidget;
+    left->setObjectName(QStringLiteral("mapIndexPanel"));
     auto* leftLayout = new QVBoxLayout(left);
-    leftLayout->setContentsMargins(0, 0, 8, 0);
+    leftLayout->setContentsMargins(12, 12, 12, 12);
+    auto* leftTitle = new QLabel(tr("MAPAS"));
+    leftTitle->setObjectName(QStringLiteral("panelTitle"));
+    leftLayout->addWidget(leftTitle);
     mapList_ = new QListWidget;
+    mapList_->setMinimumWidth(210);
+    mapList_->setMaximumWidth(300);
     leftLayout->addWidget(mapList_, 1);
     auto* mapActions = new QHBoxLayout;
     auto* add = makeButton(tr("+ Mapa"));
     auto* remove = makeButton(tr("Eliminar"));
-    mapActions->addWidget(add);
+    mapActions->addWidget(add, 1);
     mapActions->addWidget(remove);
     leftLayout->addLayout(mapActions);
     split->addWidget(left);
 
     auto* center = new QWidget;
+    center->setObjectName(QStringLiteral("mapEditorCard"));
     auto* centerLayout = new QVBoxLayout(center);
-    centerLayout->setContentsMargins(8, 0, 8, 0);
-    auto* metadata = new QHBoxLayout;
+    centerLayout->setContentsMargins(14, 12, 14, 14);
+    centerLayout->setSpacing(9);
+    auto* titleRow = new QHBoxLayout;
     mapName_ = new QLineEdit;
-    mapName_->setPlaceholderText(tr("Nombre"));
-    mapSeed_ = new QSpinBox;
-    mapSeed_->setRange(0, 2147483647);
+    mapName_->setPlaceholderText(tr("Nombre del mapa"));
+    auto* chooseBackground = makeButton(tr("Cargar plantilla…"));
+    auto* clearBackground = makeButton(tr("Quitar plantilla"));
+    titleRow->addWidget(mapName_, 1);
+    titleRow->addWidget(chooseBackground);
+    titleRow->addWidget(clearBackground);
+    centerLayout->addLayout(titleRow);
+    mapDescription_ = new QTextEdit;
+    mapDescription_->setMaximumHeight(58);
+    mapDescription_->setPlaceholderText(tr("Descripción del mapa"));
+    centerLayout->addWidget(mapDescription_);
+
+    auto* generator = new QFrame;
+    generator->setObjectName(QStringLiteral("generatorBar"));
+    auto* generatorLayout = new QHBoxLayout(generator);
+    generatorLayout->setContentsMargins(9, 7, 9, 7);
+    generatorLayout->addWidget(new QLabel(tr("Generador auxiliar")));
     mapStyle_ = new QComboBox;
     mapStyle_->addItems({tr("Pergamino"), tr("Atlas"), tr("Nocturno")});
+    mapSeed_ = new QSpinBox;
+    mapSeed_->setRange(0, 2147483647);
     mapContinents_ = new QSpinBox;
     mapContinents_->setRange(1, 12);
     mapIslands_ = new QSpinBox;
     mapIslands_->setRange(0, 80);
     mapRoughness_ = new QSpinBox;
     mapRoughness_->setRange(1, 10);
-    metadata->addWidget(mapName_, 2);
-    metadata->addWidget(mapStyle_);
-    metadata->addWidget(new QLabel(tr("Semilla")));
-    metadata->addWidget(mapSeed_);
-    metadata->addWidget(new QLabel(tr("Continentes")));
-    metadata->addWidget(mapContinents_);
-    metadata->addWidget(new QLabel(tr("Islas")));
-    metadata->addWidget(mapIslands_);
-    metadata->addWidget(new QLabel(tr("Rugosidad")));
-    metadata->addWidget(mapRoughness_);
-    centerLayout->addLayout(metadata);
-    mapDescription_ = new QTextEdit;
-    mapDescription_->setMaximumHeight(70);
-    mapDescription_->setPlaceholderText(tr("Descripción del mapa"));
-    centerLayout->addWidget(mapDescription_);
-    auto* backgroundActions = new QHBoxLayout;
-    auto* chooseBackground = makeButton(tr("Usar imagen de fondo…"));
-    auto* clearBackground = makeButton(tr("Usar mapa generado"));
-    backgroundActions->addWidget(chooseBackground);
-    backgroundActions->addWidget(clearBackground);
-    backgroundActions->addStretch();
-    centerLayout->addLayout(backgroundActions);
-    mapCanvas_ = new MapCanvas;
+    generatorLayout->addWidget(mapStyle_);
+    generatorLayout->addWidget(new QLabel(tr("Semilla")));
+    generatorLayout->addWidget(mapSeed_);
+    generatorLayout->addWidget(new QLabel(tr("Continentes")));
+    generatorLayout->addWidget(mapContinents_);
+    generatorLayout->addWidget(new QLabel(tr("Islas")));
+    generatorLayout->addWidget(mapIslands_);
+    generatorLayout->addWidget(new QLabel(tr("Rugosidad")));
+    generatorLayout->addWidget(mapRoughness_);
+    generatorLayout->addStretch();
+    centerLayout->addWidget(generator);
+
+    mapCanvas_ = new PilinReyEditor;
     centerLayout->addWidget(mapCanvas_, 1);
     split->addWidget(center);
 
     auto* right = new QWidget;
+    right->setObjectName(QStringLiteral("legacyMarkers"));
     auto* rightLayout = new QVBoxLayout(right);
-    rightLayout->setContentsMargins(8, 0, 0, 0);
-    rightLayout->addWidget(new QLabel(tr("Marcadores")));
+    rightLayout->setContentsMargins(10, 10, 10, 10);
+    auto* markerTitle = new QLabel(tr("MARCADORES HEREDADOS"));
+    markerTitle->setObjectName(QStringLiteral("panelTitle"));
+    rightLayout->addWidget(markerTitle);
     mapMarkers_ = new QListWidget;
+    mapMarkers_->setMinimumWidth(180);
+    mapMarkers_->setMaximumWidth(250);
     rightLayout->addWidget(mapMarkers_, 1);
     auto* removeMarker = makeButton(tr("Eliminar marcador"));
     rightLayout->addWidget(removeMarker);
-    auto* hint = new QLabel(tr("Doble clic en el mapa para añadir un marcador. Arrástralo para moverlo."));
+    auto* hint = new QLabel(tr("Se conservan para migración. Los asentamientos nuevos se crean directamente en Pilín Rey."));
     hint->setWordWrap(true);
+    hint->setStyleSheet(QStringLiteral("color:#667085;"));
     rightLayout->addWidget(hint);
     split->addWidget(right);
     split->setStretchFactor(1, 1);
-    layout->addWidget(split);
+    split->setSizes({230, 1000, 210});
+    root->addWidget(split, 1);
 
     connect(mapList_, &QListWidget::currentRowChanged, this, &WorldPage::selectMap);
     connect(add, &QPushButton::clicked, this, &WorldPage::addMap);
@@ -410,8 +552,8 @@ QWidget* WorldPage::buildMapsTab() {
     connect(mapContinents_, &QSpinBox::valueChanged, this, &WorldPage::applyMap);
     connect(mapIslands_, &QSpinBox::valueChanged, this, &WorldPage::applyMap);
     connect(mapRoughness_, &QSpinBox::valueChanged, this, &WorldPage::applyMap);
-    connect(mapCanvas_, &MapCanvas::addMarkerRequested, this, &WorldPage::addMapMarker);
-    connect(mapCanvas_, &MapCanvas::markerMoved, this, &WorldPage::moveMapMarker);
+    connect(mapCanvas_, &PilinReyEditor::addMarkerRequested, this, &WorldPage::addMapMarker);
+    connect(mapCanvas_, &PilinReyEditor::markerMoved, this, &WorldPage::moveMapMarker);
     return tab;
 }
 
@@ -420,6 +562,7 @@ QWidget* WorldPage::buildTextsTab() {
     auto build = [this](bool magic) {
         auto* tab = new QWidget;
         auto* layout = new QVBoxLayout(tab);
+        layout->setContentsMargins(30, 22, 30, 30);
         auto* split = new QSplitter;
         auto* list = new QListWidget;
         split->addWidget(list);
