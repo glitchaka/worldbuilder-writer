@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QJsonArray>
 #include <QTextEdit>
 #include <QVector>
 
@@ -24,6 +25,7 @@ public:
 
 signals:
     void referenceActivated(const QString& kind, const QString& id);
+    void referenceIndexChanged(const QJsonArray& references);
     void proofreadStarted();
     void proofreadFinished(int issueCount);
     void proofreadError(const QString& message);
