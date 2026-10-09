@@ -30,7 +30,6 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
-    void createMenus();
     void createShell();
     void loadStartupProject();
     void showLibrary();
@@ -49,7 +48,6 @@ private:
     void refreshPages();
     void onDocumentChanged();
     void updateWindowTitle();
-    void applyTheme();
     void handleReference(const QString& kind, const QString& id);
 
     ArchiveDocument document_;
