@@ -119,6 +119,7 @@ private:
     void ensurePilinDocument();
     void refreshLayers();
     void refreshLayerControls();
+    void refreshSelectionControls();
     void refreshViewport();
     void chooseTemplate();
     void clearTemplate();
@@ -132,6 +133,12 @@ private:
     void addPathObject(const QString& type, const QJsonArray& points);
     void addSettlement(double x, double y);
     void addLabel(double x, double y);
+    void selectObject(const QString& id);
+    void movePointObject(const QString& id, double x, double y);
+    void editSelectedObject();
+    void deleteSelectedObject();
+    void linkSelectedToAtlas();
+    QJsonObject selectedObject() const;
     void mutateDocument(const std::function<void(QJsonObject&)>& mutation);
     void persistToArchive();
     void pushUndo();
@@ -143,6 +150,7 @@ private:
     QList<QJsonObject> undoStack_;
     QList<QJsonObject> redoStack_;
     bool refreshing_ = false;
+    QString selectedObjectId_;
 
     PilinReyViewport* viewport_ = nullptr;
     QListWidget* layers_ = nullptr;
@@ -153,6 +161,9 @@ private:
     QLabel* status_ = nullptr;
     QPushButton* undoButton_ = nullptr;
     QPushButton* redoButton_ = nullptr;
+    QPushButton* editObjectButton_ = nullptr;
+    QPushButton* linkAtlasButton_ = nullptr;
+    QPushButton* deleteObjectButton_ = nullptr;
     QPushButton* exportButton_ = nullptr;
     QList<QToolButton*> toolButtons_;
 };
