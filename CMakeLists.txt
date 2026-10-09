@@ -49,6 +49,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/MapExporter.cpp
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.cpp
+    src/ui/ProjectHubPage.cpp
     src/ui/PlanningPage.cpp
     src/ui/WritingPage.cpp
     src/ui/WorldPage.cpp
@@ -88,10 +89,6 @@ if(WIN32)
     set_target_properties(WorldbuilderWriter PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-# Keep the executable in the same install directory Qt uses for runtime DLLs.
-# qt_generate_deploy_app_script follows CMAKE_INSTALL_BINDIR on Windows, so
-# placing the executable there avoids an unusable layout with the EXE in the
-# prefix root and Qt6*.dll files under a sibling bin/ directory.
 install(TARGETS WorldbuilderWriter
     BUNDLE DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
