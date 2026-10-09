@@ -224,8 +224,8 @@ public:
 
     void setTool(Tool tool) {
         tool_ = tool;
-        brushStroke_.clear();
-        nodePath_.clear();
+        brushStroke_ = QJsonArray{};
+        nodePath_ = QJsonArray{};
         drawingBrush_ = false;
         draggingObjectId_.clear();
         draggingPathId_.clear();
@@ -267,8 +267,8 @@ protected:
 
     void keyPressEvent(QKeyEvent* event) override {
         if (event->key() == Qt::Key_Escape) {
-            brushStroke_.clear();
-            nodePath_.clear();
+            brushStroke_ = QJsonArray{};
+            nodePath_ = QJsonArray{};
             drawingBrush_ = false;
             measureActive_ = false;
             renderFrame();
@@ -424,7 +424,7 @@ protected:
         if (drawingBrush_) {
             drawingBrush_ = false;
             if (!brushStroke_.isEmpty() && onPath) onPath(pathType(tool_), brushStroke_);
-            brushStroke_.clear();
+            brushStroke_ = QJsonArray{};
             return;
         }
     }
@@ -465,7 +465,7 @@ private:
     void finishNodePath() {
         if (nodePath_.isEmpty()) return;
         QJsonArray points = nodePath_;
-        nodePath_.clear();
+        nodePath_ = QJsonArray{};
         const QString type = pathType(tool_);
         if (type == QStringLiteral("region") && points.size() >= 3) points.append(points.first());
         const int minimum = type == QStringLiteral("region") ? 4 : 2;
@@ -942,13 +942,12 @@ void PilinReyEditor::buildUi() {
     commands->setContentsMargins(5, 4, 5, 4); commands->setSpacing(2);
     layersButton_ = toolButton(QStringLiteral("▱"), tr("Capas"), topCommands_, QStringLiteral("pilinCommand"));
     templateButton_ = toolButton(QStringLiteral("▧"), tr("Plantilla"), topCommands_, QStringLiteral("pilinCommand"));
-    auto* generateButton = toolButton(QStringLiteral("✦"), tr("Generar terreno"), topCommands_, QStringLiteral("pilinCommand"));
     auto* fitButton = toolButton(QStringLiteral("⌗"), tr("Encajar"), topCommands_, QStringLiteral("pilinCommand"));
     undoButton_ = toolButton(QStringLiteral("↶"), tr("Deshacer"), topCommands_, QStringLiteral("pilinCommand"));
     redoButton_ = toolButton(QStringLiteral("↷"), tr("Rehacer"), topCommands_, QStringLiteral("pilinCommand"));
     auto* exportButton = toolButton(QStringLiteral("⇩"), tr("Exportar"), topCommands_, QStringLiteral("pilinCommand"));
     snapCheck_ = new QCheckBox(tr("Ajustar"), topCommands_);
-    commands->addWidget(layersButton_); commands->addWidget(templateButton_); commands->addWidget(generateButton); commands->addWidget(fitButton);
+    commands->addWidget(layersButton_); commands->addWidget(templateButton_); commands->addWidget(fitButton);
     commands->addSpacing(6); commands->addWidget(undoButton_); commands->addWidget(redoButton_); commands->addWidget(exportButton); commands->addWidget(snapCheck_);
 
     layersPopover_ = new QFrame(canvasHost_);
@@ -1025,38 +1024,6 @@ void PilinReyEditor::buildUi() {
     connect(duplicateObjectButton_, &QToolButton::clicked, this, &PilinReyEditor::duplicateSelectedObject);
     connect(linkAtlasButton_, &QToolButton::clicked, this, &PilinReyEditor::linkSelectedToAtlas);
     connect(deleteObjectButton_, &QToolButton::clicked, this, &PilinReyEditor::deleteSelectedObject);
-
-    connect(generateButton, &QToolButton::clicked, this, [this]() {
-        QDialog dialog(this); dialog.setWindowTitle(tr("Generar terreno"));
-        auto* layout = new QVBoxLayout(&dialog);
-        auto* seed = new QSpinBox(&dialog); seed->setRange(1, 999999999); seed->setValue(QRandomGenerator::global()->bounded(1, 999999999));
-        auto* continents = new QSpinBox(&dialog); continents->setRange(1, 6); continents->setValue(3);
-        auto* islands = new QSpinBox(&dialog); islands->setRange(0, 20); islands->setValue(6);
-        auto* rough = new QSlider(Qt::Horizontal, &dialog); rough->setRange(0, 100); rough->setValue(58);
-        layout->addWidget(new QLabel(tr("Semilla"), &dialog)); layout->addWidget(seed); layout->addWidget(new QLabel(tr("Continentes"), &dialog)); layout->addWidget(continents); layout->addWidget(new QLabel(tr("Islas"), &dialog)); layout->addWidget(islands); layout->addWidget(new QLabel(tr("Irregularidad"), &dialog)); layout->addWidget(rough);
-        auto* buttons = new QHBoxLayout; auto* cancel = new QPushButton(tr("Cancelar"), &dialog); auto* apply = new QPushButton(tr("Generar"), &dialog); buttons->addStretch(); buttons->addWidget(cancel); buttons->addWidget(apply); layout->addLayout(buttons); connect(cancel, &QPushButton::clicked, &dialog, &QDialog::reject); connect(apply, &QPushButton::clicked, &dialog, &QDialog::accept);
-        if (dialog.exec() != QDialog::Accepted) return;
-        const int seedValue = seed->value(), continentCount = continents->value(), islandCount = islands->value(), roughness = rough->value();
-        mutateDocument([&](QJsonObject& p) {
-            QJsonArray layers = p.value(QStringLiteral("layers")).toArray();
-            if (layers.isEmpty()) return;
-            QJsonObject terrain = layers.first().toObject(); QJsonArray objects = terrain.value(QStringLiteral("objects")).toArray();
-            for (int i = objects.size() - 1; i >= 0; --i) { const QString type = objects.at(i).toObject().value(QStringLiteral("type")).toString(); if (type == QStringLiteral("land") || type == QStringLiteral("sea")) objects.removeAt(i); }
-            QRandomGenerator rng(static_cast<quint32>(seedValue));
-            const double w = p.value(QStringLiteral("width")).toDouble(4096), h = p.value(QStringLiteral("height")).toDouble(2304);
-            for (int c = 0; c < continentCount; ++c) {
-                const double cx = w * (.14 + .72 * rng.generateDouble()), cy = h * (.16 + .68 * rng.generateDouble());
-                const double base = std::min(w, h) * (.10 + .055 * rng.generateDouble());
-                QJsonArray pts;
-                double x = cx - base * 1.4, y = cy;
-                const int steps = 10 + roughness / 10;
-                for (int s = 0; s < steps; ++s) { x += base * (2.8 / steps); y += (rng.generateDouble() - .5) * base * (.20 + roughness / 130.0); const double r = base * (.72 + rng.generateDouble() * (.35 + roughness / 180.0)); pts.append(pointJson(x, y, r)); }
-                objects.append(QJsonObject{{QStringLiteral("id"), uid(QStringLiteral("mapobj"))}, {QStringLiteral("type"), QStringLiteral("land")}, {QStringLiteral("points"), pts}});
-            }
-            for (int i = 0; i < islandCount; ++i) { const double x = w * (.08 + .84 * rng.generateDouble()), y = h * (.08 + .84 * rng.generateDouble()), r = std::min(w, h) * (.018 + .028 * rng.generateDouble()); QJsonArray pts{pointJson(x, y, r)}; objects.append(QJsonObject{{QStringLiteral("id"), uid(QStringLiteral("mapobj"))}, {QStringLiteral("type"), QStringLiteral("land")}, {QStringLiteral("points"), pts}}); }
-            terrain.insert(QStringLiteral("objects"), objects); layers.replace(0, terrain); p.insert(QStringLiteral("layers"), layers); p.insert(QStringLiteral("generatorSeed"), seedValue);
-        });
-    });
 
     auto* undoShortcut = new QShortcut(QKeySequence::Undo, this); connect(undoShortcut, &QShortcut::activated, this, &PilinReyEditor::undo);
     auto* redoShortcut = new QShortcut(QKeySequence::Redo, this); connect(redoShortcut, &QShortcut::activated, this, &PilinReyEditor::redo);
