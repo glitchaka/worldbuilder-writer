@@ -3,6 +3,7 @@
 #include <QDialog>
 #include <QJsonArray>
 
+class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -22,6 +23,7 @@ private:
     void populateBackups(const QJsonArray& backups);
 
     GoogleDriveService* drive_ = nullptr;
+    QComboBox* theme_ = nullptr;
     QLineEdit* clientId_ = nullptr;
     QLineEdit* clientSecret_ = nullptr;
     QLabel* status_ = nullptr;
