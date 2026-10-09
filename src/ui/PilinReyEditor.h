@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/ArchiveDocument.h"
+
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QList>
