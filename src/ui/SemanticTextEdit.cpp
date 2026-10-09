@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QNetworkAccessManager>
@@ -19,6 +20,8 @@
 #include <QTextFormat>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QVBoxLayout>
+#include <QWidgetAction>
 
 namespace wbw {
 namespace {
@@ -50,11 +53,27 @@ void rememberCharacterReference(const QString& kind, const QString& id) {
     if (kind == QStringLiteral("character") && qApp) qApp->setProperty("wbwPendingCharacterReference", id);
 }
 
+QString clipped(QString text, int limit = 190) {
+    text = text.simplified();
+    if (text.size() <= limit) return text;
+    return text.left(limit - 1).trimmed() + QChar(0x2026);
+}
+
+QString kindLabel(const QString& kind) {
+    if (kind == QStringLiteral("character")) return QObject::tr("Personaje");
+    if (kind == QStringLiteral("world")) return QObject::tr("Atlas");
+    if (kind == QStringLiteral("magic")) return QObject::tr("Magia");
+    if (kind == QStringLiteral("worldText")) return QObject::tr("Texto del mundo");
+    if (kind == QStringLiteral("magicText")) return QObject::tr("Texto de magia");
+    return kind;
+}
+
 } // namespace
 
 SemanticTextEdit::SemanticTextEdit(QWidget* parent)
     : QTextEdit(parent), network_(new QNetworkAccessManager(this)) {
     setMouseTracking(true);
+    viewport()->setMouseTracking(true);
 }
 
 void SemanticTextEdit::setArchiveDocument(ArchiveDocument* document) {
@@ -160,9 +179,9 @@ void SemanticTextEdit::rebuildSelections() {
         cursor.setPosition(hit.start + hit.length, QTextCursor::KeepAnchor);
         QTextEdit::ExtraSelection selection;
         selection.cursor = cursor;
-        selection.format.setForeground(QColor(QStringLiteral("#175cd3")));
-        selection.format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-        selection.format.setUnderlineColor(QColor(QStringLiteral("#175cd3")));
+        selection.format.setBackground(QColor(210, 170, 105, 42));
+        selection.format.setUnderlineStyle(QTextCharFormat::DotLine);
+        selection.format.setUnderlineColor(QColor(QStringLiteral("#a06a2b")));
         selections.append(selection);
     }
     for (const ProofIssue& issue : proofIssues_) {
@@ -179,13 +198,146 @@ void SemanticTextEdit::rebuildSelections() {
 }
 
 const SemanticTextEdit::ReferenceHit* SemanticTextEdit::referenceAt(int position) const {
-    for (const ReferenceHit& hit : references_) if (position >= hit.start && position <= hit.start + hit.length) return &hit;
+    for (const ReferenceHit& hit : references_) {
+        if (position >= hit.start && position < hit.start + hit.length) return &hit;
+    }
     return nullptr;
 }
 
 const SemanticTextEdit::ProofIssue* SemanticTextEdit::proofIssueAt(int position) const {
-    for (const ProofIssue& issue : proofIssues_) if (position >= issue.start && position <= issue.start + issue.length) return &issue;
+    for (const ProofIssue& issue : proofIssues_) {
+        if (position >= issue.start && position < issue.start + issue.length) return &issue;
+    }
     return nullptr;
+}
+
+QJsonObject SemanticTextEdit::objectForReference(const ReferenceHit& hit) const {
+    if (!document_) return {};
+    QString arrayKey;
+    if (hit.kind == QStringLiteral("character")) arrayKey = QStringLiteral("characters");
+    else if (hit.kind == QStringLiteral("world")) arrayKey = QStringLiteral("world");
+    else if (hit.kind == QStringLiteral("magic")) arrayKey = QStringLiteral("magicSystems");
+    else if (hit.kind == QStringLiteral("worldText")) arrayKey = QStringLiteral("worldTexts");
+    else if (hit.kind == QStringLiteral("magicText")) arrayKey = QStringLiteral("magicTexts");
+    if (arrayKey.isEmpty()) return {};
+
+    for (const QJsonValue value : document_->array(arrayKey)) {
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("id")).toString() == hit.id) return object;
+    }
+    return {};
+}
+
+void SemanticTextEdit::closeReferencePopup() {
+    referencePopupKey_.clear();
+    if (!referencePopup_) return;
+    referencePopup_->close();
+    referencePopup_->deleteLater();
+    referencePopup_ = nullptr;
+}
+
+void SemanticTextEdit::showReferencePopup(const ReferenceHit& hit, const QPoint& globalPosition) {
+    const QString key = hit.kind + QLatin1Char('|') + hit.id;
+    if (referencePopup_ && referencePopup_->isVisible() && referencePopupKey_ == key) return;
+    closeReferencePopup();
+
+    const QJsonObject object = objectForReference(hit);
+    auto* menu = new QMenu(this);
+    referencePopup_ = menu;
+    referencePopupKey_ = key;
+
+    auto* card = new QWidget(menu);
+    card->setMinimumWidth(320);
+    card->setMaximumWidth(380);
+    auto* layout = new QVBoxLayout(card);
+    layout->setContentsMargins(12, 10, 12, 10);
+    layout->setSpacing(5);
+
+    auto* title = new QLabel(hit.label, card);
+    title->setStyleSheet(QStringLiteral("font-weight:700;font-size:10pt;"));
+    layout->addWidget(title);
+
+    auto* type = new QLabel(kindLabel(hit.kind), card);
+    type->setStyleSheet(QStringLiteral("color:#667085;font-size:8.5pt;"));
+    layout->addWidget(type);
+
+    QStringList facts;
+    const auto addFact = [&](const QString& label, const QString& keyName) {
+        const QString value = object.value(keyName).toString().trimmed();
+        if (!value.isEmpty()) facts.append(QStringLiteral("%1: %2").arg(label, value));
+    };
+    if (hit.kind == QStringLiteral("character")) {
+        addFact(tr("Rol"), QStringLiteral("role"));
+        addFact(tr("Estado"), QStringLiteral("status"));
+        addFact(tr("Origen"), QStringLiteral("origin"));
+    } else if (hit.kind == QStringLiteral("world")) {
+        addFact(tr("Tipo"), QStringLiteral("kind"));
+        addFact(tr("Etiquetas"), QStringLiteral("tags"));
+    } else if (hit.kind == QStringLiteral("magic")) {
+        addFact(tr("Categoría"), QStringLiteral("category"));
+        addFact(tr("Estado"), QStringLiteral("status"));
+    } else {
+        addFact(tr("Origen"), QStringLiteral("source"));
+    }
+
+    if (!facts.isEmpty()) {
+        auto* meta = new QLabel(facts.mid(0, 3).join(QStringLiteral("  ·  ")), card);
+        meta->setWordWrap(true);
+        meta->setStyleSheet(QStringLiteral("color:#475467;font-size:8.5pt;"));
+        layout->addWidget(meta);
+    }
+
+    QString summary;
+    for (const QString& keyName : {QStringLiteral("summary"), QStringLiteral("principle"), QStringLiteral("content"), QStringLiteral("background"), QStringLiteral("notes")}) {
+        summary = object.value(keyName).toString().trimmed();
+        if (!summary.isEmpty()) break;
+    }
+    if (!summary.isEmpty()) {
+        auto* text = new QLabel(clipped(summary), card);
+        text->setWordWrap(true);
+        text->setStyleSheet(QStringLiteral("color:#344054;"));
+        layout->addWidget(text);
+    }
+
+    const QStringList aliases = aliasesFor(object);
+    if (!aliases.isEmpty()) {
+        auto* alias = new QLabel(tr("Alias: %1").arg(aliases.join(QStringLiteral(", "))), card);
+        alias->setWordWrap(true);
+        alias->setStyleSheet(QStringLiteral("color:#667085;font-size:8.5pt;"));
+        layout->addWidget(alias);
+    }
+
+    auto* cardAction = new QWidgetAction(menu);
+    cardAction->setDefaultWidget(card);
+    menu->addAction(cardAction);
+    menu->addSeparator();
+    QAction* open = menu->addAction(tr("Abrir ficha completa"));
+    const QString kind = hit.kind;
+    const QString id = hit.id;
+    connect(open, &QAction::triggered, this, [this, kind, id]() {
+        rememberCharacterReference(kind, id);
+        emit referenceActivated(kind, id);
+    });
+    connect(menu, &QMenu::aboutToHide, this, [this, menu]() {
+        if (referencePopup_ == menu) {
+            referencePopup_ = nullptr;
+            referencePopupKey_.clear();
+        }
+        menu->deleteLater();
+    });
+    menu->popup(globalPosition + QPoint(10, 18));
+}
+
+void SemanticTextEdit::mouseMoveEvent(QMouseEvent* event) {
+    QTextEdit::mouseMoveEvent(event);
+    const int position = cursorForPosition(event->position().toPoint()).position();
+    if (const ReferenceHit* hit = referenceAt(position)) {
+        viewport()->setCursor(Qt::PointingHandCursor);
+        showReferencePopup(*hit, event->globalPosition().toPoint());
+        return;
+    }
+    viewport()->unsetCursor();
+    closeReferencePopup();
 }
 
 void SemanticTextEdit::mouseReleaseEvent(QMouseEvent* event) {
@@ -193,8 +345,7 @@ void SemanticTextEdit::mouseReleaseEvent(QMouseEvent* event) {
     if (event->button() != Qt::LeftButton) return;
     const int position = cursorForPosition(event->position().toPoint()).position();
     if (const ReferenceHit* hit = referenceAt(position)) {
-        rememberCharacterReference(hit->kind, hit->id);
-        emit referenceActivated(hit->kind, hit->id);
+        showReferencePopup(*hit, event->globalPosition().toPoint());
     }
 }
 
@@ -203,7 +354,7 @@ void SemanticTextEdit::contextMenuEvent(QContextMenuEvent* event) {
     const int position = cursorForPosition(event->pos()).position();
     if (const ReferenceHit* hit = referenceAt(position)) {
         menu->insertSeparator(menu->actions().isEmpty() ? nullptr : menu->actions().first());
-        QAction* open = new QAction(tr("Abrir ficha: %1").arg(hit->label), menu);
+        QAction* open = new QAction(tr("Abrir ficha completa: %1").arg(hit->label), menu);
         const QString kind = hit->kind;
         const QString id = hit->id;
         connect(open, &QAction::triggered, this, [this, kind, id]() {
