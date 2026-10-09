@@ -16,6 +16,7 @@ class QTimer;
 namespace wbw {
 
 class PlanningPage;
+class ProjectHubPage;
 class ReviewPage;
 class WorldPage;
 class WritingPage;
@@ -32,6 +33,7 @@ private:
     void createMenus();
     void createShell();
     void loadStartupProject();
+    void showLibrary();
     void newProject();
     void openLibrary();
     void openProject();
@@ -55,6 +57,7 @@ private:
     QStackedWidget* pages_ = nullptr;
     QLabel* projectTitle_ = nullptr;
     QLabel* saveState_ = nullptr;
+    ProjectHubPage* hubPage_ = nullptr;
     PlanningPage* planningPage_ = nullptr;
     WritingPage* writingPage_ = nullptr;
     WorldPage* worldPage_ = nullptr;
