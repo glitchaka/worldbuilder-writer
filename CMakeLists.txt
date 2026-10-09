@@ -76,6 +76,14 @@ target_include_directories(WorldbuilderWriterCoreSmoke PRIVATE src)
 target_link_libraries(WorldbuilderWriterCoreSmoke PRIVATE Qt6::Widgets miniz)
 add_test(NAME core-smoke COMMAND WorldbuilderWriterCoreSmoke)
 
+add_executable(WorldbuilderWriterMapExporterSmoke
+    tests/MapExporterSmoke.cpp
+    src/ui/MapExporter.cpp
+)
+target_include_directories(WorldbuilderWriterMapExporterSmoke PRIVATE src)
+target_link_libraries(WorldbuilderWriterMapExporterSmoke PRIVATE Qt6::Widgets Qt6::PrintSupport)
+add_test(NAME map-exporter-smoke COMMAND WorldbuilderWriterMapExporterSmoke)
+
 if(WIN32)
     set_target_properties(WorldbuilderWriter PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
