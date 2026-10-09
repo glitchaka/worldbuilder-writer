@@ -7,7 +7,9 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QShowEvent>
+#include <QSpinBox>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QVBoxLayout>
 
 namespace wbw {
