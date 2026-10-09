@@ -50,6 +50,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/PilinReyEditor.cpp
     src/ui/ProjectHubPage.cpp
     src/ui/SettingsDialog.cpp
+    src/ui/SemanticTextEdit.cpp
     src/ui/PlanningPage.cpp
     src/ui/WritingPage.cpp
     src/ui/WorldPage.cpp
