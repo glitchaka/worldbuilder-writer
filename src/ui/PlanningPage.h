@@ -16,6 +16,7 @@
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTextEdit>
+#include <QVariant>
 #include <QWidget>
 
 namespace wbw {
