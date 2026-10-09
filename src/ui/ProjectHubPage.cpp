@@ -4,6 +4,7 @@
 #include "storage/ProjectStore.h"
 #include "ui/SettingsDialog.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QFrame>
@@ -21,9 +22,10 @@
 namespace wbw {
 namespace {
 
-QPushButton* button(const QString& text) {
+QPushButton* button(const QString& text, const QString& objectName = {}) {
     auto* result = new QPushButton(text);
     result->setCursor(Qt::PointingHandCursor);
+    if (!objectName.isEmpty()) result->setObjectName(objectName);
     return result;
 }
 
@@ -39,39 +41,76 @@ int manuscriptWords(const ArchiveDocument& document) {
     return words;
 }
 
+QString formatDate(const QString& path) {
+    const QDateTime modified = QFileInfo(path).lastModified();
+    return modified.isValid() ? modified.date().toString(QStringLiteral("dd MMM yyyy")) : QObject::tr("fecha desconocida");
+}
+
 } // namespace
 
 ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
     setObjectName(QStringLiteral("projectHubPage"));
-    auto* root = new QVBoxLayout(this);
+    auto* page = new QVBoxLayout(this);
+    page->setContentsMargins(0, 0, 0, 0);
+    page->setSpacing(0);
+
+    auto* desktopBar = new QWidget;
+    desktopBar->setObjectName(QStringLiteral("hubDesktopBar"));
+    auto* desktopLayout = new QHBoxLayout(desktopBar);
+    desktopLayout->setContentsMargins(22, 12, 22, 12);
+    desktopLayout->setSpacing(12);
+
+    auto* mark = new QLabel(QStringLiteral("WW"));
+    mark->setObjectName(QStringLiteral("hubAppMark"));
+    mark->setAlignment(Qt::AlignCenter);
+    mark->setFixedSize(38, 38);
+    desktopLayout->addWidget(mark);
+
+    auto* identity = new QVBoxLayout;
+    identity->setSpacing(0);
+    auto* appName = new QLabel(QStringLiteral("Worldbuilder Writer"));
+    appName->setObjectName(QStringLiteral("hubAppName"));
+    auto* appMode = new QLabel(tr("Biblioteca local de proyectos"));
+    appMode->setObjectName(QStringLiteral("hubAppMode"));
+    identity->addWidget(appName);
+    identity->addWidget(appMode);
+    desktopLayout->addLayout(identity);
+    desktopLayout->addStretch(1);
+
+    auto* import = button(tr("Abrir proyecto .wbw"), QStringLiteral("hubSecondary"));
+    auto* create = button(tr("+ Nueva obra"), QStringLiteral("hubPrimary"));
+    auto* settings = button(tr("⚙  Configuración"), QStringLiteral("hubSecondary"));
+    desktopLayout->addWidget(import);
+    desktopLayout->addWidget(create);
+    desktopLayout->addWidget(settings);
+    page->addWidget(desktopBar);
+
+    auto* scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto* shell = new QWidget;
+    shell->setObjectName(QStringLiteral("hubShell"));
+    auto* root = new QVBoxLayout(shell);
     root->setContentsMargins(34, 28, 34, 34);
     root->setSpacing(18);
 
-    auto* top = new QHBoxLayout;
-    auto* identity = new QVBoxLayout;
-    identity->setSpacing(2);
+    auto* intro = new QHBoxLayout;
+    auto* copy = new QVBoxLayout;
+    copy->setSpacing(3);
     auto* kicker = new QLabel(tr("ARCHIVO"));
     kicker->setObjectName(QStringLiteral("hubKicker"));
     auto* title = new QLabel(tr("Tus historias"));
     title->setObjectName(QStringLiteral("hubTitle"));
-    auto* description = new QLabel(tr("Biblioteca local de proyectos. Abre una obra existente, importa un .wbw o comienza una nueva."));
+    auto* description = new QLabel(tr("Los proyectos guardados localmente aparecen como tarjetas independientes."));
     description->setObjectName(QStringLiteral("hubDescription"));
-    description->setWordWrap(true);
-    identity->addWidget(kicker);
-    identity->addWidget(title);
-    identity->addWidget(description);
-    top->addLayout(identity, 1);
-    auto* import = button(tr("Abrir proyecto .wbw"));
-    auto* settings = button(tr("Configuración"));
-    auto* create = button(tr("+ Nueva obra"));
-    create->setObjectName(QStringLiteral("hubPrimary"));
-    top->addWidget(import, 0, Qt::AlignBottom);
-    top->addWidget(settings, 0, Qt::AlignBottom);
-    top->addWidget(create, 0, Qt::AlignBottom);
-    root->addLayout(top);
+    copy->addWidget(kicker);
+    copy->addWidget(title);
+    copy->addWidget(description);
+    intro->addLayout(copy, 1);
 
     auto* storage = new QWidget;
     storage->setObjectName(QStringLiteral("hubStorage"));
+    storage->setMaximumWidth(360);
     auto* storageLayout = new QHBoxLayout(storage);
     storageLayout->setContentsMargins(12, 10, 12, 10);
     auto* dot = new QLabel(QStringLiteral("●"));
@@ -80,29 +119,28 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
     storageCopy->setSpacing(0);
     auto* storageTitle = new QLabel(tr("Guardado local disponible"));
     storageTitle->setObjectName(QStringLiteral("hubStorageTitle"));
-    auto* storageDetail = new QLabel(tr("Los proyectos administrados se guardan en Documentos/Worldbuilder Writer/Projects."));
+    auto* storageDetail = new QLabel(tr("No necesitas iniciar sesión para escribir."));
     storageDetail->setObjectName(QStringLiteral("hubStorageDetail"));
     storageCopy->addWidget(storageTitle);
     storageCopy->addWidget(storageDetail);
     storageLayout->addWidget(dot);
     storageLayout->addLayout(storageCopy, 1);
-    root->addWidget(storage);
+    intro->addWidget(storage, 0, Qt::AlignBottom);
+    root->addLayout(intro);
 
-    auto* scroll = new QScrollArea;
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
     cardsHost_ = new QWidget;
     cardsHost_->setObjectName(QStringLiteral("hubCardsHost"));
     cards_ = new QGridLayout(cardsHost_);
     cards_->setContentsMargins(0, 0, 0, 0);
-    cards_->setHorizontalSpacing(14);
-    cards_->setVerticalSpacing(14);
-    scroll->setWidget(cardsHost_);
-    root->addWidget(scroll, 1);
+    cards_->setHorizontalSpacing(16);
+    cards_->setVerticalSpacing(16);
+    root->addWidget(cardsHost_, 1);
 
-    emptyState_ = new QLabel(tr("Todavía no hay obras en la biblioteca."));
-    emptyState_->setAlignment(Qt::AlignCenter);
-    emptyState_->setObjectName(QStringLiteral("hubEmpty"));
+    emptyState_ = new QLabel;
+    emptyState_->hide();
+
+    scroll->setWidget(shell);
+    page->addWidget(scroll, 1);
 
     connect(create, &QPushButton::clicked, this, &ProjectHubPage::newProjectRequested);
     connect(import, &QPushButton::clicked, this, &ProjectHubPage::importProjectRequested);
@@ -124,24 +162,44 @@ void ProjectHubPage::rebuildCards() {
         delete item;
     }
 
-    const QStringList files = ProjectStore::projectFiles();
-    if (files.isEmpty()) {
-        cards_->addWidget(emptyState_, 0, 0, 1, 3);
-        emptyState_->show();
-        return;
-    }
-    emptyState_->hide();
-
     int row = 0;
     int column = 0;
-    for (const QString& path : files) {
+
+    auto* newCard = new QPushButton;
+    newCard->setObjectName(QStringLiteral("projectCardNew"));
+    newCard->setCursor(Qt::PointingHandCursor);
+    newCard->setMinimumSize(300, 250);
+    newCard->setMaximumWidth(390);
+    auto* newLayout = new QVBoxLayout(newCard);
+    newLayout->setContentsMargins(22, 22, 22, 22);
+    newLayout->setSpacing(10);
+    auto* plus = new QLabel(QStringLiteral("+"));
+    plus->setObjectName(QStringLiteral("newProjectMark"));
+    plus->setAlignment(Qt::AlignCenter);
+    plus->setFixedSize(46, 46);
+    auto* newTitle = new QLabel(tr("Nueva obra"));
+    newTitle->setObjectName(QStringLiteral("newProjectTitle"));
+    auto* newCopy = new QLabel(tr("Comienza con un archivo completamente vacío."));
+    newCopy->setObjectName(QStringLiteral("newProjectCopy"));
+    newCopy->setWordWrap(true);
+    auto* newMeta = new QLabel(tr("CREAR DESDE CERO"));
+    newMeta->setObjectName(QStringLiteral("newProjectMeta"));
+    newLayout->addWidget(plus, 0, Qt::AlignLeft);
+    newLayout->addStretch(1);
+    newLayout->addWidget(newTitle);
+    newLayout->addWidget(newCopy);
+    newLayout->addStretch(1);
+    newLayout->addWidget(newMeta);
+    connect(newCard, &QPushButton::clicked, this, &ProjectHubPage::newProjectRequested);
+    cards_->addWidget(newCard, row, column++);
+
+    for (const QString& path : ProjectStore::projectFiles()) {
         ArchiveDocument document;
         QString error;
         const bool loaded = ProjectStore::loadJsonFile(path, document, &error);
         const QJsonObject profile = loaded ? document.object(QStringLiteral("profile")) : QJsonObject();
-        const QString title = loaded
-            ? (document.storyTitle().isEmpty() ? document.title() : document.storyTitle())
-            : QFileInfo(path).dir().dirName();
+        const QString archiveTitle = loaded ? document.title() : QFileInfo(path).dir().dirName();
+        const QString storyTitle = loaded && !document.storyTitle().isEmpty() ? document.storyTitle() : tr("Historia aún sin título");
         const QString genre = profile.value(QStringLiteral("genre")).toString(tr("Proyecto narrativo"));
         const QString status = profile.value(QStringLiteral("status")).toString(tr("Planificación"));
         const int characters = loaded ? document.array(QStringLiteral("characters")).size() : 0;
@@ -149,39 +207,42 @@ void ProjectHubPage::rebuildCards() {
         const int chapters = loaded ? document.array(QStringLiteral("writingChapters")).size() : 0;
         const int words = loaded ? manuscriptWords(document) : 0;
 
+        if (column >= 3) { column = 0; ++row; }
+
         auto* card = new QWidget;
         card->setObjectName(QStringLiteral("projectCard"));
-        card->setMinimumWidth(290);
-        card->setMaximumWidth(420);
+        card->setMinimumSize(300, 250);
+        card->setMaximumWidth(390);
         auto* cardLayout = new QVBoxLayout(card);
-        cardLayout->setContentsMargins(16, 15, 16, 14);
-        cardLayout->setSpacing(10);
+        cardLayout->setContentsMargins(18, 16, 18, 14);
+        cardLayout->setSpacing(11);
 
         auto* cardTop = new QHBoxLayout;
-        auto* mark = new QLabel(QStringLiteral("WW"));
-        mark->setObjectName(QStringLiteral("projectCardMark"));
-        mark->setAlignment(Qt::AlignCenter);
-        mark->setFixedSize(34, 34);
+        auto* cardMark = new QLabel(QStringLiteral("WW"));
+        cardMark->setObjectName(QStringLiteral("projectCardMark"));
+        cardMark->setAlignment(Qt::AlignCenter);
+        cardMark->setFixedSize(34, 34);
         auto* state = new QLabel(status);
         state->setObjectName(QStringLiteral("projectCardState"));
-        cardTop->addWidget(mark);
+        cardTop->addWidget(cardMark);
         cardTop->addStretch();
         cardTop->addWidget(state);
         cardLayout->addLayout(cardTop);
 
         auto* genreLabel = new QLabel(genre.toUpper());
         genreLabel->setObjectName(QStringLiteral("projectCardGenre"));
-        auto* titleLabel = new QLabel(title.isEmpty() ? tr("Historia sin título") : title);
+        auto* titleLabel = new QLabel(archiveTitle.isEmpty() ? tr("Proyecto sin nombre") : archiveTitle);
         titleLabel->setObjectName(QStringLiteral("projectCardTitle"));
         titleLabel->setWordWrap(true);
-        auto* archiveLabel = new QLabel(loaded ? document.title() : QFileInfo(path).fileName());
-        archiveLabel->setObjectName(QStringLiteral("projectCardArchive"));
+        auto* storyLabel = new QLabel(storyTitle);
+        storyLabel->setObjectName(QStringLiteral("projectCardArchive"));
+        storyLabel->setWordWrap(true);
         cardLayout->addWidget(genreLabel);
         cardLayout->addWidget(titleLabel);
-        cardLayout->addWidget(archiveLabel);
+        cardLayout->addWidget(storyLabel);
 
         auto* stats = new QGridLayout;
-        stats->setHorizontalSpacing(14);
+        stats->setHorizontalSpacing(16);
         const QStringList labels{tr("Fichas"), tr("Enlaces"), tr("Capítulos"), tr("Palabras")};
         const QList<int> values{characters, relationships, chapters, words};
         for (int i = 0; i < labels.size(); ++i) {
@@ -193,20 +254,22 @@ void ProjectHubPage::rebuildCards() {
             stats->addWidget(label, 1, i);
         }
         cardLayout->addLayout(stats);
+        cardLayout->addStretch(1);
 
-        auto* actions = new QHBoxLayout;
-        auto* remove = button(tr("Eliminar"));
-        remove->setObjectName(QStringLiteral("projectDelete"));
-        auto* open = button(tr("Abrir →"));
-        open->setObjectName(QStringLiteral("hubPrimary"));
-        actions->addWidget(remove);
-        actions->addStretch();
-        actions->addWidget(open);
-        cardLayout->addLayout(actions);
+        auto* footer = new QHBoxLayout;
+        auto* saved = new QLabel(tr("Guardado %1").arg(formatDate(path)));
+        saved->setObjectName(QStringLiteral("projectSaved"));
+        auto* remove = button(tr("Eliminar"), QStringLiteral("projectDelete"));
+        auto* open = button(tr("Abrir  →"), QStringLiteral("hubPrimary"));
+        footer->addWidget(saved);
+        footer->addStretch();
+        footer->addWidget(remove);
+        footer->addWidget(open);
+        cardLayout->addLayout(footer);
 
         connect(open, &QPushButton::clicked, this, [this, path]() { emit openProjectRequested(path); });
-        connect(remove, &QPushButton::clicked, this, [this, path, title]() {
-            if (QMessageBox::question(this, tr("Eliminar proyecto"), tr("¿Eliminar definitivamente “%1”? Esta acción no se puede deshacer.").arg(title)) != QMessageBox::Yes) return;
+        connect(remove, &QPushButton::clicked, this, [this, path, archiveTitle]() {
+            if (QMessageBox::question(this, tr("Eliminar proyecto"), tr("¿Eliminar definitivamente “%1”? Esta acción no se puede deshacer.").arg(archiveTitle)) != QMessageBox::Yes) return;
             QString error;
             if (!ProjectStore::removeProject(path, &error)) {
                 QMessageBox::critical(this, tr("No se pudo eliminar"), error);
@@ -216,12 +279,12 @@ void ProjectHubPage::rebuildCards() {
             emit projectDeleted();
         });
 
-        cards_->addWidget(card, row, column);
-        if (++column >= 3) {
-            column = 0;
-            ++row;
-        }
+        cards_->addWidget(card, row, column++);
     }
+
+    cards_->setColumnStretch(0, 1);
+    cards_->setColumnStretch(1, 1);
+    cards_->setColumnStretch(2, 1);
     cards_->setRowStretch(row + 1, 1);
 }
 
