@@ -3,6 +3,7 @@
 #include "storage/ProjectStore.h"
 #include "storage/WbwPackage.h"
 #include "ui/PlanningPage.h"
+#include "ui/ProjectHubPage.h"
 #include "ui/ReviewPage.h"
 #include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
@@ -17,7 +18,6 @@
 #include <QFont>
 #include <QFrame>
 #include <QHBoxLayout>
-#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
@@ -149,7 +149,7 @@ void MainWindow::createShell() {
     navigation_->setFixedHeight(63);
     navigation_->setMinimumWidth(470);
     navigation_->addItems({tr("Planificación"), tr("Escritura"), tr("Mundo"), tr("Revisión")});
-    navigation_->setCurrentRow(1);
+    navigation_->setCurrentRow(-1);
     for (int i = 0; i < navigation_->count(); ++i) {
         navigation_->item(i)->setTextAlignment(Qt::AlignCenter);
         navigation_->item(i)->setSizeHint(QSize(i == 0 ? 118 : 100, 62));
@@ -159,7 +159,7 @@ void MainWindow::createShell() {
 
     auto* projectInfo = new QVBoxLayout;
     projectInfo->setSpacing(0);
-    projectTitle_ = new QLabel;
+    projectTitle_ = new QLabel(tr("Biblioteca local"));
     projectTitle_->setObjectName(QStringLiteral("projectTitle"));
     projectTitle_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     saveState_ = new QLabel;
@@ -179,22 +179,29 @@ void MainWindow::createShell() {
 
     pages_ = new QStackedWidget;
     pages_->setObjectName(QStringLiteral("pageStack"));
+    hubPage_ = new ProjectHubPage;
     planningPage_ = new PlanningPage;
     writingPage_ = new WritingPage;
     worldPage_ = new WorldPage;
     reviewPage_ = new ReviewPage;
+    pages_->addWidget(hubPage_);
     pages_->addWidget(planningPage_);
     pages_->addWidget(writingPage_);
     pages_->addWidget(worldPage_);
     pages_->addWidget(reviewPage_);
-    pages_->setCurrentIndex(1);
+    pages_->setCurrentIndex(0);
     root->addWidget(pages_, 1);
     setCentralWidget(central);
 
     connect(libraryButton, &QPushButton::clicked, this, &MainWindow::openLibrary);
-    connect(navigation_, &QListWidget::currentRowChanged, pages_, &QStackedWidget::setCurrentIndex);
+    connect(navigation_, &QListWidget::currentRowChanged, this, [this](int row) {
+        if (row >= 0) pages_->setCurrentIndex(row + 1);
+    });
     connect(quickSave, &QPushButton::clicked, this, [this]() { saveProject(); });
     connect(focus, &QPushButton::clicked, writingPage_, &WritingPage::openFocusMode);
+    connect(hubPage_, &ProjectHubPage::newProjectRequested, this, &MainWindow::newProject);
+    connect(hubPage_, &ProjectHubPage::importProjectRequested, this, &MainWindow::importWbw);
+    connect(hubPage_, &ProjectHubPage::openProjectRequested, this, [this](const QString& path) { loadPath(path); });
     connect(planningPage_, &PlanningPage::changed, this, &MainWindow::onDocumentChanged);
     connect(writingPage_, &WritingPage::changed, this, &MainWindow::onDocumentChanged);
     connect(worldPage_, &WorldPage::changed, this, &MainWindow::onDocumentChanged);
@@ -207,7 +214,7 @@ void MainWindow::createShell() {
 
 void MainWindow::createMenus() {
     auto* fileMenu = menuBar()->addMenu(tr("Archivo"));
-    QAction* library = fileMenu->addAction(tr("Biblioteca local…"));
+    QAction* library = fileMenu->addAction(tr("Biblioteca local"));
     QAction* create = fileMenu->addAction(tr("Nuevo proyecto"));
     QAction* open = fileMenu->addAction(tr("Abrir proyecto…"));
     QAction* import = fileMenu->addAction(tr("Importar .wbw…"));
@@ -252,20 +259,16 @@ void MainWindow::createMenus() {
 }
 
 void MainWindow::loadStartupProject() {
-    const QStringList files = ProjectStore::projectFiles();
-    if (!files.isEmpty()) {
-        ArchiveDocument document;
-        QString error;
-        if (ProjectStore::loadJsonFile(files.first(), document, &error)) {
-            setDocument(std::move(document));
-            return;
-        }
-    }
-    ArchiveDocument document = ArchiveDocument::empty(tr("Nuevo proyecto"), tr("Nueva historia"));
-    const QString directory = ProjectStore::createProjectDirectory();
-    QString error;
-    ProjectStore::saveIntoProjectDirectory(directory, document, &error);
-    setDocument(std::move(document));
+    showLibrary();
+}
+
+void MainWindow::showLibrary() {
+    hubPage_->refresh();
+    pages_->setCurrentIndex(0);
+    navigation_->setCurrentRow(-1);
+    projectTitle_->setText(tr("Biblioteca local"));
+    saveState_->setText(tr("Archivo de proyectos"));
+    setWindowTitle(tr("Worldbuilder Writer — Biblioteca local"));
 }
 
 void MainWindow::newProject() {
@@ -326,115 +329,13 @@ void MainWindow::newProject() {
         return;
     }
     setDocument(std::move(document));
+    hubPage_->refresh();
     navigation_->setCurrentRow(1);
 }
 
 void MainWindow::openLibrary() {
     if (!confirmDiscard()) return;
-    QDialog dialog(this);
-    dialog.setWindowTitle(tr("Biblioteca local"));
-    dialog.resize(920, 620);
-    auto* root = new QVBoxLayout(&dialog);
-    root->setContentsMargins(24, 22, 24, 22);
-    root->setSpacing(16);
-
-    auto* header = new QHBoxLayout;
-    auto* intro = new QVBoxLayout;
-    auto* kicker = new QLabel(tr("ARCHIVO"));
-    kicker->setObjectName(QStringLiteral("dialogKicker"));
-    auto* title = new QLabel(tr("Tus historias"));
-    title->setObjectName(QStringLiteral("dialogTitle"));
-    auto* description = new QLabel(tr("Proyectos guardados localmente. No necesitas iniciar sesión para escribir."));
-    description->setObjectName(QStringLiteral("dialogDescription"));
-    intro->addWidget(kicker);
-    intro->addWidget(title);
-    intro->addWidget(description);
-    header->addLayout(intro, 1);
-    auto* create = makeButton(tr("+ Nueva obra"));
-    create->setObjectName(QStringLiteral("primaryAction"));
-    auto* import = makeButton(tr("Abrir proyecto .wbw"));
-    header->addWidget(import);
-    header->addWidget(create);
-    root->addLayout(header);
-
-    auto* storageNote = new QFrame;
-    storageNote->setObjectName(QStringLiteral("storageNote"));
-    auto* storageLayout = new QHBoxLayout(storageNote);
-    storageLayout->setContentsMargins(12, 9, 12, 9);
-    auto* dot = new QLabel(QStringLiteral("●"));
-    dot->setObjectName(QStringLiteral("storageDot"));
-    auto* storageText = new QLabel(tr("Guardado local disponible · Los proyectos administrados viven en Documentos/Worldbuilder Writer/Projects."));
-    storageText->setWordWrap(true);
-    storageLayout->addWidget(dot);
-    storageLayout->addWidget(storageText, 1);
-    root->addWidget(storageNote);
-
-    auto* list = new QListWidget;
-    list->setObjectName(QStringLiteral("projectLibrary"));
-    list->setSpacing(6);
-    const QStringList files = ProjectStore::projectFiles();
-    for (const QString& path : files) {
-        ArchiveDocument candidate;
-        QString error;
-        QString displayTitle = QFileInfo(path).dir().dirName();
-        QString subtitle = tr("Proyecto narrativo");
-        int chapters = 0;
-        int characters = 0;
-        if (ProjectStore::loadJsonFile(path, candidate, &error)) {
-            displayTitle = candidate.storyTitle().isEmpty() ? candidate.title() : candidate.storyTitle();
-            const QJsonObject profile = candidate.object(QStringLiteral("profile"));
-            subtitle = profile.value(QStringLiteral("genre")).toString(subtitle);
-            chapters = candidate.array(QStringLiteral("writingChapters")).size();
-            characters = candidate.array(QStringLiteral("characters")).size();
-        }
-        auto* item = new QListWidgetItem(QStringLiteral("%1\n%2 · %3 capítulos · %4 personajes").arg(displayTitle, subtitle).arg(chapters).arg(characters));
-        item->setData(Qt::UserRole, path);
-        item->setToolTip(path);
-        item->setSizeHint(QSize(0, 66));
-        list->addItem(item);
-    }
-    root->addWidget(list, 1);
-
-    auto* buttons = new QHBoxLayout;
-    auto* remove = makeButton(tr("Eliminar"));
-    auto* cancel = makeButton(tr("Cerrar"));
-    auto* open = makeButton(tr("Abrir →"));
-    open->setObjectName(QStringLiteral("primaryAction"));
-    buttons->addWidget(remove);
-    buttons->addStretch();
-    buttons->addWidget(cancel);
-    buttons->addWidget(open);
-    root->addLayout(buttons);
-
-    connect(cancel, &QPushButton::clicked, &dialog, &QDialog::reject);
-    connect(open, &QPushButton::clicked, &dialog, &QDialog::accept);
-    connect(list, &QListWidget::itemDoubleClicked, &dialog, [&dialog](QListWidgetItem*) { dialog.accept(); });
-    connect(create, &QPushButton::clicked, &dialog, [this, &dialog]() {
-        dialog.reject();
-        newProject();
-    });
-    connect(import, &QPushButton::clicked, &dialog, [this, &dialog]() {
-        const QString path = QFileDialog::getOpenFileName(&dialog, tr("Abrir proyecto .wbw"), QString(), tr("Proyecto Worldbuilder Writer (*.wbw)"));
-        if (path.isEmpty()) return;
-        dialog.reject();
-        loadPath(path);
-    });
-    connect(remove, &QPushButton::clicked, &dialog, [this, list]() {
-        auto* item = list->currentItem();
-        if (!item) return;
-        const QString path = item->data(Qt::UserRole).toString();
-        if (QMessageBox::question(this, tr("Eliminar proyecto"), tr("¿Eliminar definitivamente este proyecto de la biblioteca local?")) != QMessageBox::Yes) return;
-        QString error;
-        if (!ProjectStore::removeProject(path, &error)) {
-            QMessageBox::critical(this, tr("No se pudo eliminar"), error);
-            return;
-        }
-        delete list->takeItem(list->row(item));
-    });
-    if (dialog.exec() != QDialog::Accepted) return;
-    auto* selected = list->currentItem();
-    if (!selected) return;
-    loadPath(selected->data(Qt::UserRole).toString());
+    showLibrary();
 }
 
 void MainWindow::openProject() {
@@ -469,6 +370,8 @@ bool MainWindow::loadPath(const QString& path) {
         }
     }
     setDocument(std::move(candidate));
+    hubPage_->refresh();
+    navigation_->setCurrentRow(1);
     return true;
 }
 
@@ -626,6 +529,8 @@ void MainWindow::setDocument(ArchiveDocument document) {
     writingPage_->setDocument(&document_);
     worldPage_->setDocument(&document_);
     reviewPage_->setDocument(&document_);
+    if (navigation_->currentRow() < 0) navigation_->setCurrentRow(1);
+    pages_->setCurrentIndex(navigation_->currentRow() + 1);
     updateWindowTitle();
     applyTheme();
 }
@@ -655,7 +560,7 @@ void MainWindow::applyTheme() {
     setStyleSheet(QStringLiteral(
         "QMainWindow,QDialog{background:#edf1f5;color:#1f2937;}"
         "QWidget{color:#1f2937;font-family:'Segoe UI';font-size:9.5pt;}"
-        "#appRoot,#pageStack{background:#edf1f5;}"
+        "#appRoot,#pageStack,#projectHubPage,#hubCardsHost{background:#edf1f5;}"
         "#topShell{background:#ffffff;border-bottom:1px solid #d7dde5;}"
         "#appIdentity{background:transparent;}"
         "#appMark{background:#17233a;color:#ffffff;border-radius:3px;font-family:'Georgia';font-size:11pt;font-weight:700;}"
@@ -675,8 +580,8 @@ void MainWindow::applyTheme() {
         "QPushButton,QToolButton{background:#ffffff;color:#344054;border:1px solid #cbd3dd;border-radius:3px;padding:7px 11px;}"
         "QPushButton:hover,QToolButton:hover{background:#f6f8fb;border-color:#98a2b3;}"
         "QPushButton:pressed,QToolButton:pressed{background:#edf2f7;}"
-        "QPushButton#primarySave,QPushButton#primaryAction{background:#1668d4;color:#ffffff;border-color:#1668d4;font-weight:600;}"
-        "QPushButton#primarySave:hover,QPushButton#primaryAction:hover{background:#0f5fc8;border-color:#0f5fc8;}"
+        "QPushButton#primarySave,QPushButton#primaryAction,QPushButton#hubPrimary{background:#1668d4;color:#ffffff;border-color:#1668d4;font-weight:600;}"
+        "QPushButton#primarySave:hover,QPushButton#primaryAction:hover,QPushButton#hubPrimary:hover{background:#0f5fc8;border-color:#0f5fc8;}"
         "QPushButton#secondaryAction{background:#ffffff;color:#344054;}"
         "QToolButton:checked{background:#20262e;color:#ffffff;border-color:#20262e;}"
         "QTabWidget::pane{border:0;background:transparent;}"
@@ -694,14 +599,22 @@ void MainWindow::applyTheme() {
         "QScrollBar::handle:vertical{background:#b7c0cb;min-height:28px;border-radius:4px;}"
         "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
         "QStatusBar{background:#ffffff;color:#667085;border-top:1px solid #d7dde5;}"
-        "#dialogKicker,#fieldLabel{color:#667085;font-size:8pt;font-weight:700;letter-spacing:.7px;}"
-        "#dialogTitle{font-family:'Georgia';font-size:22pt;color:#344054;}"
-        "#dialogDescription{color:#667085;font-family:'Georgia';}"
-        "#storageNote{background:#f7faf8;border:1px solid #d8e8dc;}"
-        "#storageDot{color:#2f855a;}"
-        "#projectLibrary{background:#f7f9fc;border:0;padding:4px;}"
-        "#projectLibrary::item{background:#ffffff;border:1px solid #d7dee8;border-radius:3px;padding:10px;color:#344054;}"
-        "#projectLibrary::item:selected{background:#eef5ff;border:1px solid #8bb5ef;color:#175cd3;}"
+        "#dialogKicker,#fieldLabel,#hubKicker,#projectCardGenre{color:#667085;font-size:8pt;font-weight:700;letter-spacing:.7px;}"
+        "#dialogTitle,#hubTitle{font-family:'Georgia';font-size:25pt;color:#344054;}"
+        "#dialogDescription,#hubDescription{color:#667085;font-family:'Georgia';}"
+        "#hubStorage{background:#f7faf8;border:1px solid #d8e8dc;}"
+        "#hubStorageDot{color:#2f855a;}"
+        "#hubStorageTitle{font-weight:700;color:#344054;}"
+        "#hubStorageDetail{color:#667085;font-size:8.5pt;}"
+        "#projectCard{background:#ffffff;border:1px solid #d7dee8;border-radius:4px;}"
+        "#projectCardMark{background:#17233a;color:#ffffff;border-radius:3px;font-family:'Georgia';font-weight:700;}"
+        "#projectCardState{background:#f2f4f7;color:#475467;border:1px solid #e1e5ea;border-radius:3px;padding:3px 7px;font-size:8pt;}"
+        "#projectCardTitle{font-family:'Georgia';font-size:16pt;font-weight:700;color:#344054;}"
+        "#projectCardArchive{color:#667085;}"
+        "#projectStatValue{font-weight:700;color:#344054;}"
+        "#projectStatLabel{color:#98a2b3;font-size:8pt;}"
+        "#projectDelete{color:#b42318;}"
+        "#hubEmpty{background:#ffffff;border:1px dashed #cbd3dd;color:#667085;padding:40px;}"
     ));
 }
 
