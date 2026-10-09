@@ -27,7 +27,7 @@ public:
     void disconnectAccount();
 
     void listBackups();
-    void uploadBackup(const QString& localWbwPath);
+    void uploadBackup(const QString& localWbwPath, const QString& projectId);
     void downloadBackup(const QString& fileId, const QString& destinationPath);
 
 signals:
@@ -44,6 +44,8 @@ private:
     void refreshAccessToken(const std::function<void(bool)>& continuation);
     void withAccessToken(const std::function<void(const QString&)>& continuation);
     void handleTokenReply(QNetworkReply* reply, bool expectRefreshToken, const std::function<void(bool)>& continuation = {});
+    void performUpload(const QString& token, const QByteArray& bytes, const QString& name,
+                       const QString& projectId, const QString& existingFileId = {});
     void stopLoopbackServer();
     void saveRefreshToken(const QString& token);
     QString savedRefreshToken() const;
