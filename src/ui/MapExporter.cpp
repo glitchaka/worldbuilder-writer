@@ -3,12 +3,16 @@
 #include <QBuffer>
 #include <QColor>
 #include <QFile>
+#include <QFont>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QMarginsF>
+#include <QObject>
 #include <QPageSize>
 #include <QPainter>
 #include <QPdfWriter>
+#include <QPolygon>
 #include <QSize>
 #include <QSizeF>
 #include <QTextStream>
@@ -120,6 +124,35 @@ void paintObject(QPainter& painter, const QJsonObject& object, double sx, double
     if (polyline.size() > 1) painter.drawPolyline(polyline);
 }
 
+void paintTemplate(QPainter& painter, const QJsonObject& map, const QJsonObject& pilin,
+                   const QSize& outputSize, double sx, double sy) {
+    const QJsonObject templ = pilin.value(QStringLiteral("template")).toObject();
+    if (!templ.value(QStringLiteral("visible")).toBool(true)) return;
+
+    QString dataUrl = templ.value(QStringLiteral("dataUrl")).toString();
+    if (dataUrl.isEmpty()) dataUrl = map.value(QStringLiteral("backgroundImageDataUrl")).toString();
+    if (dataUrl.isEmpty()) return;
+
+    QImage image;
+    if (!image.loadFromData(dataUrlBytes(dataUrl))) return;
+
+    const double docW = std::max(1.0, pilin.value(QStringLiteral("width")).toDouble(4096.0));
+    const double docH = std::max(1.0, pilin.value(QStringLiteral("height")).toDouble(2304.0));
+    const double x = templ.value(QStringLiteral("x")).toDouble(0.0) * sx;
+    const double y = templ.value(QStringLiteral("y")).toDouble(0.0) * sy;
+    const double scale = std::clamp(templ.value(QStringLiteral("scale")).toDouble(1.0), 0.01, 100.0);
+    const double rotation = templ.value(QStringLiteral("rotation")).toDouble(0.0);
+    const double width = docW * sx * scale;
+    const double height = docH * sy * scale;
+
+    painter.save();
+    painter.setOpacity(std::clamp(templ.value(QStringLiteral("opacity")).toDouble(.35), 0.0, 1.0));
+    painter.translate(x + width * .5, y + height * .5);
+    painter.rotate(rotation);
+    painter.drawImage(QRectF(-width * .5, -height * .5, width, height), image);
+    painter.restore();
+}
+
 void paintMap(QPainter& painter, const QJsonObject& map, const QSize& outputSize) {
     const QJsonObject pilin = map.value(QStringLiteral("pilinRey")).toObject();
     const double docW = std::max(1.0, pilin.value(QStringLiteral("width")).toDouble(4096.0));
@@ -131,18 +164,7 @@ void paintMap(QPainter& painter, const QJsonObject& map, const QSize& outputSize
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-    const QJsonObject templ = pilin.value(QStringLiteral("template")).toObject();
-    if (templ.value(QStringLiteral("visible")).toBool(true)) {
-        QString dataUrl = templ.value(QStringLiteral("dataUrl")).toString();
-        if (dataUrl.isEmpty()) dataUrl = map.value(QStringLiteral("backgroundImageDataUrl")).toString();
-        QImage image;
-        if (!dataUrl.isEmpty() && image.loadFromData(dataUrlBytes(dataUrl))) {
-            painter.save();
-            painter.setOpacity(std::clamp(templ.value(QStringLiteral("opacity")).toDouble(.35), 0.0, 1.0));
-            painter.drawImage(QRect(QPoint(0, 0), outputSize), image);
-            painter.restore();
-        }
-    }
+    paintTemplate(painter, map, pilin, outputSize, sx, sy);
 
     for (const QJsonValue layerValue : pilin.value(QStringLiteral("layers")).toArray()) {
         const QJsonObject layer = layerValue.toObject();
@@ -229,9 +251,20 @@ bool MapExporter::exportSvg(const QJsonObject& map, const QString& path, const Q
     if (templ.value(QStringLiteral("visible")).toBool(true)) {
         QString dataUrl = templ.value(QStringLiteral("dataUrl")).toString();
         if (dataUrl.isEmpty()) dataUrl = map.value(QStringLiteral("backgroundImageDataUrl")).toString();
-        if (!dataUrl.isEmpty())
-            out << "<image x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" opacity=\"" << std::clamp(templ.value(QStringLiteral("opacity")).toDouble(.35),0.0,1.0)
-                << "\" preserveAspectRatio=\"none\" xlink:href=\"" << dataUrl.toHtmlEscaped() << "\"/>\n";
+        if (!dataUrl.isEmpty()) {
+            const double x = templ.value(QStringLiteral("x")).toDouble(0.0) * sx;
+            const double y = templ.value(QStringLiteral("y")).toDouble(0.0) * sy;
+            const double scale = std::clamp(templ.value(QStringLiteral("scale")).toDouble(1.0), 0.01, 100.0);
+            const double rotation = templ.value(QStringLiteral("rotation")).toDouble(0.0);
+            const double width = docW * sx * scale;
+            const double height = docH * sy * scale;
+            const double cx = x + width * .5;
+            const double cy = y + height * .5;
+            out << "<image x=\"" << x << "\" y=\"" << y << "\" width=\"" << width << "\" height=\"" << height
+                << "\" opacity=\"" << std::clamp(templ.value(QStringLiteral("opacity")).toDouble(.35),0.0,1.0)
+                << "\" preserveAspectRatio=\"none\" transform=\"rotate(" << rotation << ' ' << cx << ' ' << cy << ")\" xlink:href=\""
+                << dataUrl.toHtmlEscaped() << "\"/>\n";
+        }
     }
 
     for (const QJsonValue layerValue : pilin.value(QStringLiteral("layers")).toArray()) {
