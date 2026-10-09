@@ -4,6 +4,8 @@
 #include <QColor>
 #include <QPalette>
 #include <QSettings>
+#include <QVariant>
+#include <QWidget>
 
 namespace wbw {
 namespace {
@@ -42,24 +44,22 @@ QPalette darkPalette() {
     return palette;
 }
 
-QString commonStyle(bool dark) {
-    if (!dark) {
-        return QStringLiteral(
-            "QWidget{font-family:'Segoe UI';font-size:9.5pt;color:#1f2937;}"
-            "QPushButton,QToolButton{background:#ffffff;color:#344054;border:1px solid #cfd6df;border-radius:2px;padding:6px 10px;min-height:18px;}"
-            "QPushButton:hover,QToolButton:hover{background:#f7f9fc;border-color:#98a2b3;}"
-            "QPushButton:pressed,QToolButton:pressed{background:#eef2f7;}"
-            "QToolButton:checked{background:#1668d4;color:#ffffff;border-color:#1668d4;}"
-            "QLineEdit,QTextEdit,QComboBox,QSpinBox,QDoubleSpinBox,QListWidget,QTreeWidget{background:#ffffff;color:#1f2937;border:1px solid #cfd6df;border-radius:2px;padding:6px 8px;}"
-            "QComboBox{padding-right:10px;}QComboBox::drop-down{width:0;border:0;}QComboBox::down-arrow{image:none;width:0;height:0;}"
-            "QSpinBox,QDoubleSpinBox{padding-right:8px;}QSpinBox::up-button,QSpinBox::down-button,QDoubleSpinBox::up-button,QDoubleSpinBox::down-button{width:0;height:0;border:0;background:transparent;}"
-            "QSlider::groove:horizontal{height:4px;background:#d8dee8;border-radius:2px;}QSlider::handle:horizontal{width:14px;margin:-5px 0;background:#1668d4;border:1px solid #0f5fc8;border-radius:7px;}"
-            "QCheckBox{spacing:7px;}QCheckBox::indicator{width:14px;height:14px;border:1px solid #aab4c0;background:#ffffff;border-radius:2px;}QCheckBox::indicator:checked{background:#1668d4;border-color:#1668d4;}"
-            "#appTitleBar{background:#ffffff;border-bottom:1px solid #d8dee8;}#titleMark{font-family:'Georgia';font-weight:700;color:#175cd3;}#titleText{font-weight:600;color:#344054;}"
-            "#windowMinimize,#windowMaximize,#windowClose{border:0;border-radius:0;background:transparent;padding:0;min-height:0;color:#475467;font-size:12pt;}#windowMinimize:hover,#windowMaximize:hover{background:#eef2f7;}#windowClose:hover{background:#c42b1c;color:#ffffff;}"
-        );
-    }
+QString lightStyle() {
+    return QStringLiteral(
+        "QWidget{font-family:'Segoe UI';font-size:9.5pt;color:#1f2937;}"
+        "QPushButton,QToolButton{background:#ffffff;color:#344054;border:1px solid #cfd6df;border-radius:2px;padding:6px 10px;min-height:18px;}"
+        "QPushButton:hover,QToolButton:hover{background:#f7f9fc;border-color:#98a2b3;}QPushButton:pressed,QToolButton:pressed{background:#eef2f7;}QToolButton:checked{background:#1668d4;color:#ffffff;border-color:#1668d4;}"
+        "QLineEdit,QTextEdit,QComboBox,QSpinBox,QDoubleSpinBox,QListWidget,QTreeWidget{background:#ffffff;color:#1f2937;border:1px solid #cfd6df;border-radius:2px;padding:6px 8px;}"
+        "QComboBox{padding-right:10px;}QComboBox::drop-down{width:0;border:0;}QComboBox::down-arrow{image:none;width:0;height:0;}"
+        "QSpinBox,QDoubleSpinBox{padding-right:8px;}QSpinBox::up-button,QSpinBox::down-button,QDoubleSpinBox::up-button,QDoubleSpinBox::down-button{width:0;height:0;border:0;background:transparent;}"
+        "QSlider::groove:horizontal{height:4px;background:#d8dee8;border-radius:2px;}QSlider::handle:horizontal{width:14px;margin:-5px 0;background:#1668d4;border:1px solid #0f5fc8;border-radius:7px;}"
+        "QCheckBox{spacing:7px;}QCheckBox::indicator{width:14px;height:14px;border:1px solid #aab4c0;background:#ffffff;border-radius:2px;}QCheckBox::indicator:checked{background:#1668d4;border-color:#1668d4;}"
+        "#appTitleBar{background:#ffffff;border-bottom:1px solid #d8dee8;}#titleMark{font-family:'Georgia';font-weight:700;color:#175cd3;}#titleText{font-weight:600;color:#344054;}"
+        "#windowMinimize,#windowMaximize,#windowClose{border:0;border-radius:0;background:transparent;padding:0;min-height:0;color:#475467;font-size:12pt;}#windowMinimize:hover,#windowMaximize:hover{background:#eef2f7;}#windowClose:hover{background:#c42b1c;color:#ffffff;}"
+    );
+}
 
+QString darkStyle() {
     return QStringLiteral(
         "QWidget{font-family:'Segoe UI';font-size:9.5pt;color:#e6eaf0;background:#12161d;}"
         "QPushButton,QToolButton{background:#1d2430;color:#e6eaf0;border:1px solid #394454;border-radius:2px;padding:6px 10px;min-height:18px;}"
@@ -70,15 +70,26 @@ QString commonStyle(bool dark) {
         "QScrollArea,QAbstractScrollArea{background:#12161d;}QScrollBar{background:#161c25;}QScrollBar::handle{background:#455266;border-radius:4px;}"
         "QSlider::groove:horizontal{height:4px;background:#394454;border-radius:2px;}QSlider::handle:horizontal{width:14px;margin:-5px 0;background:#4d97e8;border-radius:7px;}"
         "QCheckBox::indicator{width:14px;height:14px;border:1px solid #5c697b;background:#171c24;border-radius:2px;}QCheckBox::indicator:checked{background:#2670c9;border-color:#2670c9;}"
-        "#appRoot,#pageStack,#planningPage,#writingPage,#writingEditorTab,#sceneBoardTab,#worldPage,#reviewPage,#projectHubPage,#hubShell,#hubCardsHost,#atlasTab,#magicTab,#mapsTab{background:#12161d;color:#e6eaf0;}"
+        "#appRoot,#pageStack,#planningPage,#planningCharacters,#planningBoard,#planningTheories,#planningTimeline,#writingPage,#writingEditorTab,#sceneBoardTab,#worldPage,#reviewPage,#projectHubPage,#hubShell,#hubCardsHost,#atlasTab,#magicTab,#mapsTab{background:#12161d;color:#e6eaf0;}"
         "#topShell,#hubDesktopBar,#appTitleBar{background:#171c24;border-color:#303a48;}"
-        "#writingHero,#indexPanel,#editorPanel,#metadataPanel,#worldIndexPanel,#worldEditorCard,#magicIndexPanel,#magicEditorCard,#mapIndexPanel,#mapEditorCard,#legacyMarkers,#projectCard,#hubStorage,#generatorBar{background:#171c24;border-color:#394454;color:#e6eaf0;}"
-        "#sceneEditor{background:#171c24;color:#e6eaf0;}"
-        "#appName,#projectTitle,#hubAppName,#projectCardTitle,#newProjectTitle,#pageTitle,#dialogTitle{color:#f2f4f7;}"
-        "#appMode,#saveState,#hubAppMode,#hubKicker,#projectCardGenre,#newProjectMeta,#pageKicker,#fieldTitle,#panelTitle,#projectSaved,#projectStatLabel,#hubDescription,#pageDescription,#writingDescription,#proofState{color:#9aa7b8;}"
+        "#writingHero,#indexPanel,#editorPanel,#metadataPanel,#writingInspector,#worldIndexPanel,#worldEditorCard,#magicIndexPanel,#magicEditorCard,#mapIndexPanel,#mapEditorCard,#legacyMarkers,#projectCard,#hubStorage,#generatorBar,#planningIndex,#planningEditor,#planningRelationPanel,#planningHero,#planningCard{background:#171c24;border-color:#394454;color:#e6eaf0;}"
+        "#sceneEditor,#writingReferences,#writingInspectorTabs::pane{background:#171c24;color:#e6eaf0;}"
+        "#appName,#projectTitle,#hubAppName,#projectCardTitle,#newProjectTitle,#pageTitle,#dialogTitle,#planningTitle,#planningCardTitle,#writingTitle{color:#f2f4f7;}"
+        "#appMode,#saveState,#hubAppMode,#hubKicker,#projectCardGenre,#newProjectMeta,#pageKicker,#fieldTitle,#panelTitle,#projectSaved,#projectStatLabel,#hubDescription,#pageDescription,#writingDescription,#proofState,#planningKicker,#planningField,#planningDescription,#planningIndexTitle{color:#9aa7b8;}"
         "#appTitleBar{border-bottom:1px solid #303a48;}#titleMark{color:#72aef0;}#titleText{color:#e6eaf0;}"
         "#windowMinimize,#windowMaximize,#windowClose{border:0;background:transparent;color:#c5ced9;}#windowMinimize:hover,#windowMaximize:hover{background:#283241;}#windowClose:hover{background:#c42b1c;color:#ffffff;}"
     );
+}
+
+void restyleExistingWidgets(bool dark) {
+    const QString override = dark ? darkStyle() : QString();
+    for (QWidget* widget : QApplication::allWidgets()) {
+        if (!widget) continue;
+        const char* key = "wbwBaseStyleSheet";
+        if (!widget->property(key).isValid()) widget->setProperty(key, widget->styleSheet());
+        const QString base = widget->property(key).toString();
+        widget->setStyleSheet(dark ? base + override : base);
+    }
 }
 
 } // namespace
@@ -96,8 +107,9 @@ void ThemeManager::apply(Mode mode) {
     if (!qApp) return;
     const bool dark = mode == Mode::Dark;
     qApp->setPalette(dark ? darkPalette() : lightPalette());
-    qApp->setStyleSheet(commonStyle(dark));
+    qApp->setStyleSheet(dark ? darkStyle() : lightStyle());
     qApp->setProperty("wbwDarkMode", dark);
+    restyleExistingWidgets(dark);
 }
 
 void ThemeManager::saveAndApply(Mode mode) {
