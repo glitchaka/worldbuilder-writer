@@ -7,6 +7,7 @@
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLabel>
 #include <QList>
 #include <QMessageBox>
 #include <QPushButton>
@@ -19,7 +20,6 @@
 
 class QCheckBox;
 class QComboBox;
-class QLabel;
 class QListWidget;
 class QSlider;
 class QToolButton;
@@ -51,7 +51,6 @@ public:
     QJsonObject map() const { return map_; }
 
 signals:
-    // Compatibility signals kept temporarily while legacy map records are migrated.
     void markerMoved(const QString& id, double x, double y);
     void addMarkerRequested(double x, double y);
     void markerActivated(const QString& id);
