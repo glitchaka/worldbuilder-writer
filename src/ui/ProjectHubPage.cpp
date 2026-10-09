@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
+#include <QHideEvent>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -17,6 +18,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
+#include <QShowEvent>
 #include <QVBoxLayout>
 
 namespace wbw {
@@ -142,6 +144,34 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
     scroll->setWidget(shell);
     page->addWidget(scroll, 1);
 
+    setStyleSheet(QStringLiteral(
+        "#projectHubPage,#hubShell,#hubCardsHost{background:#eef2f6;}"
+        "#hubDesktopBar{background:#ffffff;border-bottom:1px solid #d8dee7;}"
+        "#hubAppMark,#projectCardMark{background:#17233a;color:#ffffff;border-radius:3px;font-family:'Georgia';font-weight:700;}"
+        "#hubAppName{font-size:10.5pt;font-weight:700;color:#243247;}"
+        "#hubAppMode{font-size:8pt;color:#8b95a5;}"
+        "#hubKicker,#projectCardGenre,#newProjectMeta{color:#7c8797;font-size:8pt;font-weight:700;letter-spacing:.8px;}"
+        "#hubTitle{font-family:'Georgia';font-size:28pt;font-weight:500;color:#344054;}"
+        "#hubDescription{font-family:'Georgia';font-size:10pt;color:#667085;}"
+        "#hubStorage{background:#f7faf8;border:1px solid #d7e6da;border-radius:3px;}"
+        "#hubStorageDot{color:#2f855a;}"
+        "#hubStorageTitle{font-weight:700;color:#344054;}"
+        "#hubStorageDetail{color:#667085;font-size:8.5pt;}"
+        "QPushButton#hubPrimary{background:#1668d4;color:#ffffff;border:1px solid #1668d4;border-radius:3px;padding:7px 12px;font-weight:600;}"
+        "QPushButton#hubPrimary:hover{background:#0f5fc8;}"
+        "QPushButton#hubSecondary{background:#ffffff;color:#344054;border:1px solid #cfd6df;border-radius:3px;padding:7px 12px;}"
+        "#projectCard{background:#ffffff;border:1px solid #d7dee8;border-radius:4px;}"
+        "#projectCardState{background:#f2f4f7;color:#475467;border:1px solid #e1e5ea;border-radius:3px;padding:3px 7px;font-size:8pt;}"
+        "#projectCardTitle,#newProjectTitle{font-family:'Georgia';font-size:17pt;font-weight:700;color:#344054;}"
+        "#projectCardArchive,#newProjectCopy{color:#667085;font-size:9pt;}"
+        "#projectStatValue{font-weight:700;color:#344054;font-size:10pt;}"
+        "#projectStatLabel,#projectSaved{color:#98a2b3;font-size:8pt;}"
+        "QPushButton#projectDelete{background:transparent;color:#b42318;border:0;padding:5px 8px;}"
+        "QPushButton#projectCardNew{background:#f8fafc;color:#344054;border:1px dashed #b8c2cf;border-radius:4px;text-align:left;}"
+        "QPushButton#projectCardNew:hover{background:#f1f6ff;border-color:#8bb5ef;}"
+        "#newProjectMark{background:#eaf2ff;color:#1668d4;border:1px solid #c8dbfb;border-radius:23px;font-size:20pt;font-weight:300;}"
+    ));
+
     connect(create, &QPushButton::clicked, this, &ProjectHubPage::newProjectRequested);
     connect(import, &QPushButton::clicked, this, &ProjectHubPage::importProjectRequested);
     connect(settings, &QPushButton::clicked, this, [this]() {
@@ -150,6 +180,16 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
         emit settingsRequested();
     });
     refresh();
+}
+
+void ProjectHubPage::showEvent(QShowEvent* event) {
+    QWidget::showEvent(event);
+    if (QWidget* shell = window()->findChild<QWidget*>(QStringLiteral("topShell"))) shell->hide();
+}
+
+void ProjectHubPage::hideEvent(QHideEvent* event) {
+    if (QWidget* shell = window()->findChild<QWidget*>(QStringLiteral("topShell"))) shell->show();
+    QWidget::hideEvent(event);
 }
 
 void ProjectHubPage::refresh() {
