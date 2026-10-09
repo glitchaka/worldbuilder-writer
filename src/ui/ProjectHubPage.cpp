@@ -60,9 +60,11 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
     identity->addWidget(description);
     top->addLayout(identity, 1);
     auto* import = button(tr("Abrir proyecto .wbw"));
+    auto* settings = button(tr("Configuración"));
     auto* create = button(tr("+ Nueva obra"));
     create->setObjectName(QStringLiteral("hubPrimary"));
     top->addWidget(import, 0, Qt::AlignBottom);
+    top->addWidget(settings, 0, Qt::AlignBottom);
     top->addWidget(create, 0, Qt::AlignBottom);
     root->addLayout(top);
 
@@ -102,6 +104,7 @@ ProjectHubPage::ProjectHubPage(QWidget* parent) : QWidget(parent) {
 
     connect(create, &QPushButton::clicked, this, &ProjectHubPage::newProjectRequested);
     connect(import, &QPushButton::clicked, this, &ProjectHubPage::importProjectRequested);
+    connect(settings, &QPushButton::clicked, this, &ProjectHubPage::settingsRequested);
     refresh();
 }
 
