@@ -8,7 +8,6 @@
 #include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
 
-#include <QAction>
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QDialog>
@@ -16,7 +15,6 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFont>
-#include <QFrame>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -24,7 +22,6 @@
 #include <QListView>
 #include <QListWidget>
 #include <QMarginsF>
-#include <QMenuBar>
 #include <QMessageBox>
 #include <QPageLayout>
 #include <QPageSize>
@@ -34,7 +31,11 @@
 #include <QSettings>
 #include <QSizeF>
 #include <QStackedWidget>
+#include <QTextBlockFormat>
+#include <QTextCharFormat>
+#include <QTextCursor>
 #include <QTextDocument>
+#include <QTextFormat>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -55,12 +56,29 @@ QString safeFileName(QString value) {
     return value.left(100);
 }
 
-QString sceneBodyHtml(const QString& content) {
-    if (content.trimmed().isEmpty()) return QString();
-    const QRegularExpression body(QStringLiteral("<body[^>]*>([\\s\\S]*)</body>"), QRegularExpression::CaseInsensitiveOption);
-    const auto match = body.match(content);
-    if (match.hasMatch()) return match.captured(1);
-    return content;
+QString scenePlainText(const QJsonObject& scene) {
+    if (scene.contains(QStringLiteral("text"))) return scene.value(QStringLiteral("text")).toString();
+    QTextDocument legacy;
+    legacy.setHtml(scene.value(QStringLiteral("content")).toString());
+    return legacy.toPlainText();
+}
+
+void applyFormattingRuns(QTextDocument& document, int base, int textLength, const QJsonArray& formatting) {
+    for (const QJsonValue value : formatting) {
+        const QJsonObject run = value.toObject();
+        const int start = run.value(QStringLiteral("start")).toInt();
+        const int length = run.value(QStringLiteral("length")).toInt();
+        if (start < 0 || length <= 0 || start >= textLength) continue;
+        const int end = qMin(textLength, start + length);
+        QTextCursor cursor(&document);
+        cursor.setPosition(base + start);
+        cursor.setPosition(base + end, QTextCursor::KeepAnchor);
+        QTextCharFormat format;
+        if (run.value(QStringLiteral("bold")).toBool()) format.setFontWeight(QFont::Bold);
+        if (run.value(QStringLiteral("italic")).toBool()) format.setFontItalic(true);
+        if (run.value(QStringLiteral("underline")).toBool()) format.setFontUnderline(true);
+        cursor.mergeCharFormat(format);
+    }
 }
 
 QJsonObject effectiveLayout(const ArchiveDocument& document) {
@@ -78,8 +96,6 @@ QJsonObject effectiveLayout(const ArchiveDocument& document) {
     if (!layout.contains(QStringLiteral("paragraphIndentMm"))) layout.insert(QStringLiteral("paragraphIndentMm"), 5.0);
     if (!layout.contains(QStringLiteral("chapterOpening"))) layout.insert(QStringLiteral("chapterOpening"), QStringLiteral("Página nueva"));
     if (!layout.contains(QStringLiteral("sceneSeparator"))) layout.insert(QStringLiteral("sceneSeparator"), QStringLiteral("⁂"));
-    if (!layout.contains(QStringLiteral("headerText"))) layout.insert(QStringLiteral("headerText"), QStringLiteral("{título}"));
-    if (!layout.contains(QStringLiteral("footerText"))) layout.insert(QStringLiteral("footerText"), QStringLiteral("{página}"));
     return layout;
 }
 
@@ -89,7 +105,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     resize(1480, 900);
     setMinimumSize(1040, 680);
     createShell();
-    createMenus();
 
     autosaveTimer_ = new QTimer(this);
     autosaveTimer_->setInterval(15000);
@@ -212,52 +227,6 @@ void MainWindow::createShell() {
     connect(reviewPage_, &ReviewPage::requestBackup, this, &MainWindow::createBackup);
 }
 
-void MainWindow::createMenus() {
-    auto* fileMenu = menuBar()->addMenu(tr("Archivo"));
-    QAction* library = fileMenu->addAction(tr("Biblioteca local"));
-    QAction* create = fileMenu->addAction(tr("Nuevo proyecto"));
-    QAction* open = fileMenu->addAction(tr("Abrir proyecto…"));
-    QAction* import = fileMenu->addAction(tr("Importar .wbw…"));
-    fileMenu->addSeparator();
-    QAction* save = fileMenu->addAction(tr("Guardar"));
-    QAction* saveAs = fileMenu->addAction(tr("Guardar JSON como…"));
-    fileMenu->addSeparator();
-    QAction* exportProject = fileMenu->addAction(tr("Exportar proyecto .wbw…"));
-    QAction* pdf = fileMenu->addAction(tr("Exportar manuscrito PDF…"));
-    QAction* backup = fileMenu->addAction(tr("Crear copia de seguridad…"));
-    fileMenu->addSeparator();
-    QAction* exit = fileMenu->addAction(tr("Salir"));
-
-    create->setShortcut(QKeySequence::New);
-    open->setShortcut(QKeySequence::Open);
-    save->setShortcut(QKeySequence::Save);
-    saveAs->setShortcut(QKeySequence::SaveAs);
-
-    connect(library, &QAction::triggered, this, &MainWindow::openLibrary);
-    connect(create, &QAction::triggered, this, &MainWindow::newProject);
-    connect(open, &QAction::triggered, this, &MainWindow::openProject);
-    connect(import, &QAction::triggered, this, &MainWindow::importWbw);
-    connect(save, &QAction::triggered, this, [this]() { saveProject(); });
-    connect(saveAs, &QAction::triggered, this, &MainWindow::saveProjectAs);
-    connect(exportProject, &QAction::triggered, this, &MainWindow::exportWbw);
-    connect(pdf, &QAction::triggered, this, &MainWindow::exportPdf);
-    connect(backup, &QAction::triggered, this, &MainWindow::createBackup);
-    connect(exit, &QAction::triggered, this, &QWidget::close);
-
-    auto* viewMenu = menuBar()->addMenu(tr("Vista"));
-    QAction* planning = viewMenu->addAction(tr("Planificación"));
-    QAction* writing = viewMenu->addAction(tr("Escritura"));
-    QAction* world = viewMenu->addAction(tr("Mundo"));
-    QAction* review = viewMenu->addAction(tr("Revisión"));
-    viewMenu->addSeparator();
-    QAction* focus = viewMenu->addAction(tr("Modo enfoque"));
-    connect(planning, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(0); });
-    connect(writing, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(1); });
-    connect(world, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(2); });
-    connect(review, &QAction::triggered, this, [this]() { navigation_->setCurrentRow(3); });
-    connect(focus, &QAction::triggered, writingPage_, &WritingPage::openFocusMode);
-}
-
 void MainWindow::loadStartupProject() {
     showLibrary();
 }
@@ -363,12 +332,11 @@ bool MainWindow::loadPath(const QString& path) {
             QMessageBox::critical(this, tr("No se pudo crear la copia editable"), error);
             return false;
         }
-    } else {
-        if (!ProjectStore::loadJsonFile(path, candidate, &error)) {
-            QMessageBox::critical(this, tr("No se pudo abrir"), error);
-            return false;
-        }
+    } else if (!ProjectStore::loadJsonFile(path, candidate, &error)) {
+        QMessageBox::critical(this, tr("No se pudo abrir"), error);
+        return false;
     }
+
     setDocument(std::move(candidate));
     hubPage_->refresh();
     navigation_->setCurrentRow(1);
@@ -430,69 +398,97 @@ void MainWindow::exportPdf() {
     QPrinter printer(QPrinter::HighResolution);
     printer.setOutputFormat(QPrinter::PdfFormat);
     printer.setOutputFileName(path);
-    QPageSize pageSize(QSizeF(layout.value(QStringLiteral("pageWidthMm")).toDouble(), layout.value(QStringLiteral("pageHeightMm")).toDouble()), QPageSize::Millimeter, QStringLiteral("Worldbuilder Writer"));
-    QPageLayout pageLayout(pageSize, QPageLayout::Portrait,
+    const QPageSize pageSize(QSizeF(layout.value(QStringLiteral("pageWidthMm")).toDouble(), layout.value(QStringLiteral("pageHeightMm")).toDouble()), QPageSize::Millimeter, QStringLiteral("Worldbuilder Writer"));
+    printer.setPageLayout(QPageLayout(pageSize, QPageLayout::Portrait,
         QMarginsF(layout.value(QStringLiteral("marginLeftMm")).toDouble(),
                   layout.value(QStringLiteral("marginTopMm")).toDouble(),
                   layout.value(QStringLiteral("marginRightMm")).toDouble(),
                   layout.value(QStringLiteral("marginBottomMm")).toDouble()),
-        QPageLayout::Millimeter);
-    printer.setPageLayout(pageLayout);
+        QPageLayout::Millimeter));
 
     const QString fontFamily = layout.value(QStringLiteral("fontFamily")).toString(QStringLiteral("Garamond"));
     const double fontSize = layout.value(QStringLiteral("fontSizePt")).toDouble(11.0);
     const double lineHeight = layout.value(QStringLiteral("lineHeight")).toDouble(1.35);
-    const double indent = layout.value(QStringLiteral("paragraphIndentMm")).toDouble(5.0);
+    const double indentMm = layout.value(QStringLiteral("paragraphIndentMm")).toDouble(5.0);
     const QString opening = layout.value(QStringLiteral("chapterOpening")).toString(QStringLiteral("Página nueva"));
     const QString separator = layout.value(QStringLiteral("sceneSeparator")).toString(QStringLiteral("⁂"));
     const QJsonObject profile = document_.object(QStringLiteral("profile"));
 
-    QString html = QStringLiteral("<html><head><meta charset='utf-8'><style>"
-        "body{font-family:'%1';font-size:%2pt;line-height:%3;}"
-        "p{margin:0 0 0.45em 0;text-indent:%4mm;}"
-        "h1{font-size:1.65em;text-align:center;margin:2.2em 0 2em 0;page-break-after:avoid;}"
-        ".subtitle{text-align:center;font-size:1.05em;margin-bottom:3em;text-indent:0;}"
-        ".chapter{margin-top:2em;}"
-        ".newpage{page-break-before:always;}"
-        ".separator{text-align:center;text-indent:0;margin:1.5em 0;}"
-        ".front-title{text-align:center;font-size:2.1em;font-weight:700;margin-top:7em;text-indent:0;}"
-        ".front-author{text-align:center;margin-top:2em;text-indent:0;}"
-        "</style></head><body>")
-        .arg(fontFamily.toHtmlEscaped())
-        .arg(fontSize, 0, 'f', 1)
-        .arg(lineHeight, 0, 'f', 2)
-        .arg(indent, 0, 'f', 1);
+    QTextDocument output;
+    QFont baseFont(fontFamily);
+    baseFont.setPointSizeF(fontSize);
+    output.setDefaultFont(baseFont);
+    output.setDocumentMargin(0.0);
+    QTextCursor cursor(&output);
 
-    const QString storyTitle = document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle();
-    html += QStringLiteral("<p class='front-title'>%1</p>").arg(storyTitle.toHtmlEscaped());
+    QTextCharFormat titleFormat;
+    titleFormat.setFontFamily(fontFamily);
+    titleFormat.setFontPointSize(fontSize * 2.1);
+    titleFormat.setFontWeight(QFont::Bold);
+    QTextBlockFormat centered;
+    centered.setAlignment(Qt::AlignCenter);
+    cursor.setBlockFormat(centered);
+    cursor.insertText(document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle(), titleFormat);
+
     const QString subtitle = profile.value(QStringLiteral("subtitle")).toString();
-    if (!subtitle.isEmpty()) html += QStringLiteral("<p class='subtitle'>%1</p>").arg(subtitle.toHtmlEscaped());
+    if (!subtitle.isEmpty()) {
+        cursor.insertBlock(centered);
+        QTextCharFormat subtitleFormat;
+        subtitleFormat.setFontFamily(fontFamily);
+        subtitleFormat.setFontPointSize(fontSize * 1.05);
+        cursor.insertText(subtitle, subtitleFormat);
+    }
     const QString author = profile.value(QStringLiteral("author")).toString();
-    if (!author.isEmpty()) html += QStringLiteral("<p class='front-author'>%1</p>").arg(author.toHtmlEscaped());
+    if (!author.isEmpty()) {
+        cursor.insertBlock(centered);
+        cursor.insertText(author, QTextCharFormat());
+    }
+
+    QTextCharFormat bodyFormat;
+    bodyFormat.setFontFamily(fontFamily);
+    bodyFormat.setFontPointSize(fontSize);
+    QTextBlockFormat bodyBlock;
+    bodyBlock.setTextIndent(indentMm * 72.0 / 25.4);
+    bodyBlock.setLineHeight(lineHeight * 100.0, QTextBlockFormat::ProportionalHeight);
 
     const QJsonArray chapters = document_.array(QStringLiteral("writingChapters"));
     for (int c = 0; c < chapters.size(); ++c) {
         const QJsonObject chapter = chapters.at(c).toObject();
-        const QString cssClass = (opening != QStringLiteral("Continuo") || c == 0) ? QStringLiteral("chapter newpage") : QStringLiteral("chapter");
+        QTextBlockFormat chapterBlock = centered;
+        if (opening != QStringLiteral("Continuo") || c == 0) chapterBlock.setPageBreakPolicy(QTextFormat::PageBreak_AlwaysBefore);
+        cursor.insertBlock(chapterBlock);
+        QTextCharFormat chapterFormat;
+        chapterFormat.setFontFamily(fontFamily);
+        chapterFormat.setFontPointSize(fontSize * 1.65);
+        chapterFormat.setFontWeight(QFont::Bold);
         QString heading = chapter.value(QStringLiteral("label")).toString();
         const QString chapterTitle = chapter.value(QStringLiteral("title")).toString();
         if (!chapterTitle.isEmpty()) heading += heading.isEmpty() ? chapterTitle : QStringLiteral(" — ") + chapterTitle;
-        html += QStringLiteral("<section class='%1'><h1>%2</h1>").arg(cssClass, heading.toHtmlEscaped());
+        cursor.insertText(heading, chapterFormat);
+        cursor.insertBlock(bodyBlock, bodyFormat);
+
         const QJsonArray scenes = chapter.value(QStringLiteral("scenes")).toArray();
         for (int s = 0; s < scenes.size(); ++s) {
-            if (s > 0 && !separator.isEmpty()) html += QStringLiteral("<p class='separator'>%1</p>").arg(separator.toHtmlEscaped());
-            html += sceneBodyHtml(scenes.at(s).toObject().value(QStringLiteral("content")).toString());
-        }
-        html += QStringLiteral("</section>");
-    }
-    html += QStringLiteral("</body></html>");
+            if (s > 0 && !separator.isEmpty()) {
+                QTextBlockFormat separatorBlock;
+                separatorBlock.setAlignment(Qt::AlignCenter);
+                cursor.insertBlock(separatorBlock, bodyFormat);
+                cursor.insertText(separator, bodyFormat);
+                cursor.insertBlock(bodyBlock, bodyFormat);
+            }
 
-    QTextDocument output;
-    QFont font(fontFamily);
-    font.setPointSizeF(fontSize);
-    output.setDefaultFont(font);
-    output.setHtml(html);
-    output.setDocumentMargin(0.0);
+            const QJsonObject scene = scenes.at(s).toObject();
+            const QString text = scenePlainText(scene);
+            const int base = cursor.position();
+            cursor.setBlockFormat(bodyBlock);
+            cursor.setCharFormat(bodyFormat);
+            cursor.insertText(text, bodyFormat);
+            applyFormattingRuns(output, base, static_cast<int>(text.size()), scene.value(QStringLiteral("formatting")).toArray());
+            cursor.movePosition(QTextCursor::End);
+            cursor.insertBlock(bodyBlock, bodyFormat);
+        }
+    }
+
     output.print(&printer);
     statusBar()->showMessage(tr("PDF exportado: %1").arg(path), 6000);
 }
@@ -532,7 +528,6 @@ void MainWindow::setDocument(ArchiveDocument document) {
     if (navigation_->currentRow() < 0) navigation_->setCurrentRow(1);
     pages_->setCurrentIndex(navigation_->currentRow() + 1);
     updateWindowTitle();
-    applyTheme();
 }
 
 void MainWindow::refreshPages() {
@@ -545,7 +540,6 @@ void MainWindow::refreshPages() {
 
 void MainWindow::onDocumentChanged() {
     updateWindowTitle();
-    applyTheme();
 }
 
 void MainWindow::updateWindowTitle() {
@@ -556,70 +550,8 @@ void MainWindow::updateWindowTitle() {
     else saveState_->setText(document_.sourcePath().isEmpty() ? tr("Sin ubicación local") : tr("Guardado local"));
 }
 
-void MainWindow::applyTheme() {
-    setStyleSheet(QStringLiteral(
-        "QMainWindow,QDialog{background:#edf1f5;color:#1f2937;}"
-        "QWidget{color:#1f2937;font-family:'Segoe UI';font-size:9.5pt;}"
-        "#appRoot,#pageStack,#projectHubPage,#hubCardsHost{background:#edf1f5;}"
-        "#topShell{background:#ffffff;border-bottom:1px solid #d7dde5;}"
-        "#appIdentity{background:transparent;}"
-        "#appMark{background:#17233a;color:#ffffff;border-radius:3px;font-family:'Georgia';font-size:11pt;font-weight:700;}"
-        "#appName{color:#243247;font-weight:700;font-size:10pt;}"
-        "#appMode{color:#98a2b3;font-size:7pt;font-weight:700;letter-spacing:1px;}"
-        "#projectTitle{font-size:9pt;font-weight:600;color:#344054;padding:0 4px;}"
-        "#saveState{font-size:8pt;color:#2f855a;padding:0 4px;}"
-        "#topNavigation{background:#ffffff;border:0;padding:0;margin:0;}"
-        "#topNavigation::item{border:0;border-bottom:3px solid transparent;padding:0 14px;color:#475467;background:#ffffff;}"
-        "#topNavigation::item:hover{background:#f7f9fc;color:#175cd3;}"
-        "#topNavigation::item:selected{background:#ffffff;color:#175cd3;border-bottom:3px solid #175cd3;font-weight:600;}"
-        "#libraryAction{background:#ffffff;border:1px solid #d4dbe5;color:#344054;padding:7px 10px;}"
-        "QListWidget,QTreeWidget,QTextEdit,QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox,QGraphicsView{background:#ffffff;border:1px solid #cfd6df;border-radius:3px;padding:5px;selection-background-color:#dceafe;selection-color:#1f2937;}"
-        "QListWidget::item,QTreeWidget::item{padding:6px;border:0;}"
-        "QListWidget::item:hover,QTreeWidget::item:hover{background:#f3f6fa;}"
-        "QListWidget::item:selected,QTreeWidget::item:selected{background:#e7f0ff;color:#175cd3;border-left:2px solid #175cd3;}"
-        "QPushButton,QToolButton{background:#ffffff;color:#344054;border:1px solid #cbd3dd;border-radius:3px;padding:7px 11px;}"
-        "QPushButton:hover,QToolButton:hover{background:#f6f8fb;border-color:#98a2b3;}"
-        "QPushButton:pressed,QToolButton:pressed{background:#edf2f7;}"
-        "QPushButton#primarySave,QPushButton#primaryAction,QPushButton#hubPrimary{background:#1668d4;color:#ffffff;border-color:#1668d4;font-weight:600;}"
-        "QPushButton#primarySave:hover,QPushButton#primaryAction:hover,QPushButton#hubPrimary:hover{background:#0f5fc8;border-color:#0f5fc8;}"
-        "QPushButton#secondaryAction{background:#ffffff;color:#344054;}"
-        "QToolButton:checked{background:#20262e;color:#ffffff;border-color:#20262e;}"
-        "QTabWidget::pane{border:0;background:transparent;}"
-        "QTabBar::tab{background:transparent;color:#475467;padding:10px 14px;border:0;border-bottom:2px solid transparent;}"
-        "QTabBar::tab:hover{color:#175cd3;background:#f4f7fb;}"
-        "QTabBar::tab:selected{color:#175cd3;background:transparent;border-bottom:2px solid #175cd3;}"
-        "QMenuBar{background:#ffffff;color:#344054;border-bottom:1px solid #e2e7ed;}"
-        "QMenuBar::item{background:transparent;padding:5px 9px;}"
-        "QMenuBar::item:selected{background:#f2f5f9;color:#175cd3;}"
-        "QMenu{background:#ffffff;color:#1f2937;border:1px solid #cfd6df;}"
-        "QMenu::item{padding:7px 22px;}"
-        "QMenu::item:selected{background:#e7f0ff;color:#175cd3;}"
-        "QScrollArea{background:transparent;border:0;}"
-        "QScrollBar:vertical{background:#edf1f5;width:10px;margin:0;}"
-        "QScrollBar::handle:vertical{background:#b7c0cb;min-height:28px;border-radius:4px;}"
-        "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
-        "QStatusBar{background:#ffffff;color:#667085;border-top:1px solid #d7dde5;}"
-        "#dialogKicker,#fieldLabel,#hubKicker,#projectCardGenre{color:#667085;font-size:8pt;font-weight:700;letter-spacing:.7px;}"
-        "#dialogTitle,#hubTitle{font-family:'Georgia';font-size:25pt;color:#344054;}"
-        "#dialogDescription,#hubDescription{color:#667085;font-family:'Georgia';}"
-        "#hubStorage{background:#f7faf8;border:1px solid #d8e8dc;}"
-        "#hubStorageDot{color:#2f855a;}"
-        "#hubStorageTitle{font-weight:700;color:#344054;}"
-        "#hubStorageDetail{color:#667085;font-size:8.5pt;}"
-        "#projectCard{background:#ffffff;border:1px solid #d7dee8;border-radius:4px;}"
-        "#projectCardMark{background:#17233a;color:#ffffff;border-radius:3px;font-family:'Georgia';font-weight:700;}"
-        "#projectCardState{background:#f2f4f7;color:#475467;border:1px solid #e1e5ea;border-radius:3px;padding:3px 7px;font-size:8pt;}"
-        "#projectCardTitle{font-family:'Georgia';font-size:16pt;font-weight:700;color:#344054;}"
-        "#projectCardArchive{color:#667085;}"
-        "#projectStatValue{font-weight:700;color:#344054;}"
-        "#projectStatLabel{color:#98a2b3;font-size:8pt;}"
-        "#projectDelete{color:#b42318;}"
-        "#hubEmpty{background:#ffffff;border:1px dashed #cbd3dd;color:#667085;padding:40px;}"
-    ));
-}
-
 void MainWindow::handleReference(const QString& kind, const QString& id) {
-    if (kind == tr("Personaje") || kind == QStringLiteral("character")) {
+    if (kind == QStringLiteral("character")) {
         navigation_->setCurrentRow(0);
         return;
     }
