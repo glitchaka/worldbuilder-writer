@@ -19,6 +19,7 @@ public:
 signals:
     void newProjectRequested();
     void importProjectRequested();
+    void settingsRequested();
     void openProjectRequested(const QString& path);
     void projectDeleted();
 
