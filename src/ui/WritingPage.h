@@ -62,6 +62,7 @@ private:
     QTabWidget* tabs_ = nullptr;
     QSplitter* editorSplit_ = nullptr;
     QWidget* indexPanel_ = nullptr;
+    QWidget* metadataPanel_ = nullptr;
     QWidget* inspectorPanel_ = nullptr;
     QTabWidget* inspectorTabs_ = nullptr;
     QTreeWidget* tree_ = nullptr;
