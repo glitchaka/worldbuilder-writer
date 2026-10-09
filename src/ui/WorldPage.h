@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QToolButton>
 #include <QWidget>
 
 class QComboBox;
