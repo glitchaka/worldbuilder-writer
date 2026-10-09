@@ -4,11 +4,13 @@
 #include "import/ManuscriptImporter.h"
 #include "ui/SemanticTextEdit.h"
 
+#include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
 #include <QFileDialog>
 #include <QFont>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
@@ -25,6 +27,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QShortcut>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QTabBar>
 #include <QTabWidget>
@@ -81,6 +84,21 @@ QLabel* sectionLabel(const QString& text) {
     return label;
 }
 
+QString sceneCardMeta(const QJsonObject& scene) {
+    QStringList parts;
+    const QString pov = scene.value(QStringLiteral("pov")).toString().trimmed();
+    const QString location = scene.value(QStringLiteral("location")).toString().trimmed();
+    if (!pov.isEmpty()) parts.append(QStringLiteral("POV: %1").arg(pov));
+    if (!location.isEmpty()) parts.append(location);
+    return parts.join(QStringLiteral(" · "));
+}
+
+QColor sceneAccent(const QString& status, bool dark) {
+    if (status.compare(QObject::tr("Final"), Qt::CaseInsensitive) == 0) return dark ? QColor(QStringLiteral("#54b47a")) : QColor(QStringLiteral("#2f855a"));
+    if (status.compare(QObject::tr("Revisión"), Qt::CaseInsensitive) == 0) return dark ? QColor(QStringLiteral("#72aef0")) : QColor(QStringLiteral("#2f6fb3"));
+    return dark ? QColor(QStringLiteral("#d2aa69")) : QColor(QStringLiteral("#b37a32"));
+}
+
 } // namespace
 
 WritingPage::WritingPage(QWidget* parent) : QWidget(parent) {
@@ -113,6 +131,13 @@ WritingPage::WritingPage(QWidget* parent) : QWidget(parent) {
         "#focusSceneName{color:#667085;font-size:9pt;}"
         "#focusExit{background:transparent;border:0;color:#667085;padding:7px 10px;}"
         "#focusExit:hover{background:#f3f6fa;color:#175cd3;}"
+        "#sceneBoardToolbar,#sceneBoardOutlinePanel{background:#ffffff;border:1px solid #d5dce5;}"
+        "#sceneBoardHeading{font-size:15pt;font-weight:700;color:#344054;}"
+        "#sceneBoardSubheading,#sceneBoardSelection{color:#667085;font-size:8.5pt;}"
+        "#sceneBoardOutline{border:0;background:#ffffff;padding:4px;}"
+        "#sceneBoardOutline::item{padding:5px 6px;}"
+        "#sceneBoardOutline::item:selected{background:#e8f1ff;color:#175cd3;}"
+        "#sceneBoardCanvas{background:#eef2f6;border:1px solid #d5dce5;}"
     ));
 }
 
@@ -355,26 +380,150 @@ QWidget* WritingPage::buildSceneBoardTab() {
     auto* tab = new QWidget;
     tab->setObjectName(QStringLiteral("sceneBoardTab"));
     auto* layout = new QVBoxLayout(tab);
-    layout->setContentsMargins(30, 22, 30, 30);
-    auto* top = new QHBoxLayout;
+    layout->setContentsMargins(18, 16, 18, 18);
+    layout->setSpacing(10);
+
+    auto* toolbar = new QFrame;
+    toolbar->setObjectName(QStringLiteral("sceneBoardToolbar"));
+    auto* toolbarLayout = new QHBoxLayout(toolbar);
+    toolbarLayout->setContentsMargins(14, 10, 14, 10);
+    toolbarLayout->setSpacing(8);
+
+    auto* headingColumn = new QVBoxLayout;
+    headingColumn->setSpacing(0);
     auto* heading = new QLabel(tr("Tablero de escenas"));
-    QFont headingFont = heading->font();
-    headingFont.setFamily(QStringLiteral("Georgia"));
-    headingFont.setPointSize(20);
-    heading->setFont(headingFont);
-    sceneBoardCompact_ = new QCheckBox(tr("Vista compacta"));
-    auto* reset = makeButton(tr("Recentrar"));
-    top->addWidget(heading);
-    top->addStretch();
-    top->addWidget(sceneBoardCompact_);
-    top->addWidget(reset);
-    layout->addLayout(top);
+    heading->setObjectName(QStringLiteral("sceneBoardHeading"));
+    auto* subheading = new QLabel(tr("Selecciona una tarjeta para trabajar con la escena; doble clic en el índice para abrirla en el manuscrito."));
+    subheading->setObjectName(QStringLiteral("sceneBoardSubheading"));
+    headingColumn->addWidget(heading);
+    headingColumn->addWidget(subheading);
+    toolbarLayout->addLayout(headingColumn);
+    toolbarLayout->addStretch();
+
+    auto* search = new QLineEdit;
+    search->setObjectName(QStringLiteral("sceneBoardSearch"));
+    search->setPlaceholderText(tr("Buscar escenas…"));
+    search->setClearButtonEnabled(true);
+    search->setFixedWidth(220);
+    auto* statusFilter = new QComboBox;
+    statusFilter->setObjectName(QStringLiteral("sceneBoardStatus"));
+    statusFilter->addItems({tr("Todos los estados"), tr("Borrador"), tr("Revisión"), tr("Final")});
+    statusFilter->setFixedWidth(145);
+    sceneBoardCompact_ = new QCheckBox(tr("Compacta"));
+    auto* reset = makeButton(tr("Encajar"));
+    auto* open = makeButton(tr("Abrir escena"));
+    open->setObjectName(QStringLiteral("writingSubtle"));
+    open->setEnabled(false);
+    auto* add = makeButton(tr("+ Escena"));
+    add->setObjectName(QStringLiteral("writingPrimary"));
+    toolbarLayout->addWidget(search);
+    toolbarLayout->addWidget(statusFilter);
+    toolbarLayout->addWidget(sceneBoardCompact_);
+    toolbarLayout->addWidget(reset);
+    toolbarLayout->addWidget(open);
+    toolbarLayout->addWidget(add);
+    layout->addWidget(toolbar);
+
+    auto* workspace = new QSplitter(Qt::Horizontal);
+    workspace->setChildrenCollapsible(false);
+    workspace->setHandleWidth(6);
+
+    auto* outlinePanel = new QFrame;
+    outlinePanel->setObjectName(QStringLiteral("sceneBoardOutlinePanel"));
+    outlinePanel->setMinimumWidth(230);
+    outlinePanel->setMaximumWidth(320);
+    auto* outlineLayout = new QVBoxLayout(outlinePanel);
+    outlineLayout->setContentsMargins(8, 8, 8, 8);
+    outlineLayout->setSpacing(6);
+    auto* outlineTitle = new QLabel(tr("CAPÍTULOS Y ESCENAS"));
+    outlineTitle->setObjectName(QStringLiteral("sectionLabel"));
+    auto* outline = new QTreeWidget;
+    outline->setObjectName(QStringLiteral("sceneBoardOutline"));
+    outline->setHeaderHidden(true);
+    outline->setIndentation(14);
+    auto* selection = new QLabel(tr("Ninguna escena seleccionada"));
+    selection->setObjectName(QStringLiteral("sceneBoardSelection"));
+    selection->setWordWrap(true);
+    outlineLayout->addWidget(outlineTitle);
+    outlineLayout->addWidget(outline, 1);
+    outlineLayout->addWidget(selection);
+    workspace->addWidget(outlinePanel);
+
     sceneBoard_ = new QGraphicsView;
+    sceneBoard_->setObjectName(QStringLiteral("sceneBoardCanvas"));
     sceneBoard_->setScene(new QGraphicsScene(sceneBoard_));
     sceneBoard_->setDragMode(QGraphicsView::ScrollHandDrag);
     sceneBoard_->setRenderHint(QPainter::Antialiasing, true);
     sceneBoard_->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
-    layout->addWidget(sceneBoard_, 1);
+    sceneBoard_->setResizeAnchor(QGraphicsView::AnchorViewCenter);
+    sceneBoard_->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    workspace->addWidget(sceneBoard_);
+    workspace->setStretchFactor(0, 0);
+    workspace->setStretchFactor(1, 1);
+    workspace->setSizes({270, 1100});
+    layout->addWidget(workspace, 1);
+
+    const auto openScene = [this](int chapterIndex, int sceneIndex) {
+        if (!tree_ || chapterIndex < 0 || chapterIndex >= tree_->topLevelItemCount()) return;
+        QTreeWidgetItem* chapter = tree_->topLevelItem(chapterIndex);
+        if (!chapter || sceneIndex < 0 || sceneIndex >= chapter->childCount()) return;
+        tabs_->setCurrentIndex(0);
+        tree_->setCurrentItem(chapter->child(sceneIndex));
+        tree_->scrollToItem(chapter->child(sceneIndex));
+        editor_->setFocus();
+    };
+
+    connect(outline, &QTreeWidget::itemDoubleClicked, this, [openScene](QTreeWidgetItem* item, int) {
+        if (!item || item->data(0, Qt::UserRole).toString() != QStringLiteral("scene")) return;
+        openScene(item->data(0, Qt::UserRole + 1).toInt(), item->data(0, Qt::UserRole + 2).toInt());
+    });
+    connect(outline, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* item) {
+        if (!item || item->data(0, Qt::UserRole).toString() != QStringLiteral("scene") || !sceneBoard_->scene()) return;
+        const int c = item->data(0, Qt::UserRole + 1).toInt();
+        const int s = item->data(0, Qt::UserRole + 2).toInt();
+        for (QGraphicsItem* graphic : sceneBoard_->scene()->items()) {
+            if (graphic->data(0).toString() != QStringLiteral("scene-card")) continue;
+            graphic->setSelected(graphic->data(1).toInt() == c && graphic->data(2).toInt() == s);
+        }
+    });
+    connect(sceneBoard_->scene(), &QGraphicsScene::selectionChanged, this, [this, outline, selection, open]() {
+        int c = -1;
+        int s = -1;
+        for (QGraphicsItem* item : sceneBoard_->scene()->selectedItems()) {
+            if (item->data(0).toString() != QStringLiteral("scene-card")) continue;
+            c = item->data(1).toInt();
+            s = item->data(2).toInt();
+            break;
+        }
+        sceneBoard_->setProperty("selectedChapter", c);
+        sceneBoard_->setProperty("selectedScene", s);
+        open->setEnabled(c >= 0 && s >= 0);
+        if (c < 0 || s < 0) {
+            selection->setText(tr("Ninguna escena seleccionada"));
+            return;
+        }
+        const QJsonArray chapters = document_ ? document_->array(QStringLiteral("writingChapters")) : QJsonArray();
+        if (c < chapters.size()) {
+            const QJsonArray scenes = chapters.at(c).toObject().value(QStringLiteral("scenes")).toArray();
+            if (s < scenes.size()) selection->setText(scenes.at(s).toObject().value(QStringLiteral("title")).toString(tr("Escena")));
+        }
+        if (c < outline->topLevelItemCount()) {
+            QTreeWidgetItem* chapter = outline->topLevelItem(c);
+            if (chapter && s < chapter->childCount()) {
+                QSignalBlocker blocker(outline);
+                outline->setCurrentItem(chapter->child(s));
+            }
+        }
+    });
+    connect(open, &QPushButton::clicked, this, [this, openScene]() {
+        openScene(sceneBoard_->property("selectedChapter").toInt(), sceneBoard_->property("selectedScene").toInt());
+    });
+    connect(add, &QPushButton::clicked, this, [this]() {
+        const int c = sceneBoard_->property("selectedChapter").toInt();
+        if (tree_ && c >= 0 && c < tree_->topLevelItemCount()) tree_->setCurrentItem(tree_->topLevelItem(c));
+        addScene();
+        tabs_->setCurrentIndex(1);
+    });
     connect(sceneBoardCompact_, &QCheckBox::toggled, this, [this](bool checked) {
         if (!document_) return;
         QJsonObject profile = document_->object(QStringLiteral("profile"));
@@ -383,9 +532,12 @@ QWidget* WritingPage::buildSceneBoardTab() {
         refreshSceneBoard();
         emit changed();
     });
+    connect(search, &QLineEdit::textChanged, this, [this]() { refreshSceneBoard(); });
+    connect(statusFilter, &QComboBox::currentTextChanged, this, [this]() { refreshSceneBoard(); });
     connect(reset, &QPushButton::clicked, this, [this]() {
         sceneBoard_->resetTransform();
-        if (sceneBoard_->scene()) sceneBoard_->fitInView(sceneBoard_->scene()->itemsBoundingRect().adjusted(-30, -30, 30, 30), Qt::KeepAspectRatio);
+        const QRectF bounds = sceneBoard_->scene() ? sceneBoard_->scene()->itemsBoundingRect().adjusted(-20, -20, 20, 20) : QRectF();
+        if (bounds.isValid() && bounds.width() > sceneBoard_->viewport()->width()) sceneBoard_->fitInView(bounds, Qt::KeepAspectRatio);
     });
     return tab;
 }
@@ -740,44 +892,178 @@ void WritingPage::updateWordCount() {
 
 void WritingPage::refreshSceneBoard() {
     if (!sceneBoard_ || !sceneBoard_->scene() || !document_) return;
-    auto* scene = sceneBoard_->scene();
+
+    auto* outline = findChild<QTreeWidget*>(QStringLiteral("sceneBoardOutline"));
+    auto* search = findChild<QLineEdit*>(QStringLiteral("sceneBoardSearch"));
+    auto* statusFilter = findChild<QComboBox*>(QStringLiteral("sceneBoardStatus"));
+    if (outline) outline->clear();
+
+    QGraphicsScene* scene = sceneBoard_->scene();
     scene->clear();
-    scene->setBackgroundBrush(QColor(QStringLiteral("#f7f9fc")));
+    const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
+    const QColor canvas = dark ? QColor(QStringLiteral("#12161d")) : QColor(QStringLiteral("#eef2f6"));
+    const QColor laneFill = dark ? QColor(QStringLiteral("#171c24")) : QColor(QStringLiteral("#f7f9fc"));
+    const QColor laneBorder = dark ? QColor(QStringLiteral("#303a48")) : QColor(QStringLiteral("#d7dee8"));
+    const QColor cardFill = dark ? QColor(QStringLiteral("#1d2430")) : QColor(QStringLiteral("#ffffff"));
+    const QColor cardBorder = dark ? QColor(QStringLiteral("#394454")) : QColor(QStringLiteral("#cfd7e2"));
+    const QColor titleColor = dark ? QColor(QStringLiteral("#f2f4f7")) : QColor(QStringLiteral("#1f2937"));
+    const QColor muted = dark ? QColor(QStringLiteral("#9aa7b8")) : QColor(QStringLiteral("#667085"));
+    const QColor quiet = dark ? QColor(QStringLiteral("#778397")) : QColor(QStringLiteral("#8a94a3"));
+    scene->setBackgroundBrush(canvas);
+
     const bool compact = sceneBoardCompact_->isChecked();
-    const qreal cardWidth = compact ? 150.0 : 220.0;
-    const qreal cardHeight = compact ? 58.0 : 92.0;
-    const qreal gapX = compact ? 175.0 : 250.0;
-    const qreal gapY = compact ? 78.0 : 112.0;
+    const qreal laneWidth = compact ? 230.0 : 290.0;
+    const qreal cardWidth = laneWidth - 24.0;
+    const qreal cardHeight = compact ? 72.0 : 112.0;
+    const qreal cardGap = compact ? 10.0 : 12.0;
+    const qreal laneGap = 16.0;
+    const qreal laneTop = 48.0;
+    const QString query = search ? search->text().trimmed() : QString();
+    const QString wantedStatus = statusFilter && statusFilter->currentIndex() > 0 ? statusFilter->currentText() : QString();
+    const int selectedChapter = sceneBoard_->property("selectedChapter").toInt();
+    const int selectedScene = sceneBoard_->property("selectedScene").toInt();
+
     const QJsonArray chapters = document_->array(QStringLiteral("writingChapters"));
+    qreal x = 0.0;
+    qreal maxHeight = 520.0;
+    int visibleColumns = 0;
+
     for (int c = 0; c < chapters.size(); ++c) {
         const QJsonObject chapter = chapters.at(c).toObject();
-        auto* heading = scene->addSimpleText(chapter.value(QStringLiteral("label")).toString(tr("Capítulo")));
-        heading->setBrush(QColor(QStringLiteral("#8a6a52")));
-        QFont headingFont = heading->font();
-        headingFont.setBold(true);
-        heading->setFont(headingFont);
-        heading->setPos(c * gapX, 0.0);
         const QJsonArray scenes = chapter.value(QStringLiteral("scenes")).toArray();
+        QVector<int> visibleScenes;
         for (int s = 0; s < scenes.size(); ++s) {
             const QJsonObject sceneObject = scenes.at(s).toObject();
-            auto* card = scene->addRect(QRectF(0, 0, cardWidth, cardHeight), QPen(QColor(QStringLiteral("#cfd7e2"))), QBrush(QColor(QStringLiteral("#ffffff"))));
-            card->setPos(c * gapX, 38.0 + s * gapY);
-            auto* cardTitle = new QGraphicsSimpleTextItem(sceneObject.value(QStringLiteral("title")).toString(tr("Escena")), card);
-            cardTitle->setBrush(QColor(QStringLiteral("#1f2937")));
-            cardTitle->setPos(10.0, 8.0);
-            if (!compact) {
-                const QString detail = QStringLiteral("%1 · %2").arg(sceneObject.value(QStringLiteral("pov")).toString(), sceneObject.value(QStringLiteral("location")).toString());
-                auto* meta = new QGraphicsSimpleTextItem(detail, card);
-                meta->setBrush(QColor(QStringLiteral("#667085")));
-                meta->setPos(10.0, 34.0);
-                const int words = scenePlainText(sceneObject).split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
-                auto* stats = new QGraphicsSimpleTextItem(tr("%1 palabras · %2").arg(words).arg(sceneObject.value(QStringLiteral("status")).toString()), card);
-                stats->setBrush(QColor(QStringLiteral("#8a94a3")));
-                stats->setPos(10.0, 58.0);
-            }
+            const QString title = sceneObject.value(QStringLiteral("title")).toString();
+            const QString status = sceneObject.value(QStringLiteral("status")).toString();
+            const QString haystack = QStringLiteral("%1 %2 %3 %4").arg(title, sceneObject.value(QStringLiteral("pov")).toString(), sceneObject.value(QStringLiteral("location")).toString(), status);
+            if (!query.isEmpty() && !haystack.contains(query, Qt::CaseInsensitive)) continue;
+            if (!wantedStatus.isEmpty() && status.compare(wantedStatus, Qt::CaseInsensitive) != 0) continue;
+            visibleScenes.append(s);
         }
+
+        if (outline) {
+            const QString chapterLabel = chapter.value(QStringLiteral("label")).toString(tr("Capítulo %1").arg(c + 1));
+            const QString chapterTitle = chapter.value(QStringLiteral("title")).toString();
+            auto* chapterItem = new QTreeWidgetItem({chapterTitle.isEmpty() ? chapterLabel : chapterLabel + QStringLiteral(" — ") + chapterTitle});
+            chapterItem->setData(0, Qt::UserRole, QStringLiteral("chapter"));
+            QFont chapterFont = chapterItem->font(0);
+            chapterFont.setBold(true);
+            chapterItem->setFont(0, chapterFont);
+            for (const int s : visibleScenes) {
+                const QJsonObject sceneObject = scenes.at(s).toObject();
+                const int words = scenePlainText(sceneObject).split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
+                auto* item = new QTreeWidgetItem({QStringLiteral("%1   ·   %2").arg(sceneObject.value(QStringLiteral("title")).toString(tr("Escena"))).arg(tr("%1 palabras").arg(words))});
+                item->setData(0, Qt::UserRole, QStringLiteral("scene"));
+                item->setData(0, Qt::UserRole + 1, c);
+                item->setData(0, Qt::UserRole + 2, s);
+                chapterItem->addChild(item);
+            }
+            if (!visibleScenes.isEmpty() || (query.isEmpty() && wantedStatus.isEmpty())) {
+                outline->addTopLevelItem(chapterItem);
+                chapterItem->setExpanded(true);
+            } else delete chapterItem;
+        }
+
+        if (visibleScenes.isEmpty()) continue;
+
+        const qreal laneHeight = qMax<qreal>(500.0, laneTop + 18.0 + visibleScenes.size() * (cardHeight + cardGap));
+        maxHeight = qMax(maxHeight, laneHeight);
+        auto* lane = scene->addRect(QRectF(x, 0.0, laneWidth, laneHeight), QPen(laneBorder), QBrush(laneFill));
+        lane->setZValue(-10.0);
+
+        const QString chapterLabel = chapter.value(QStringLiteral("label")).toString(tr("Capítulo %1").arg(c + 1));
+        const QString chapterTitle = chapter.value(QStringLiteral("title")).toString();
+        auto* heading = scene->addSimpleText(chapterTitle.isEmpty() ? chapterLabel : chapterLabel + QStringLiteral(" — ") + chapterTitle);
+        heading->setBrush(titleColor);
+        QFont headingFont = heading->font();
+        headingFont.setBold(true);
+        headingFont.setPointSizeF(10.0);
+        heading->setFont(headingFont);
+        heading->setPos(x + 12.0, 12.0);
+        auto* count = scene->addSimpleText(tr("%1 escenas").arg(visibleScenes.size()));
+        count->setBrush(quiet);
+        QFont countFont = count->font();
+        countFont.setPointSizeF(8.0);
+        count->setFont(countFont);
+        count->setPos(x + 12.0, 30.0);
+
+        qreal y = laneTop;
+        for (const int s : visibleScenes) {
+            const QJsonObject sceneObject = scenes.at(s).toObject();
+            const QString title = sceneObject.value(QStringLiteral("title")).toString(tr("Escena"));
+            const QString status = sceneObject.value(QStringLiteral("status")).toString(tr("Borrador"));
+            const int words = scenePlainText(sceneObject).split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
+
+            auto* card = scene->addRect(QRectF(0, 0, cardWidth, cardHeight), QPen(cardBorder), QBrush(cardFill));
+            card->setPos(x + 12.0, y);
+            card->setFlag(QGraphicsItem::ItemIsSelectable, true);
+            card->setData(0, QStringLiteral("scene-card"));
+            card->setData(1, c);
+            card->setData(2, s);
+            card->setData(3, title);
+            card->setZValue(2.0);
+            if (c == selectedChapter && s == selectedScene) card->setSelected(true);
+
+            auto* accent = new QGraphicsRectItem(QRectF(0, 0, 4.0, cardHeight), card);
+            accent->setPen(Qt::NoPen);
+            accent->setBrush(sceneAccent(status, dark));
+
+            const QString code = QStringLiteral("%1-%2").arg(c + 1, 2, 10, QLatin1Char('0')).arg(s + 1, 2, 10, QLatin1Char('0'));
+            auto* codeText = new QGraphicsSimpleTextItem(code, card);
+            codeText->setBrush(quiet);
+            QFont codeFont = codeText->font();
+            codeFont.setPointSizeF(7.5);
+            codeFont.setBold(true);
+            codeText->setFont(codeFont);
+            codeText->setPos(12.0, 8.0);
+
+            QFont titleFont;
+            titleFont.setFamily(QStringLiteral("Segoe UI"));
+            titleFont.setPointSizeF(compact ? 9.5 : 10.5);
+            titleFont.setBold(true);
+            const QString elidedTitle = QFontMetrics(titleFont).elidedText(title, Qt::ElideRight, static_cast<int>(cardWidth - 26.0));
+            auto* cardTitle = new QGraphicsSimpleTextItem(elidedTitle, card);
+            cardTitle->setBrush(titleColor);
+            cardTitle->setFont(titleFont);
+            cardTitle->setPos(12.0, compact ? 28.0 : 30.0);
+
+            if (!compact) {
+                const QString metaText = sceneCardMeta(sceneObject);
+                if (!metaText.isEmpty()) {
+                    QFont metaFont;
+                    metaFont.setFamily(QStringLiteral("Segoe UI"));
+                    metaFont.setPointSizeF(8.0);
+                    auto* meta = new QGraphicsSimpleTextItem(QFontMetrics(metaFont).elidedText(metaText, Qt::ElideRight, static_cast<int>(cardWidth - 26.0)), card);
+                    meta->setBrush(muted);
+                    meta->setFont(metaFont);
+                    meta->setPos(12.0, 56.0);
+                }
+            }
+
+            auto* stats = new QGraphicsSimpleTextItem(QStringLiteral("%1  ·  %2").arg(tr("%1 palabras").arg(words), status), card);
+            stats->setBrush(quiet);
+            QFont statsFont = stats->font();
+            statsFont.setPointSizeF(7.5);
+            stats->setFont(statsFont);
+            stats->setPos(12.0, compact ? 50.0 : 84.0);
+            y += cardHeight + cardGap;
+        }
+        x += laneWidth + laneGap;
+        ++visibleColumns;
     }
-    scene->setSceneRect(scene->itemsBoundingRect().adjusted(-60, -60, 60, 60));
+
+    if (visibleColumns == 0) {
+        auto* empty = scene->addSimpleText(tr("No hay escenas que coincidan con los filtros."));
+        empty->setBrush(muted);
+        QFont emptyFont = empty->font();
+        emptyFont.setPointSizeF(11.0);
+        empty->setFont(emptyFont);
+        empty->setPos(28.0, 28.0);
+        scene->setSceneRect(QRectF(0, 0, 700, 420));
+    } else {
+        scene->setSceneRect(QRectF(0, 0, qMax<qreal>(x - laneGap, 700.0), maxHeight));
+    }
 }
 
 void WritingPage::openFocusMode() {
