@@ -129,7 +129,9 @@ void SemanticTextEdit::refreshSemanticReferences() {
 }
 
 void SemanticTextEdit::runProofread() {
-    const QString text = textCursor().hasSelection() ? textCursor().selectedText() : toPlainText();
+    const QTextCursor source = textCursor();
+    proofreadBase_ = source.hasSelection() ? source.selectionStart() : 0;
+    const QString text = source.hasSelection() ? source.selectedText() : toPlainText();
     if (text.trimmed().isEmpty()) {
         emit proofreadError(tr("Escribe o selecciona un fragmento para revisar."));
         return;
@@ -215,7 +217,7 @@ void SemanticTextEdit::contextMenuEvent(QContextMenuEvent* event) {
         QAction* info = menu->addAction(issue->message);
         info->setEnabled(false);
         for (const QString& replacement : issue->replacements.mid(0, 8)) {
-            QAction* action = menu->addAction(tr("Reemplazar por “%1”").arg(replacement));
+            QAction* action = menu->addAction(tr("Reemplazar por “%1").arg(replacement));
             const ProofIssue copy = *issue;
             connect(action, &QAction::triggered, this, [this, copy, replacement]() { applyReplacement(copy, replacement); });
         }
@@ -250,7 +252,7 @@ void SemanticTextEdit::parseProofreadReply(QNetworkReply* reply) {
     for (const QJsonValue value : json.object().value(QStringLiteral("matches")).toArray()) {
         const QJsonObject match = value.toObject();
         ProofIssue issue;
-        issue.start = match.value(QStringLiteral("offset")).toInt();
+        issue.start = proofreadBase_ + match.value(QStringLiteral("offset")).toInt();
         issue.length = match.value(QStringLiteral("length")).toInt();
         issue.message = match.value(QStringLiteral("message")).toString();
         for (const QJsonValue replacement : match.value(QStringLiteral("replacements")).toArray()) {
