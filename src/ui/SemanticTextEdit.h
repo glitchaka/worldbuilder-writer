@@ -60,6 +60,7 @@ private:
     QNetworkAccessManager* network_ = nullptr;
     QVector<ReferenceHit> references_;
     QVector<ProofIssue> proofIssues_;
+    int proofreadBase_ = 0;
 };
 
 } // namespace wbw
