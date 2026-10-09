@@ -10,15 +10,15 @@ class QComboBox;
 class QGraphicsView;
 class QLabel;
 class QLineEdit;
-class QListWidget;
+class QSplitter;
 class QTabWidget;
-class QTextEdit;
 class QToolButton;
 class QTreeWidget;
 
 namespace wbw {
 
 class ArchiveDocument;
+class SemanticTextEdit;
 
 class WritingPage final : public QWidget {
     Q_OBJECT
@@ -48,21 +48,26 @@ private:
     void importManuscript();
     void updateFormattingState();
     void applyCharacterFormat(int property, bool enabled);
-    void refreshReferences();
     void updateWordCount();
+    void loadSceneContent(const QJsonObject& scene);
+    QJsonArray serializeFormatting() const;
+    void applyFormatting(const QJsonArray& formatting);
 
     ArchiveDocument* document_ = nullptr;
     bool refreshing_ = false;
     QTabWidget* tabs_ = nullptr;
+    QSplitter* editorSplit_ = nullptr;
+    QWidget* indexPanel_ = nullptr;
+    QWidget* metadataPanel_ = nullptr;
     QTreeWidget* tree_ = nullptr;
     QLineEdit* sceneTitle_ = nullptr;
     QLineEdit* scenePov_ = nullptr;
     QLineEdit* sceneLocation_ = nullptr;
     QLineEdit* sceneLayer_ = nullptr;
     QComboBox* sceneStatus_ = nullptr;
-    QTextEdit* editor_ = nullptr;
+    SemanticTextEdit* editor_ = nullptr;
     QLabel* wordCount_ = nullptr;
-    QListWidget* references_ = nullptr;
+    QLabel* proofState_ = nullptr;
     QToolButton* bold_ = nullptr;
     QToolButton* italic_ = nullptr;
     QToolButton* underline_ = nullptr;
