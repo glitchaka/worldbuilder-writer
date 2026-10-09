@@ -1,13 +1,16 @@
 #pragma once
 
+#include <QComboBox>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QShowEvent>
+#include <QSpinBox>
+#include <QVBoxLayout>
 #include <QWidget>
 
-class QComboBox;
 class QLineEdit;
 class QListWidget;
-class QSpinBox;
 class QTabWidget;
 class QTextEdit;
 
@@ -27,6 +30,85 @@ public:
 
 signals:
     void changed();
+
+protected:
+    void showEvent(QShowEvent* event) override {
+        QWidget::showEvent(event);
+        if (mapGeneratorOrganized_ || !mapStyle_ || !mapSeed_ || !mapContinents_ || !mapIslands_ || !mapRoughness_) return;
+
+        auto* generator = findChild<QFrame*>(QStringLiteral("generatorBar"));
+        auto* row = generator ? qobject_cast<QHBoxLayout*>(generator->layout()) : nullptr;
+        if (!generator || !row) return;
+        mapGeneratorOrganized_ = true;
+
+        while (QLayoutItem* item = row->takeAt(0)) {
+            if (QWidget* widget = item->widget()) {
+                const bool keep = widget == mapStyle_ || widget == mapSeed_ || widget == mapContinents_ || widget == mapIslands_ || widget == mapRoughness_;
+                if (!keep) widget->deleteLater();
+            }
+            delete item;
+        }
+
+        generator->setObjectName(QStringLiteral("generatorBar"));
+        row->setContentsMargins(12, 8, 12, 8);
+        row->setSpacing(10);
+
+        auto* heading = new QWidget(generator);
+        heading->setObjectName(QStringLiteral("mapGeneratorHeading"));
+        auto* headingLayout = new QVBoxLayout(heading);
+        headingLayout->setContentsMargins(0, 0, 8, 0);
+        headingLayout->setSpacing(0);
+        auto* title = new QLabel(tr("Generador"), heading);
+        title->setObjectName(QStringLiteral("mapGeneratorTitle"));
+        auto* subtitle = new QLabel(tr("AUXILIAR"), heading);
+        subtitle->setObjectName(QStringLiteral("mapGeneratorSubtitle"));
+        headingLayout->addWidget(title);
+        headingLayout->addWidget(subtitle);
+        row->addWidget(heading);
+
+        auto addField = [generator, row](const QString& labelText, QWidget* field, int width) {
+            auto* box = new QWidget(generator);
+            box->setObjectName(QStringLiteral("mapGeneratorField"));
+            auto* layout = new QVBoxLayout(box);
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->setSpacing(2);
+            auto* label = new QLabel(labelText, box);
+            label->setObjectName(QStringLiteral("mapGeneratorLabel"));
+            field->setObjectName(QStringLiteral("mapGeneratorValue"));
+            field->setFixedWidth(width);
+            field->setFixedHeight(28);
+            layout->addWidget(label);
+            layout->addWidget(field);
+            row->addWidget(box);
+        };
+
+        mapSeed_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        mapContinents_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        mapIslands_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        mapRoughness_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        mapSeed_->setAlignment(Qt::AlignCenter);
+        mapContinents_->setAlignment(Qt::AlignCenter);
+        mapIslands_->setAlignment(Qt::AlignCenter);
+        mapRoughness_->setAlignment(Qt::AlignCenter);
+
+        addField(tr("Estilo"), mapStyle_, 118);
+        addField(tr("Semilla"), mapSeed_, 96);
+        addField(tr("Continentes"), mapContinents_, 76);
+        addField(tr("Islas"), mapIslands_, 64);
+        addField(tr("Rugosidad"), mapRoughness_, 76);
+        row->addStretch(1);
+
+        setStyleSheet(styleSheet() + QStringLiteral(
+            "#generatorBar{background:#f7f9fc;border:1px solid #d8dee7;border-radius:3px;}"
+            "#mapGeneratorTitle{font-weight:600;color:#344054;}"
+            "#mapGeneratorSubtitle,#mapGeneratorLabel{font-size:7.5pt;font-weight:700;color:#7a8697;letter-spacing:.45px;}"
+            "#mapGeneratorValue{background:#ffffff;border:1px solid #cfd6df;border-radius:2px;padding:3px 7px;}"
+            "#mapGeneratorValue:focus{border-color:#6ea3e2;}"
+            "#mapGeneratorValue::up-button,#mapGeneratorValue::down-button{width:0;height:0;border:0;}"
+            "#mapGeneratorValue::drop-down{width:0;border:0;}"
+            "#mapGeneratorValue::down-arrow{image:none;width:0;height:0;}"
+        ));
+    }
 
 private:
     friend class PilinReyEditor;
@@ -74,6 +156,7 @@ private:
 
     ArchiveDocument* document_ = nullptr;
     bool refreshing_ = false;
+    bool mapGeneratorOrganized_ = false;
     QTabWidget* tabs_ = nullptr;
 
     QListWidget* worldList_ = nullptr;
