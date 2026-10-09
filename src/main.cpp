@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWindow>
 
@@ -96,6 +97,8 @@ int main(int argc, char* argv[]) {
         root->insertWidget(0, new AppTitleBar(window.centralWidget()));
     }
 
+    wbw::ThemeManager::applySaved();
     window.show();
+    QTimer::singleShot(0, []() { wbw::ThemeManager::applySaved(); });
     return app.exec();
 }
