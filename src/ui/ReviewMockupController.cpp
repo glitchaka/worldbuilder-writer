@@ -41,32 +41,6 @@ public:
         return QObject::eventFilter(watched, event);
     }
 
-private:
-    void addFilter(QWidget* parent, QHBoxLayout* bar, const QString& text, ReviewSection section, bool checked = false) {
-        auto* button = new QPushButton(text, parent);
-        button->setObjectName(QStringLiteral("reviewFilterButton"));
-        button->setCheckable(true);
-        button->setAutoExclusive(true);
-        button->setChecked(checked);
-        bar->addWidget(button);
-        QObject::connect(button, &QPushButton::clicked, parent, [this, section]() { filter(section); });
-    }
-
-    void filter(ReviewSection section) {
-        if (!window_) return;
-        for (QListWidget* list : window_->findChildren<QListWidget*>()) {
-            QWidget* parent = list->parentWidget();
-            bool inAnalysis = false;
-            while (parent) {
-                if (parent->objectName() == QStringLiteral("reviewAnalysisTab")) { inAnalysis = true; break; }
-                parent = parent->parentWidget();
-            }
-            if (!inAnalysis) continue;
-            for (int i = 0; i < list->count(); ++i)
-                if (QListWidgetItem* item = list->item(i)) item->setHidden(!matchesSection(item->text(), section));
-        }
-    }
-
     void apply() {
         if (!window_) return;
         auto* tabs = window_->findChild<QTabWidget*>(QStringLiteral("reviewTabs"));
@@ -116,6 +90,32 @@ private:
 #reviewMetricValue{font-size:18pt;font-weight:700;color:#f1ede4;}
 #reviewMetricLabel{color:#7f817c;font-size:8pt;}
 )QSS"));
+    }
+
+private:
+    void addFilter(QWidget* parent, QHBoxLayout* bar, const QString& text, ReviewSection section, bool checked = false) {
+        auto* button = new QPushButton(text, parent);
+        button->setObjectName(QStringLiteral("reviewFilterButton"));
+        button->setCheckable(true);
+        button->setAutoExclusive(true);
+        button->setChecked(checked);
+        bar->addWidget(button);
+        QObject::connect(button, &QPushButton::clicked, parent, [this, section]() { filter(section); });
+    }
+
+    void filter(ReviewSection section) {
+        if (!window_) return;
+        for (QListWidget* list : window_->findChildren<QListWidget*>()) {
+            QWidget* parent = list->parentWidget();
+            bool inAnalysis = false;
+            while (parent) {
+                if (parent->objectName() == QStringLiteral("reviewAnalysisTab")) { inAnalysis = true; break; }
+                parent = parent->parentWidget();
+            }
+            if (!inAnalysis) continue;
+            for (int i = 0; i < list->count(); ++i)
+                if (QListWidgetItem* item = list->item(i)) item->setHidden(!matchesSection(item->text(), section));
+        }
     }
 
     QPointer<QMainWindow> window_;
