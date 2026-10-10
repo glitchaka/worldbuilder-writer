@@ -37,6 +37,39 @@ qt_standard_project_setup()
 
 enable_testing()
 
+# Keep the checked-in V4 sources readable while generating compiler-neutral copies.
+# Qt 6 uses qsizetype for container sizes and MSVC requires identical pointer
+# types inside braced initializer lists; normalize those two portability edges
+# at configure time until the next source-format pass.
+set(WBW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY "${WBW_GENERATED_DIR}")
+
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/PilinReyEditorV4.cpp" WBW_PILIN_V4)
+string(REPLACE
+    "for (QWidget* w : {static_cast<QWidget*>(layersButton_), assetsButton_, templateButton_, appearanceButton_, fitButton, undoButton_, redoButton_, exportButton}) commands->addWidget(w);"
+    "commands->addWidget(layersButton_); commands->addWidget(assetsButton_); commands->addWidget(templateButton_); commands->addWidget(appearanceButton_); commands->addWidget(fitButton); commands->addWidget(undoButton_); commands->addWidget(redoButton_); commands->addWidget(exportButton);"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "int tw = 1, th = 1; SDL_GetTextureSize(texture, reinterpret_cast<float*>(&tw), reinterpret_cast<float*>(&th));\n            const float aspect = 1.0f;"
+    "float tw = 1.0f, th = 1.0f; SDL_GetTextureSize(texture, &tw, &th);\n            const float aspect = th > 0.0f ? tw / th : 1.0f;"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+file(WRITE "${WBW_GENERATED_DIR}/PilinReyEditorV4.cpp" "${WBW_PILIN_V4}")
+
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MapExporterV2.cpp" WBW_MAP_EXPORTER_V2)
+string(REPLACE
+    "const int count=std::max(24,pts.size()*density/2);"
+    "const int count=std::max(24,static_cast<int>(pts.size())*density/2);"
+    WBW_MAP_EXPORTER_V2 "${WBW_MAP_EXPORTER_V2}")
+string(REPLACE
+    "const int count=std::max(18,pts.size()*density/3);"
+    "const int count=std::max(18,static_cast<int>(pts.size())*density/3);"
+    WBW_MAP_EXPORTER_V2 "${WBW_MAP_EXPORTER_V2}")
+string(REPLACE
+    "const double t=static_cast<double>(i)/std::max(1,poly.size()-1);"
+    "const double t=static_cast<double>(i)/std::max(1,static_cast<int>(poly.size())-1);"
+    WBW_MAP_EXPORTER_V2 "${WBW_MAP_EXPORTER_V2}")
+file(WRITE "${WBW_GENERATED_DIR}/MapExporterV2.cpp" "${WBW_MAP_EXPORTER_V2}")
+
 qt_add_executable(WorldbuilderWriter
     src/main.cpp
     src/core/ArchiveDocument.cpp
@@ -46,10 +79,10 @@ qt_add_executable(WorldbuilderWriter
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
     src/ui/RelationshipBoard.cpp
-    src/ui/MapExporterV2.cpp
+    "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.h
-    src/ui/PilinReyEditorV4.cpp
+    "${WBW_GENERATED_DIR}/PilinReyEditorV4.cpp"
     src/ui/ProjectHubPage.cpp
     src/ui/SettingsDialog.cpp
     src/ui/SemanticTextEdit.cpp
@@ -85,7 +118,7 @@ add_test(NAME core-smoke COMMAND WorldbuilderWriterCoreSmoke)
 
 add_executable(WorldbuilderWriterMapExporterSmoke
     tests/MapExporterSmoke.cpp
-    src/ui/MapExporterV2.cpp
+    "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
 )
 target_include_directories(WorldbuilderWriterMapExporterSmoke PRIVATE src)
 target_link_libraries(WorldbuilderWriterMapExporterSmoke PRIVATE Qt6::Widgets Qt6::PrintSupport Qt6::Svg)
