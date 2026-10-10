@@ -9,12 +9,14 @@
 #include <QGraphicsView>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLayout>
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QPointer>
 #include <QPushButton>
 #include <QSettings>
 #include <QShortcut>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QTabBar>
 #include <QTabWidget>
@@ -64,6 +66,80 @@ void polishButton(QAbstractButton* button) {
     button->setMinimumHeight(30);
 }
 
+QLineEdit* fieldByPlaceholder(QWidget* parent, const QString& placeholder) {
+    if (!parent) return nullptr;
+    for (QLineEdit* edit : parent->findChildren<QLineEdit*>(QString(), Qt::FindDirectChildrenOnly))
+        if (edit->placeholderText() == placeholder) return edit;
+    return nullptr;
+}
+
+void addMetadataField(QVBoxLayout* layout, QWidget* owner, const QString& caption, QWidget* field) {
+    if (!layout || !owner || !field) return;
+    auto* label = new QLabel(caption, owner);
+    label->setObjectName(QStringLiteral("metadataFieldLabel"));
+    layout->addWidget(label);
+    layout->addWidget(field);
+}
+
+void rebuildMetadataPanel(QWidget* metadata, QWidget* commandBar) {
+    if (!metadata || metadata->property("wbwMetadataEditorial").toBool()) return;
+
+    QLineEdit* title = fieldByPlaceholder(metadata, QObject::tr("Título de escena"));
+    QLineEdit* pov = fieldByPlaceholder(metadata, QObject::tr("POV"));
+    QLineEdit* location = fieldByPlaceholder(metadata, QObject::tr("Ubicación"));
+    QLineEdit* layer = fieldByPlaceholder(metadata, QObject::tr("Capa narrativa"));
+    QComboBox* status = metadata->findChild<QComboBox*>(QString(), Qt::FindDirectChildrenOnly);
+    if (!title || !pov || !location || !layer || !status) return;
+
+    if (QLayout* old = metadata->layout()) {
+        while (QLayoutItem* item = old->takeAt(0)) delete item;
+        delete old;
+    }
+
+    auto* layout = new QVBoxLayout(metadata);
+    layout->setContentsMargins(14, 16, 14, 18);
+    layout->setSpacing(7);
+
+    auto* kicker = new QLabel(QObject::tr("ESCENA"), metadata);
+    kicker->setObjectName(QStringLiteral("metadataKicker"));
+    auto* heading = new QLabel(QObject::tr("Contexto"), metadata);
+    heading->setObjectName(QStringLiteral("metadataTitle"));
+    auto* copy = new QLabel(QObject::tr("Datos de la escena actual. El manuscrito sigue siendo la superficie principal."), metadata);
+    copy->setObjectName(QStringLiteral("metadataCopy"));
+    copy->setWordWrap(true);
+    layout->addWidget(kicker);
+    layout->addWidget(heading);
+    layout->addWidget(copy);
+    layout->addSpacing(8);
+
+    addMetadataField(layout, metadata, QObject::tr("Título"), title);
+    addMetadataField(layout, metadata, QObject::tr("Estado"), status);
+    addMetadataField(layout, metadata, QObject::tr("POV"), pov);
+    addMetadataField(layout, metadata, QObject::tr("Ubicación"), location);
+    addMetadataField(layout, metadata, QObject::tr("Capa narrativa"), layer);
+    layout->addStretch(1);
+
+    title->setObjectName(QStringLiteral("metadataTitleField"));
+    status->setObjectName(QStringLiteral("metadataStatusField"));
+    pov->setObjectName(QStringLiteral("metadataPovField"));
+    location->setObjectName(QStringLiteral("metadataLocationField"));
+    layer->setObjectName(QStringLiteral("metadataLayerField"));
+    for (QWidget* field : {static_cast<QWidget*>(title), static_cast<QWidget*>(status), static_cast<QWidget*>(pov), static_cast<QWidget*>(location), static_cast<QWidget*>(layer)})
+        field->setMinimumHeight(34);
+
+    if (commandBar) {
+        for (QToolButton* button : commandBar->findChildren<QToolButton*>()) {
+            if (button->text() != QObject::tr("Detalles")) continue;
+            QSignalBlocker blocker(button);
+            button->setChecked(true);
+            break;
+        }
+    }
+
+    metadata->setProperty("wbwMetadataEditorial", true);
+    metadata->show();
+}
+
 class WritingWorkspaceFilter final : public QObject {
 public:
     explicit WritingWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
@@ -95,6 +171,8 @@ public:
             metadata->setParent(split);
             split->addWidget(metadata);
         }
+        rebuildMetadataPanel(metadata, commandBar);
+
         if (split) {
             split->setChildrenCollapsible(true);
             split->setHandleWidth(1);
@@ -177,6 +255,10 @@ public:
 #editorPanel{background:#0e1116;border:0;border-radius:0;}
 #metadataPanel{background:#11161d;border:0;border-left:1px solid #252d38;border-radius:0;}
 #indexTitle,#editorPanelTitle,#sectionLabel{color:#c8a16d;font-size:8pt;font-weight:700;letter-spacing:1px;}
+#metadataKicker{color:#c8a16d;font-size:8pt;font-weight:700;letter-spacing:1px;}
+#metadataTitle{color:#f0f2f5;font-family:'Georgia';font-size:17pt;font-weight:600;}
+#metadataCopy{color:#7f8997;font-family:'Georgia';font-size:9pt;}
+#metadataFieldLabel{color:#8894a3;font-size:8pt;font-weight:700;letter-spacing:.55px;margin-top:5px;}
 #manuscriptTree,#sceneBoardOutline{background:#11161d;color:#cfd6df;border:0;padding:7px;outline:0;}
 #manuscriptTree::item,#sceneBoardOutline::item{padding:8px 7px;border-radius:6px;margin:1px 0;}
 #manuscriptTree::item:hover,#sceneBoardOutline::item:hover{background:#171e27;}
