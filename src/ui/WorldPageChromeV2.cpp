@@ -27,98 +27,144 @@ void WorldPage::showEvent(QShowEvent* event) {
 void WorldPage::applyAtlasChrome() {
     if (atlasChromeApplied_) return;
     auto* editor = findChild<QWidget*>(QStringLiteral("worldEditorCard"));
-    if (!editor) return;
+    auto* index = findChild<QWidget*>(QStringLiteral("worldIndexPanel"));
+    if (!editor || !index) return;
     auto* editorLayout = qobject_cast<QVBoxLayout*>(editor->layout());
     if (!editorLayout) return;
 
-    auto* sections = new QTabWidget(editor);
-    sections->setObjectName(QStringLiteral("atlasSections"));
-
-    struct AtlasPage {
-        QWidget* page = nullptr;
-        QWidget* content = nullptr;
-        QGridLayout* grid = nullptr;
-        int item = 0;
-    };
-
-    auto makePage = [sections](const QString& name) {
-        AtlasPage result;
-        result.page = new QWidget(sections);
-        result.page->setObjectName(QStringLiteral("atlasSectionPage"));
-        auto* outer = new QVBoxLayout(result.page);
-        outer->setContentsMargins(0, 0, 0, 0);
-        outer->setSpacing(0);
-        auto* scroll = new QScrollArea(result.page);
-        scroll->setObjectName(QStringLiteral("atlasSectionScroll"));
-        scroll->setWidgetResizable(true);
-        scroll->setFrameShape(QFrame::NoFrame);
-        result.content = new QWidget(scroll);
-        result.content->setObjectName(QStringLiteral("atlasSectionContent"));
-        result.grid = new QGridLayout(result.content);
-        result.grid->setContentsMargins(12, 12, 12, 16);
-        result.grid->setHorizontalSpacing(10);
-        result.grid->setVerticalSpacing(10);
-        result.grid->setColumnStretch(0, 1);
-        result.grid->setColumnStretch(1, 1);
-        scroll->setWidget(result.content);
-        outer->addWidget(scroll);
-        sections->addTab(result.page, name);
-        return result;
-    };
-
-    AtlasPage overview = makePage(tr("Esencia"));
-    AtlasPage territory = makePage(tr("Territorio"));
-    AtlasPage society = makePage(tr("Sociedad"));
-    AtlasPage history = makePage(tr("Historia"));
-    AtlasPage notes = makePage(tr("Notas"));
-
-    auto targetFor = [&](const QString& title) -> AtlasPage* {
-        if (title == tr("Tipo") || title == tr("Nombre") || title == tr("Alias") || title == tr("Resumen")) return &overview;
-        if (title == tr("Geografía") || title == tr("Localizaciones")) return &territory;
-        if (title == tr("Gobierno") || title == tr("Pueblos") || title == tr("Cultura") || title == tr("Economía") || title == tr("Moneda") || title == tr("Idiomas") || title == tr("Religiones") || title == tr("Fuerza militar")) return &society;
-        if (title == tr("Historia") || title == tr("Relaciones") || title == tr("Conflictos")) return &history;
-        return &notes;
-    };
-
     const auto labels = editor->findChildren<QLabel*>();
+    QList<QWidget*> fieldBlocks;
     for (QLabel* label : labels) {
         if (!label || label->objectName() != QStringLiteral("fieldTitle")) continue;
         QWidget* block = label->parentWidget();
-        if (!block || block == editor) continue;
-        AtlasPage* target = targetFor(label->text());
-        if (!target || !target->grid) continue;
+        if (!block || block == editor || fieldBlocks.contains(block)) continue;
+        fieldBlocks.append(block);
+    }
 
-        block->setParent(target->content);
+    for (QLabel* label : editor->findChildren<QLabel*>()) {
+        if (label->objectName() == QStringLiteral("panelTitle")) label->hide();
+    }
+
+    auto* editorialSplit = new QSplitter(Qt::Horizontal, editor);
+    editorialSplit->setObjectName(QStringLiteral("atlasEditorialSplit"));
+    editorialSplit->setChildrenCollapsible(false);
+    editorialSplit->setHandleWidth(6);
+
+    auto* centerScroll = new QScrollArea(editorialSplit);
+    centerScroll->setObjectName(QStringLiteral("atlasCenterScroll"));
+    centerScroll->setWidgetResizable(true);
+    centerScroll->setFrameShape(QFrame::NoFrame);
+    auto* center = new QWidget(centerScroll);
+    center->setObjectName(QStringLiteral("atlasCenterEditorial"));
+    auto* centerLayout = new QVBoxLayout(center);
+    centerLayout->setContentsMargins(18, 18, 18, 28);
+    centerLayout->setSpacing(12);
+
+    auto* right = new QFrame(editorialSplit);
+    right->setObjectName(QStringLiteral("atlasContextRail"));
+    right->setMinimumWidth(250);
+    right->setMaximumWidth(330);
+    auto* rightLayout = new QVBoxLayout(right);
+    rightLayout->setContentsMargins(14, 16, 14, 18);
+    rightLayout->setSpacing(10);
+
+    auto addSectionLabel = [](QVBoxLayout* layout, const QString& text, const QString& objectName) {
+        auto* label = new QLabel(text);
+        label->setObjectName(objectName);
+        layout->addWidget(label);
+    };
+
+    addSectionLabel(centerLayout, tr("FICHA EDITORIAL"), QStringLiteral("atlasEditorialKicker"));
+    auto* centerTitle = new QLabel(tr("Entrada de atlas"));
+    centerTitle->setObjectName(QStringLiteral("atlasEditorialTitle"));
+    centerLayout->addWidget(centerTitle);
+
+    addSectionLabel(rightLayout, tr("CONTEXTO"), QStringLiteral("atlasContextKicker"));
+
+    auto* identity = new QFrame(center);
+    identity->setObjectName(QStringLiteral("atlasEditorialCard"));
+    auto* identityGrid = new QGridLayout(identity);
+    identityGrid->setContentsMargins(14, 14, 14, 14);
+    identityGrid->setHorizontalSpacing(10);
+    identityGrid->setVerticalSpacing(10);
+
+    auto* body = new QWidget(center);
+    body->setObjectName(QStringLiteral("atlasEditorialBody"));
+    auto* bodyLayout = new QVBoxLayout(body);
+    bodyLayout->setContentsMargins(0, 0, 0, 0);
+    bodyLayout->setSpacing(12);
+
+    int identityItem = 0;
+    for (QWidget* block : fieldBlocks) {
+        QLabel* titleLabel = block->findChild<QLabel*>(QString(), Qt::FindDirectChildrenOnly);
+        QString title;
+        const auto childLabels = block->findChildren<QLabel*>();
+        for (QLabel* candidate : childLabels) {
+            if (candidate->objectName() == QStringLiteral("fieldTitle")) { title = candidate->text(); break; }
+        }
+
+        const bool isIdentity = title == tr("Tipo") || title == tr("Nombre") || title == tr("Alias") || title == tr("Resumen");
+        const bool isContext = title == tr("Relaciones") || title == tr("Conflictos") || title == tr("Etiquetas") || title == tr("Adjuntos") || title == tr("Notas");
+
         block->setObjectName(QStringLiteral("atlasFieldCard"));
-        const bool editorial = !block->findChildren<QTextEdit*>().isEmpty();
-        if (editorial) {
-            const int row = (target->item + 1) / 2;
-            target->grid->addWidget(block, row, 0, 1, 2);
-            target->item = (row + 1) * 2;
+        if (isIdentity) {
+            block->setParent(identity);
+            const bool wide = !block->findChildren<QTextEdit*>().isEmpty();
+            if (wide) {
+                identityGrid->addWidget(block, 1, 0, 1, 3);
+            } else {
+                identityGrid->addWidget(block, 0, identityItem % 3);
+                ++identityItem;
+            }
+        } else if (isContext) {
+            block->setParent(right);
+            rightLayout->addWidget(block);
         } else {
-            const int row = target->item / 2;
-            const int column = target->item % 2;
-            target->grid->addWidget(block, row, column);
-            ++target->item;
+            block->setParent(body);
+            bodyLayout->addWidget(block);
         }
     }
 
-    for (AtlasPage* page : {&overview, &territory, &society, &history, &notes}) {
-        if (!page->grid) continue;
-        const int lastRow = qMax(1, (page->item + 1) / 2);
-        page->grid->setRowStretch(lastRow + 1, 1);
-    }
+    centerLayout->addWidget(identity);
+    centerLayout->addWidget(body);
+    centerLayout->addStretch(1);
+    rightLayout->addStretch(1);
+    centerScroll->setWidget(center);
 
-    editorLayout->insertWidget(1, sections, 1);
-    editorLayout->setContentsMargins(10, 10, 10, 10);
-    editorLayout->setSpacing(7);
+    editorialSplit->addWidget(centerScroll);
+    editorialSplit->addWidget(right);
+    editorialSplit->setStretchFactor(0, 1);
+    editorialSplit->setStretchFactor(1, 0);
+    editorialSplit->setSizes({900, 290});
+
+    editorLayout->addWidget(editorialSplit, 1);
+    editorLayout->setContentsMargins(0, 0, 0, 0);
+    editorLayout->setSpacing(0);
+
+    index->setMinimumWidth(230);
+    index->setMaximumWidth(310);
+
     atlasChromeApplied_ = true;
     setStyleSheet(styleSheet() + QStringLiteral(
-        "#atlasSections::pane{border:0;background:transparent;}"
-        "#atlasSections QTabBar::tab{padding:8px 11px;}"
-        "#atlasSectionPage,#atlasSectionContent,#atlasSectionScroll{background:transparent;border:0;}"
-        "#atlasFieldCard{border-radius:6px;padding:10px;}"
+        "#worldPage,#atlasTab{background:#0f1115;color:#e8ebef;}"
+        "#worldTabs::pane{border:0;background:#0f1115;}"
+        "#worldTabs QTabBar::tab{background:transparent;color:#8f97a3;border:0;padding:9px 13px;}"
+        "#worldTabs QTabBar::tab:selected{color:#f0f2f5;border-bottom:2px solid #c59a5d;}"
+        "#worldIndexPanel{background:#14171c;border:0;border-right:1px solid #2a2f36;}"
+        "#worldIndexPanel QListWidget{background:transparent;color:#d9dde3;border:0;outline:0;}"
+        "#worldIndexPanel QListWidget::item{padding:8px 9px;border-radius:6px;}"
+        "#worldIndexPanel QListWidget::item:selected{background:#252b33;color:#ffffff;}"
+        "#worldEditorCard,#atlasCenterScroll,#atlasCenterEditorial,#atlasEditorialBody{background:#0f1115;border:0;}"
+        "#atlasContextRail{background:#14171c;border:0;border-left:1px solid #2a2f36;}"
+        "#atlasEditorialKicker,#atlasContextKicker{color:#c59a5d;font-size:8pt;font-weight:700;letter-spacing:1px;}"
+        "#atlasEditorialTitle{color:#f2f3f5;font-family:'Georgia';font-size:22pt;padding-bottom:2px;}"
+        "#atlasEditorialCard,#atlasFieldCard{background:#171a20;border:1px solid #2a2f36;border-radius:10px;}"
+        "#atlasFieldCard{padding:11px;}"
+        "#atlasFieldCard #fieldTitle{color:#9ba3ae;font-size:8pt;font-weight:700;letter-spacing:.7px;}"
+        "#atlasFieldCard QLineEdit,#atlasFieldCard QTextEdit,#atlasFieldCard QComboBox{background:#111419;color:#e7eaee;border:1px solid #30353d;border-radius:7px;padding:7px;}"
         "#atlasFieldCard QTextEdit{min-height:90px;}"
+        "#atlasEditorialSplit::handle{background:#20242a;}"
+        "#pageKicker,#pageTitle,#pageDescription{color:#8f97a3;}"
     ));
 }
 
