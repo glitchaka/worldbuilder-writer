@@ -1,4 +1,5 @@
 #include "ui/WorldPage.h"
+#include "ui/PilinReyEditor.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -133,8 +134,6 @@ void WorldPage::applyMapsChrome() {
 
     mapsChromeApplied_ = true;
 
-    // The map workspace is canvas-first. The legacy administrative columns stay alive
-    // only as backing widgets for the persisted data model, never as visible UI.
     if (left) left->hide();
     if (right) right->hide();
     if (oldGenerator) oldGenerator->hide();
@@ -164,9 +163,8 @@ void WorldPage::applyMapsChrome() {
         }
     }
 
-    // Compact map switcher floats over the canvas instead of consuming a permanent row.
     auto* canvasHost = mapCanvas_->findChild<QWidget*>(QStringLiteral("pilinCanvasHost"));
-    QWidget* overlayParent = canvasHost ? canvasHost : mapCanvas_;
+    QWidget* overlayParent = canvasHost ? canvasHost : static_cast<QWidget*>(mapCanvas_);
     auto* workspaceBar = new QFrame(overlayParent);
     workspaceBar->setObjectName(QStringLiteral("mapWorkspaceBar"));
     auto* bar = new QHBoxLayout(workspaceBar);
