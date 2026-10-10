@@ -11,6 +11,7 @@
 #include <QScrollArea>
 #include <QShowEvent>
 #include <QSpinBox>
+#include <QSplitter>
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QToolButton>
@@ -96,7 +97,6 @@ void WorldPage::applyAtlasChrome() {
 
     int identityItem = 0;
     for (QWidget* block : fieldBlocks) {
-        QLabel* titleLabel = block->findChild<QLabel*>(QString(), Qt::FindDirectChildrenOnly);
         QString title;
         const auto childLabels = block->findChildren<QLabel*>();
         for (QLabel* candidate : childLabels) {
@@ -110,12 +110,8 @@ void WorldPage::applyAtlasChrome() {
         if (isIdentity) {
             block->setParent(identity);
             const bool wide = !block->findChildren<QTextEdit*>().isEmpty();
-            if (wide) {
-                identityGrid->addWidget(block, 1, 0, 1, 3);
-            } else {
-                identityGrid->addWidget(block, 0, identityItem % 3);
-                ++identityItem;
-            }
+            if (wide) identityGrid->addWidget(block, 1, 0, 1, 3);
+            else { identityGrid->addWidget(block, 0, identityItem % 3); ++identityItem; }
         } else if (isContext) {
             block->setParent(right);
             rightLayout->addWidget(block);
@@ -204,9 +200,7 @@ void WorldPage::applyMapsChrome() {
 
     auto* titleRow = qobject_cast<QHBoxLayout*>(centerLayout->itemAt(0)->layout());
     if (titleRow) {
-        for (int i = 0; i < titleRow->count(); ++i) {
-            if (QWidget* widget = titleRow->itemAt(i)->widget()) widget->hide();
-        }
+        for (int i = 0; i < titleRow->count(); ++i) if (QWidget* widget = titleRow->itemAt(i)->widget()) widget->hide();
     }
 
     auto* canvasHost = mapCanvas_->findChild<QWidget*>(QStringLiteral("pilinCanvasHost"));
@@ -273,8 +267,7 @@ void WorldPage::applyMapsChrome() {
         connect(mapName_, &QLineEdit::editingFinished, this, [this]() {
             if (!mapPicker_ || !mapList_) return;
             const int row = mapList_->currentRow();
-            if (row >= 0 && row < mapPicker_->count())
-                mapPicker_->setItemText(row, mapName_->text().trimmed().isEmpty() ? tr("Mapa sin nombre") : mapName_->text().trimmed());
+            if (row >= 0 && row < mapPicker_->count()) mapPicker_->setItemText(row, mapName_->text().trimmed().isEmpty() ? tr("Mapa sin nombre") : mapName_->text().trimmed());
         });
     }
 
