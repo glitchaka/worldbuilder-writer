@@ -38,9 +38,7 @@ qt_standard_project_setup()
 enable_testing()
 
 # Keep the checked-in V4 sources readable while generating compiler-neutral copies.
-# Qt 6 uses qsizetype for container sizes and MSVC requires identical pointer
-# types inside braced initializer lists; normalize those two portability edges
-# at configure time until the next source-format pass.
+# The generated pass also carries the current responsive workspace refinements.
 set(WBW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${WBW_GENERATED_DIR}")
 
@@ -53,6 +51,64 @@ string(REPLACE
     "int tw = 1, th = 1; SDL_GetTextureSize(texture, reinterpret_cast<float*>(&tw), reinterpret_cast<float*>(&th));\n            const float aspect = 1.0f;"
     "float tw = 1.0f, th = 1.0f; SDL_GetTextureSize(texture, &tw, &th);\n            const float aspect = th > 0.0f ? tw / th : 1.0f;"
     WBW_PILIN_V4 "${WBW_PILIN_V4}")
+
+# The editor must adapt to the actual window instead of keeping the first tiny fit.
+string(REPLACE
+    "setMinimumSize(720, 460);"
+    "setMinimumSize(320, 220);"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "zoom_ = std::clamp(std::min((width() - 60.0) / docW, (height() - 60.0) / docH), 0.04, 5.0);"
+    "zoom_ = std::clamp(std::min((width() - 24.0) / docW, (height() - 24.0) / docH), 0.04, 5.0);"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "viewInitialized_ = true;\n        renderFrame();"
+    "viewInitialized_ = true; autoFit_ = true;\n        renderFrame();"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "void resizeEvent(QResizeEvent* event) override { QWidget::resizeEvent(event); renderFrame(); }"
+    "void resizeEvent(QResizeEvent* event) override { QWidget::resizeEvent(event); if (autoFit_) fitDocument(); else renderFrame(); }"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "void wheelEvent(QWheelEvent* event) override {\n        const QPointF before"
+    "void wheelEvent(QWheelEvent* event) override {\n        autoFit_ = false;\n        const QPointF before"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "if (event->button() == Qt::MiddleButton || tool_ == Tool::Pan) {\n            panning_ = true;"
+    "if (event->button() == Qt::MiddleButton || tool_ == Tool::Pan) {\n            autoFit_ = false;\n            panning_ = true;"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "bool viewInitialized_ = false;\n    bool snap_ = false;"
+    "bool viewInitialized_ = false;\n    bool autoFit_ = true;\n    bool snap_ = false;"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "SDL_SetRenderDrawColor(renderer_, 38, 40, 44, 255); SDL_RenderClear(renderer_);"
+    "SDL_SetRenderDrawColor(renderer_, 18, 19, 21, 255); SDL_RenderClear(renderer_);"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+
+# Match the approved canvas-first layout: a narrow single-column tool rail and
+# tool parameters in a contextual floating card, not permanently bolted under it.
+string(REPLACE
+    "if (++col == 2) { col = 0; ++row; }"
+    "if (++col == 1) { col = 0; ++row; }"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "auto* options = new QWidget(toolRail_); auto* optionLayout = new QVBoxLayout(options);"
+    "auto* options = new QFrame(canvasHost_); options->setObjectName(QStringLiteral(\"pilinToolOptions\")); auto* optionLayout = new QVBoxLayout(options);"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "tools->addWidget(options, row + 1, 0, 1, 2);"
+    "options->hide();"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "if (toolRail_) { toolRail_->adjustSize(); toolRail_->move(m, m); toolRail_->raise(); }"
+    "if (toolRail_) { toolRail_->adjustSize(); toolRail_->move(m, m); toolRail_->raise(); } if (auto* options = canvasHost_->findChild<QWidget*>(QStringLiteral(\"pilinToolOptions\")); options && options->isVisible()) { options->adjustSize(); options->move(m + (toolRail_ ? toolRail_->width() : 0) + 8, m); options->raise(); }"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+string(REPLACE
+    "viewport_->setTool(tool); toolOptionsLabel_"
+    "viewport_->setTool(tool); if (auto* options = canvasHost_->findChild<QWidget*>(QStringLiteral(\"pilinToolOptions\"))) { const bool needsOptions = tool == Tool::Coast || tool == Tool::Eraser || tool == Tool::Forest || tool == Tool::Mountain || tool == Tool::River || tool == Tool::Road || tool == Tool::Border || tool == Tool::Region; options->setVisible(needsOptions); } layoutFloatingPanels(); toolOptionsLabel_"
+    WBW_PILIN_V4 "${WBW_PILIN_V4}")
+
 file(WRITE "${WBW_GENERATED_DIR}/PilinReyEditorV4.cpp" "${WBW_PILIN_V4}")
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MapExporterV2.cpp" WBW_MAP_EXPORTER_V2)
