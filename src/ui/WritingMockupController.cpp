@@ -105,6 +105,7 @@ public:
         if (index) {
             index->setMinimumWidth(210);
             index->setMaximumWidth(300);
+            index->show();
         }
         if (metadata) {
             metadata->setMinimumWidth(250);
@@ -115,7 +116,14 @@ public:
 
         if (commandBar) {
             commandBar->setMaximumHeight(42);
-            for (QToolButton* b : commandBar->findChildren<QToolButton*>()) polishButton(b);
+            for (QToolButton* b : commandBar->findChildren<QToolButton*>()) {
+                polishButton(b);
+                if (b->text() == QObject::tr("Índice") || b->text() == QObject::tr("Detalles")) {
+                    b->blockSignals(true);
+                    b->setChecked(true);
+                    b->blockSignals(false);
+                }
+            }
             for (QPushButton* b : commandBar->findChildren<QPushButton*>()) polishButton(b);
         }
 
