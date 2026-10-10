@@ -15,6 +15,7 @@
 #include <QNetworkRequest>
 #include <QScopeGuard>
 #include <QSet>
+#include <QSettings>
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QTextFormat>
@@ -66,6 +67,12 @@ QString kindLabel(const QString& kind) {
     if (kind == QStringLiteral("worldText")) return QObject::tr("Texto del mundo");
     if (kind == QStringLiteral("magicText")) return QObject::tr("Texto de magia");
     return kind;
+}
+
+QString proofLanguage() {
+    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+    const QString language = settings.value(QStringLiteral("proof/language"), QStringLiteral("es")).toString().trimmed();
+    return language.isEmpty() ? QStringLiteral("es") : language;
 }
 
 } // namespace
@@ -160,7 +167,7 @@ void SemanticTextEdit::runProofread() {
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/x-www-form-urlencoded"));
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("text"), text.left(18000));
-    query.addQueryItem(QStringLiteral("language"), QStringLiteral("es"));
+    query.addQueryItem(QStringLiteral("language"), proofLanguage());
     query.addQueryItem(QStringLiteral("enabledOnly"), QStringLiteral("false"));
     QNetworkReply* reply = network_->post(request, query.query(QUrl::FullyEncoded).toUtf8());
     connect(reply, &QNetworkReply::finished, this, [this, reply]() { parseProofreadReply(reply); });
@@ -173,15 +180,18 @@ void SemanticTextEdit::clearProofread() {
 
 void SemanticTextEdit::rebuildSelections() {
     QList<QTextEdit::ExtraSelection> selections;
+    const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
+    const QColor referenceFill = dark ? QColor(116, 156, 197, 46) : QColor(210, 170, 105, 42);
+    const QColor referenceLine = dark ? QColor(QStringLiteral("#71aee5")) : QColor(QStringLiteral("#a06a2b"));
     for (const ReferenceHit& hit : references_) {
         QTextCursor cursor(document());
         cursor.setPosition(hit.start);
         cursor.setPosition(hit.start + hit.length, QTextCursor::KeepAnchor);
         QTextEdit::ExtraSelection selection;
         selection.cursor = cursor;
-        selection.format.setBackground(QColor(210, 170, 105, 42));
+        selection.format.setBackground(referenceFill);
         selection.format.setUnderlineStyle(QTextCharFormat::DotLine);
-        selection.format.setUnderlineColor(QColor(QStringLiteral("#a06a2b")));
+        selection.format.setUnderlineColor(referenceLine);
         selections.append(selection);
     }
     for (const ProofIssue& issue : proofIssues_) {
@@ -191,7 +201,7 @@ void SemanticTextEdit::rebuildSelections() {
         QTextEdit::ExtraSelection selection;
         selection.cursor = cursor;
         selection.format.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
-        selection.format.setUnderlineColor(QColor(QStringLiteral("#c62828")));
+        selection.format.setUnderlineColor(dark ? QColor(QStringLiteral("#ff7770")) : QColor(QStringLiteral("#c62828")));
         selections.append(selection);
     }
     setExtraSelections(selections);
@@ -242,23 +252,34 @@ void SemanticTextEdit::showReferencePopup(const ReferenceHit& hit, const QPoint&
     closeReferencePopup();
 
     const QJsonObject object = objectForReference(hit);
+    const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
+    const QString titleColor = dark ? QStringLiteral("#f0f4f9") : QStringLiteral("#273142");
+    const QString metaColor = dark ? QStringLiteral("#8e9caf") : QStringLiteral("#667085");
+    const QString bodyColor = dark ? QStringLiteral("#cbd5e1") : QStringLiteral("#344054");
+
     auto* menu = new QMenu(this);
+    menu->setObjectName(QStringLiteral("semanticReferenceMenu"));
+    menu->setStyleSheet(dark
+        ? QStringLiteral("QMenu#semanticReferenceMenu{background:#151b24;color:#e8edf4;border:1px solid #354252;border-radius:7px;padding:5px;}QMenu#semanticReferenceMenu::item{padding:7px 12px;border-radius:4px;}QMenu#semanticReferenceMenu::item:selected{background:#203448;}QMenu#semanticReferenceMenu::separator{height:1px;background:#2b3541;margin:5px 7px;}")
+        : QStringLiteral("QMenu#semanticReferenceMenu{background:#ffffff;color:#273142;border:1px solid #d2d9e3;border-radius:7px;padding:5px;}QMenu#semanticReferenceMenu::item{padding:7px 12px;border-radius:4px;}QMenu#semanticReferenceMenu::item:selected{background:#e9f2fc;}QMenu#semanticReferenceMenu::separator{height:1px;background:#e1e6ed;margin:5px 7px;}"));
     referencePopup_ = menu;
     referencePopupKey_ = key;
 
     auto* card = new QWidget(menu);
+    card->setObjectName(QStringLiteral("semanticReferenceCard"));
     card->setMinimumWidth(320);
     card->setMaximumWidth(380);
+    card->setStyleSheet(QStringLiteral("#semanticReferenceCard{background:transparent;border:0;}"));
     auto* layout = new QVBoxLayout(card);
     layout->setContentsMargins(12, 10, 12, 10);
     layout->setSpacing(5);
 
     auto* title = new QLabel(hit.label, card);
-    title->setStyleSheet(QStringLiteral("font-weight:700;font-size:10pt;"));
+    title->setStyleSheet(QStringLiteral("font-weight:700;font-size:10pt;color:%1;").arg(titleColor));
     layout->addWidget(title);
 
     auto* type = new QLabel(kindLabel(hit.kind), card);
-    type->setStyleSheet(QStringLiteral("color:#667085;font-size:8.5pt;"));
+    type->setStyleSheet(QStringLiteral("color:%1;font-size:8.5pt;").arg(metaColor));
     layout->addWidget(type);
 
     QStringList facts;
@@ -283,7 +304,7 @@ void SemanticTextEdit::showReferencePopup(const ReferenceHit& hit, const QPoint&
     if (!facts.isEmpty()) {
         auto* meta = new QLabel(facts.mid(0, 3).join(QStringLiteral("  ·  ")), card);
         meta->setWordWrap(true);
-        meta->setStyleSheet(QStringLiteral("color:#475467;font-size:8.5pt;"));
+        meta->setStyleSheet(QStringLiteral("color:%1;font-size:8.5pt;").arg(metaColor));
         layout->addWidget(meta);
     }
 
@@ -295,7 +316,7 @@ void SemanticTextEdit::showReferencePopup(const ReferenceHit& hit, const QPoint&
     if (!summary.isEmpty()) {
         auto* text = new QLabel(clipped(summary), card);
         text->setWordWrap(true);
-        text->setStyleSheet(QStringLiteral("color:#344054;"));
+        text->setStyleSheet(QStringLiteral("color:%1;").arg(bodyColor));
         layout->addWidget(text);
     }
 
@@ -303,7 +324,7 @@ void SemanticTextEdit::showReferencePopup(const ReferenceHit& hit, const QPoint&
     if (!aliases.isEmpty()) {
         auto* alias = new QLabel(tr("Alias: %1").arg(aliases.join(QStringLiteral(", "))), card);
         alias->setWordWrap(true);
-        alias->setStyleSheet(QStringLiteral("color:#667085;font-size:8.5pt;"));
+        alias->setStyleSheet(QStringLiteral("color:%1;font-size:8.5pt;").arg(metaColor));
         layout->addWidget(alias);
     }
 
