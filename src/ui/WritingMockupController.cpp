@@ -73,6 +73,13 @@ QLineEdit* fieldByPlaceholder(QWidget* parent, const QString& placeholder) {
     return nullptr;
 }
 
+QToolButton* detailsButton(QWidget* commandBar) {
+    if (!commandBar) return nullptr;
+    for (QToolButton* button : commandBar->findChildren<QToolButton*>())
+        if (button->text() == QObject::tr("Detalles")) return button;
+    return nullptr;
+}
+
 void addMetadataField(QVBoxLayout* layout, QWidget* owner, const QString& caption, QWidget* field) {
     if (!layout || !owner || !field) return;
     auto* label = new QLabel(caption, owner);
@@ -81,7 +88,7 @@ void addMetadataField(QVBoxLayout* layout, QWidget* owner, const QString& captio
     layout->addWidget(field);
 }
 
-void rebuildMetadataPanel(QWidget* metadata, QWidget* commandBar) {
+void rebuildMetadataPanel(QWidget* metadata) {
     if (!metadata || metadata->property("wbwMetadataEditorial").toBool()) return;
 
     QLineEdit* title = fieldByPlaceholder(metadata, QObject::tr("Título de escena"));
@@ -127,17 +134,7 @@ void rebuildMetadataPanel(QWidget* metadata, QWidget* commandBar) {
     for (QWidget* field : {static_cast<QWidget*>(title), static_cast<QWidget*>(status), static_cast<QWidget*>(pov), static_cast<QWidget*>(location), static_cast<QWidget*>(layer)})
         field->setMinimumHeight(34);
 
-    if (commandBar) {
-        for (QToolButton* button : commandBar->findChildren<QToolButton*>()) {
-            if (button->text() != QObject::tr("Detalles")) continue;
-            QSignalBlocker blocker(button);
-            button->setChecked(true);
-            break;
-        }
-    }
-
     metadata->setProperty("wbwMetadataEditorial", true);
-    metadata->show();
 }
 
 class WritingWorkspaceFilter final : public QObject {
@@ -166,12 +163,30 @@ public:
         QWidget* editorPanel = page->findChild<QWidget*>(QStringLiteral("editorPanel"));
         QWidget* metadata = page->findChild<QWidget*>(QStringLiteral("metadataPanel"));
         QSplitter* split = index ? qobject_cast<QSplitter*>(index->parentWidget()) : nullptr;
+        const bool wideWriting = window_->width() >= 1240;
 
         if (split && editorPanel && metadata && metadata->parentWidget() != split) {
             metadata->setParent(split);
             split->addWidget(metadata);
         }
-        rebuildMetadataPanel(metadata, commandBar);
+        rebuildMetadataPanel(metadata);
+
+        if (index) {
+            index->setMinimumWidth(wideWriting ? 220 : 190);
+            index->setMaximumWidth(wideWriting ? 285 : 220);
+            if (QLabel* title = index->findChild<QLabel*>(QStringLiteral("indexTitle")))
+                title->setText(wideWriting ? QObject::tr("CAPÍTULOS Y ESCENAS") : QObject::tr("ÍNDICE"));
+        }
+        if (metadata) {
+            metadata->setMinimumWidth(220);
+            metadata->setMaximumWidth(300);
+            metadata->setVisible(wideWriting);
+        }
+        if (QToolButton* details = detailsButton(commandBar)) {
+            QSignalBlocker blocker(details);
+            details->setChecked(wideWriting);
+        }
+        if (editorPanel) editorPanel->setMinimumWidth(320);
 
         if (split) {
             split->setChildrenCollapsible(true);
@@ -179,22 +194,12 @@ public:
             split->setStretchFactor(0, 0);
             split->setStretchFactor(1, 1);
             split->setStretchFactor(2, 0);
-            if (!splitInitialized_) {
-                split->setSizes({236, 960, 286});
+            if (!splitInitialized_ || lastWideWriting_ != wideWriting) {
+                split->setSizes(wideWriting ? QList<int>{236, 960, 286} : QList<int>{200, 720, 0});
                 splitInitialized_ = true;
+                lastWideWriting_ = wideWriting;
             }
         }
-
-        if (index) {
-            index->setMinimumWidth(205);
-            index->setMaximumWidth(285);
-        }
-        if (metadata) {
-            metadata->setMinimumWidth(245);
-            metadata->setMaximumWidth(310);
-            metadata->show();
-        }
-        if (editorPanel) editorPanel->setMinimumWidth(430);
 
         if (commandBar) {
             commandBar->setMaximumHeight(42);
@@ -220,8 +225,8 @@ public:
                 for (QPushButton* b : toolbar->findChildren<QPushButton*>()) polishButton(b);
             }
             if (auto* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) {
-                outline->setMinimumWidth(210);
-                outline->setMaximumWidth(260);
+                outline->setMinimumWidth(wideWriting ? 210 : 185);
+                outline->setMaximumWidth(wideWriting ? 260 : 220);
             }
             if (auto* view = board->findChild<QGraphicsView*>(QStringLiteral("sceneBoardCanvas"))) {
                 view->setFrameShape(QFrame::NoFrame);
@@ -235,7 +240,7 @@ public:
                 boardSplit->setStretchFactor(0, 0);
                 boardSplit->setStretchFactor(1, 1);
                 if (!boardSplitInitialized_) {
-                    boardSplit->setSizes({230, 1150});
+                    boardSplit->setSizes({220, 1150});
                     boardSplitInitialized_ = true;
                 }
             }
@@ -295,6 +300,7 @@ private:
     QPointer<QMainWindow> window_;
     bool splitInitialized_ = false;
     bool boardSplitInitialized_ = false;
+    bool lastWideWriting_ = false;
 };
 
 } // namespace
