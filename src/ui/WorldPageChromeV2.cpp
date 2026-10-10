@@ -116,7 +116,7 @@ void WorldPage::applyAtlasChrome() {
         "#atlasSections::pane{border:0;background:transparent;}"
         "#atlasSections QTabBar::tab{padding:8px 11px;}"
         "#atlasSectionPage,#atlasSectionContent,#atlasSectionScroll{background:transparent;border:0;}"
-        "#atlasFieldCard{background:#151b24;border:1px solid #2a3440;border-radius:6px;padding:10px;}"
+        "#atlasFieldCard{border-radius:6px;padding:10px;}"
         "#atlasFieldCard QTextEdit{min-height:90px;}"
     ));
 }
@@ -132,6 +132,9 @@ void WorldPage::applyMapsChrome() {
     if (!mapsTab || !center) return;
 
     mapsChromeApplied_ = true;
+
+    // The map workspace is canvas-first. The legacy administrative columns stay alive
+    // only as backing widgets for the persisted data model, never as visible UI.
     if (left) left->hide();
     if (right) right->hide();
     if (oldGenerator) oldGenerator->hide();
@@ -144,46 +147,72 @@ void WorldPage::applyMapsChrome() {
     if (mapRoughness_) mapRoughness_->hide();
 
     if (auto* tabLayout = qobject_cast<QVBoxLayout*>(mapsTab->layout())) {
-        tabLayout->setContentsMargins(5, 5, 5, 5);
-        tabLayout->setSpacing(4);
+        tabLayout->setContentsMargins(0, 0, 0, 0);
+        tabLayout->setSpacing(0);
     }
 
+    center->setContentsMargins(0, 0, 0, 0);
     auto* centerLayout = qobject_cast<QVBoxLayout*>(center->layout());
     if (!centerLayout || centerLayout->count() < 1) return;
-    auto* titleRow = qobject_cast<QHBoxLayout*>(centerLayout->itemAt(0)->layout());
-    if (!titleRow) return;
+    centerLayout->setContentsMargins(0, 0, 0, 0);
+    centerLayout->setSpacing(0);
 
-    for (int i = 0; i < titleRow->count(); ++i) {
-        QWidget* widget = titleRow->itemAt(i)->widget();
-        if (widget && widget != mapName_) widget->hide();
+    auto* titleRow = qobject_cast<QHBoxLayout*>(centerLayout->itemAt(0)->layout());
+    if (titleRow) {
+        for (int i = 0; i < titleRow->count(); ++i) {
+            if (QWidget* widget = titleRow->itemAt(i)->widget()) widget->hide();
+        }
     }
 
-    mapPicker_ = new QComboBox(center);
+    // Compact map switcher floats over the canvas instead of consuming a permanent row.
+    auto* canvasHost = mapCanvas_->findChild<QWidget*>(QStringLiteral("pilinCanvasHost"));
+    QWidget* overlayParent = canvasHost ? canvasHost : mapCanvas_;
+    auto* workspaceBar = new QFrame(overlayParent);
+    workspaceBar->setObjectName(QStringLiteral("mapWorkspaceBar"));
+    auto* bar = new QHBoxLayout(workspaceBar);
+    bar->setContentsMargins(8, 5, 8, 5);
+    bar->setSpacing(5);
+
+    auto* context = new QLabel(tr("MAPA"), workspaceBar);
+    context->setObjectName(QStringLiteral("mapWorkspaceKicker"));
+    bar->addWidget(context);
+
+    mapPicker_ = new QComboBox(workspaceBar);
     mapPicker_->setObjectName(QStringLiteral("mapPicker"));
-    mapPicker_->setMinimumWidth(180);
-    mapPicker_->setMaximumWidth(280);
+    mapPicker_->setMinimumWidth(150);
+    mapPicker_->setMaximumWidth(230);
     for (int i = 0; i < mapList_->count(); ++i) mapPicker_->addItem(mapList_->item(i)->text());
     mapPicker_->setCurrentIndex(mapList_->currentRow());
+    bar->addWidget(mapPicker_);
 
-    auto* addMapButton = new QToolButton(center);
+    auto* addMapButton = new QToolButton(workspaceBar);
     addMapButton->setText(QStringLiteral("+"));
     addMapButton->setObjectName(QStringLiteral("mapChromeButton"));
     addMapButton->setToolTip(tr("Nuevo mapa"));
-    addMapButton->setFixedSize(30, 30);
+    addMapButton->setFixedSize(28, 28);
+    bar->addWidget(addMapButton);
 
-    auto* removeMapButton = new QToolButton(center);
+    auto* removeMapButton = new QToolButton(workspaceBar);
     removeMapButton->setText(QStringLiteral("−"));
     removeMapButton->setObjectName(QStringLiteral("mapChromeButton"));
     removeMapButton->setToolTip(tr("Eliminar mapa"));
-    removeMapButton->setFixedSize(30, 30);
+    removeMapButton->setFixedSize(28, 28);
+    bar->addWidget(removeMapButton);
 
-    titleRow->insertWidget(0, mapPicker_);
-    titleRow->insertWidget(1, addMapButton);
-    titleRow->insertWidget(2, removeMapButton);
     if (mapName_) {
+        mapName_->setParent(workspaceBar);
+        mapName_->setObjectName(QStringLiteral("mapWorkspaceName"));
         mapName_->setPlaceholderText(tr("Nombre del mapa"));
-        mapName_->setMaximumWidth(360);
+        mapName_->setMinimumWidth(140);
+        mapName_->setMaximumWidth(240);
+        mapName_->show();
+        bar->addWidget(mapName_);
     }
+
+    workspaceBar->adjustSize();
+    workspaceBar->move(62, 12);
+    workspaceBar->raise();
+    workspaceBar->show();
 
     connect(mapPicker_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
         if (index >= 0 && mapList_ && mapList_->currentRow() != index) mapList_->setCurrentRow(index);
@@ -196,17 +225,23 @@ void WorldPage::applyMapsChrome() {
     });
     connect(addMapButton, &QToolButton::clicked, this, [this]() { addMap(); syncMapPicker(); });
     connect(removeMapButton, &QToolButton::clicked, this, [this]() { removeMap(); syncMapPicker(); });
-    connect(mapName_, &QLineEdit::editingFinished, this, [this]() {
-        if (!mapPicker_ || !mapList_) return;
-        const int row = mapList_->currentRow();
-        if (row >= 0 && row < mapPicker_->count()) mapPicker_->setItemText(row, mapName_->text().trimmed().isEmpty() ? tr("Mapa sin nombre") : mapName_->text().trimmed());
-    });
+    if (mapName_) {
+        connect(mapName_, &QLineEdit::editingFinished, this, [this]() {
+            if (!mapPicker_ || !mapList_) return;
+            const int row = mapList_->currentRow();
+            if (row >= 0 && row < mapPicker_->count())
+                mapPicker_->setItemText(row, mapName_->text().trimmed().isEmpty() ? tr("Mapa sin nombre") : mapName_->text().trimmed());
+        });
+    }
 
     setStyleSheet(styleSheet() + QStringLiteral(
         "#mapEditorCard{border:0;background:transparent;}"
-        "#mapPicker{border:0;background:transparent;font-weight:600;padding-left:4px;}"
+        "#mapWorkspaceBar{border:1px solid rgba(125,125,125,0.24);border-radius:7px;}"
+        "#mapWorkspaceKicker{font-size:7pt;font-weight:700;letter-spacing:1px;padding:0 3px;}"
+        "#mapPicker{border:0;background:transparent;font-weight:600;padding:4px 6px;}"
+        "#mapWorkspaceName{min-height:20px;padding:4px 7px;}"
         "#mapChromeButton{background:transparent;border:0;padding:2px;font-size:12pt;}"
-        "#mapChromeButton:hover{background:rgba(100,120,145,0.12);}"
+        "#mapChromeButton:hover{background:rgba(130,130,130,0.15);}"
     ));
 }
 
