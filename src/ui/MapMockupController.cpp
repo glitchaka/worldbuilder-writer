@@ -96,8 +96,9 @@ public:
     explicit MapWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
-            QTimer::singleShot(0, this, [this]() { apply(); });
+        const bool windowEvent = watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize);
+        const bool mapShown = watched && watched->objectName() == QStringLiteral("pilinReyEditor") && event->type() == QEvent::Show;
+        if (windowEvent || mapShown) QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
 
@@ -114,25 +115,28 @@ public:
         normalizePopoverTitles(editor);
         applyPersistentDefaults(editor);
 
-        editor->setStyleSheet(QStringLiteral(
-            "#pilinReyEditor{background:#0f1114;}"
-            "#pilinCanvasHost{background:#0f1114;}"
-            "#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinToolOptions{background:#181b20;border:1px solid #313640;border-radius:10px;}"
-            "#pilinPaletteTitle{color:#f2f3f5;font-size:10pt;font-weight:700;}"
-            "#pilinMapTool,#pilinCommand{background:transparent;color:#d9dde4;border:0;border-radius:7px;text-align:left;padding:0 9px;}"
-            "#pilinCommand{padding:0 7px;}"
-            "#pilinMapTool:hover,#pilinCommand:hover{background:#262b33;}"
-            "#pilinMapTool:checked{background:#c59a5d;color:#111315;font-weight:700;}"
-            "#pilinPopoverTitle{color:#f0f2f5;font-size:11pt;font-weight:700;}"
-            "#pilinTinyLabel,#pilinToolOptionsLabel{color:#aab1bd;font-size:8pt;}"
-            "#pilinToolOptions{min-width:180px;}"
-            "QListWidget{background:#12151a;color:#e5e8ed;border:1px solid #2b3038;border-radius:7px;}"
-            "QListWidget::item{padding:7px;border-radius:5px;}"
-            "QListWidget::item:selected{background:#2b313a;color:#ffffff;}"
-            "QSlider::groove:horizontal{height:4px;background:#303640;border-radius:2px;}"
-            "QSlider::handle:horizontal{width:12px;margin:-4px 0;background:#c59a5d;border-radius:6px;}"
-            "QCheckBox{color:#c9ced6;}"
-        ));
+        if (!editor->property("wbwMapVisualStyleApplied").toBool()) {
+            editor->setProperty("wbwMapVisualStyleApplied", true);
+            editor->setStyleSheet(QStringLiteral(
+                "#pilinReyEditor{background:#0f1114;}"
+                "#pilinCanvasHost{background:#0f1114;}"
+                "#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinToolOptions{background:#181b20;border:1px solid #313640;border-radius:10px;}"
+                "#pilinPaletteTitle{color:#f2f3f5;font-size:10pt;font-weight:700;}"
+                "#pilinMapTool,#pilinCommand{background:transparent;color:#d9dde4;border:0;border-radius:7px;text-align:left;padding:0 9px;}"
+                "#pilinCommand{padding:0 7px;}"
+                "#pilinMapTool:hover,#pilinCommand:hover{background:#262b33;}"
+                "#pilinMapTool:checked{background:#c59a5d;color:#111315;font-weight:700;}"
+                "#pilinPopoverTitle{color:#f0f2f5;font-size:11pt;font-weight:700;}"
+                "#pilinTinyLabel,#pilinToolOptionsLabel{color:#aab1bd;font-size:8pt;}"
+                "#pilinToolOptions{min-width:180px;}"
+                "QListWidget{background:#12151a;color:#e5e8ed;border:1px solid #2b3038;border-radius:7px;}"
+                "QListWidget::item{padding:7px;border-radius:5px;}"
+                "QListWidget::item:selected{background:#2b313a;color:#ffffff;}"
+                "QSlider::groove:horizontal{height:4px;background:#303640;border-radius:2px;}"
+                "QSlider::handle:horizontal{width:12px;margin:-4px 0;background:#c59a5d;border-radius:6px;}"
+                "QCheckBox{color:#c9ced6;}"
+            ));
+        }
 
         const int margin = 14;
         if (rail) {
@@ -205,8 +209,7 @@ void installMapMockupController(QMainWindow* window) {
     window->setProperty("wbwMapMockupController", true);
     auto* filter = new MapWorkspaceFilter(window);
     window->installEventFilter(filter);
-    const auto widgets = window->findChildren<QWidget*>();
-    for (QWidget* widget : widgets) widget->installEventFilter(filter);
+    if (QWidget* editor = window->findChild<QWidget*>(QStringLiteral("pilinReyEditor"))) editor->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
 }
 
