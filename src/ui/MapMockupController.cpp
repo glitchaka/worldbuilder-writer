@@ -114,7 +114,6 @@ public:
         return QObject::eventFilter(watched, event);
     }
 
-private:
     void apply() {
         if (!window_) return;
         QWidget* editor = window_->findChild<QWidget*>(QStringLiteral("pilinReyEditor"));
@@ -220,6 +219,7 @@ QCheckBox{color:#c5c0b7;spacing:7px;}
         }
     }
 
+private:
     QPointer<QMainWindow> window_;
 };
 
