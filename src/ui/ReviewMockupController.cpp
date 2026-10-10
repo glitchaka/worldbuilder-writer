@@ -30,6 +30,11 @@ void applyReviewStyle(QWidget* analysis) {
 #reviewAnalysisTab QListWidget::item{padding:8px;border-bottom:1px solid palette(mid);}
 #reviewAnalysisTab QListWidget::item:selected{background:palette(highlight);color:palette(highlighted-text);}
 #reviewAnalysisTab QTextEdit,#reviewAnalysisTab QSpinBox{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:7px;padding:7px;}
+#reviewDashboardTitle{font-family:'Georgia';font-size:15pt;color:palette(text);font-weight:700;}
+#reviewDashboardCopy{color:palette(window-text);}
+#reviewMetric{background:palette(alternate-base);border:1px solid palette(mid);border-radius:8px;}
+#reviewMetricValue{font-size:18pt;font-weight:700;color:palette(text);}
+#reviewMetricLabel{color:palette(window-text);font-size:8pt;text-transform:uppercase;}
 )QSS"));
 }
 
@@ -52,15 +57,22 @@ public:
         if (!layout) return;
 
         if (applied_) {
+            tabs->setCurrentWidget(analysis);
             applyReviewStyle(analysis);
             return;
         }
 
         applied_ = true;
-        tabs->setTabText(0, QObject::tr("Resumen"));
-        tabs->setTabText(1, QObject::tr("Consistencia / lenguaje"));
-        tabs->setTabText(2, QObject::tr("Estructura / salida"));
-        tabs->setTabText(3, QObject::tr("Notas / ambiente"));
+        const int analysisIndex = tabs->indexOf(analysis);
+        if (analysisIndex > 0) {
+            tabs->removeTab(analysisIndex);
+            tabs->insertTab(0, analysis, QObject::tr("Resumen"));
+        }
+        if (tabs->count() > 0) tabs->setTabText(0, QObject::tr("Resumen"));
+        if (tabs->count() > 1) tabs->setTabText(1, QObject::tr("Proyecto"));
+        if (tabs->count() > 2) tabs->setTabText(2, QObject::tr("Estructura / salida"));
+        if (tabs->count() > 3) tabs->setTabText(3, QObject::tr("Notas / ambiente"));
+        tabs->setCurrentWidget(analysis);
 
         const auto heroes = window_->findChildren<QWidget*>(QStringLiteral("reviewHero"));
         for (QWidget* hero : heroes) hero->hide();
@@ -81,8 +93,8 @@ public:
             QObject::connect(button, &QPushButton::clicked, sectionBar, [this, key]() { filter(key); });
         };
         addFilter(QObject::tr("Resumen"), QString());
-        addFilter(QObject::tr("Repeticiones"), QStringLiteral("Repetición cercana:"));
-        addFilter(QObject::tr("Muletillas"), QStringLiteral("Muletilla:"));
+        addFilter(QObject::tr("Consistencia"), QStringLiteral("Repetición cercana:"));
+        addFilter(QObject::tr("Lenguaje"), QStringLiteral("Muletilla:"));
         addFilter(QObject::tr("Mecánica"), QStringLiteral("mechanical"));
         bar->addStretch();
         layout->insertWidget(0, sectionBar);
