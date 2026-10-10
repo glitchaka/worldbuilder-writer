@@ -9,6 +9,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
+#include <QLocale>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QShowEvent>
@@ -91,7 +92,6 @@ void ReviewPage::applyApprovedReviewChrome() {
     for (int column = 0; column < 4; ++column) metrics->setColumnStretch(column, 1);
     dashboardLayout->addLayout(metrics);
 
-    // Insert after the compact hero so the page reads like the approved dashboard.
     root->insertWidget(qMin(1, root->count()), dashboard);
     root->setContentsMargins(16, 12, 16, 16);
     root->setSpacing(9);
