@@ -21,7 +21,6 @@ public:
         return QObject::eventFilter(watched, event);
     }
 
-private:
     void apply() {
         if (!window_) return;
         auto* page = window_->findChild<SettingsWorkspace*>();
@@ -60,6 +59,7 @@ private:
 )QSS"));
     }
 
+private:
     QPointer<QMainWindow> window_;
 };
 
