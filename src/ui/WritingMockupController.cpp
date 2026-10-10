@@ -3,6 +3,8 @@
 #include <QEvent>
 #include <QFont>
 #include <QFrame>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QMainWindow>
 #include <QPointer>
 #include <QPushButton>
@@ -14,6 +16,7 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <QToolButton>
+#include <QVBoxLayout>
 #include <QWidget>
 
 namespace wbw {
@@ -21,7 +24,8 @@ namespace {
 
 QPushButton* buttonByText(QWidget* page, const QString& text) {
     if (!page) return nullptr;
-    for (QPushButton* button : page->findChildren<QPushButton*>()) if (button->text() == text) return button;
+    for (QPushButton* button : page->findChildren<QPushButton*>())
+        if (button->text() == text) return button;
     return nullptr;
 }
 
@@ -32,7 +36,8 @@ void ensureWritingShortcuts(QWidget* page, const QSettings& settings) {
         focus = new QShortcut(page);
         focus->setObjectName(QStringLiteral("wbwFocusShortcut"));
         focus->setContext(Qt::WindowShortcut);
-        if (QPushButton* button = buttonByText(page, QObject::tr("Enfoque"))) QObject::connect(focus, &QShortcut::activated, button, &QPushButton::click);
+        if (QPushButton* button = buttonByText(page, QObject::tr("Enfoque")))
+            QObject::connect(focus, &QShortcut::activated, button, &QPushButton::click);
     }
     focus->setKey(QKeySequence(settings.value(QStringLiteral("shortcut/focus"), QStringLiteral("Ctrl+Shift+F")).toString()));
 
@@ -41,9 +46,16 @@ void ensureWritingShortcuts(QWidget* page, const QSettings& settings) {
         proof = new QShortcut(page);
         proof->setObjectName(QStringLiteral("wbwProofShortcut"));
         proof->setContext(Qt::WindowShortcut);
-        if (QPushButton* button = buttonByText(page, QObject::tr("Revisar"))) QObject::connect(proof, &QShortcut::activated, button, &QPushButton::click);
+        if (QPushButton* button = buttonByText(page, QObject::tr("Revisar")))
+            QObject::connect(proof, &QShortcut::activated, button, &QPushButton::click);
     }
     proof->setKey(QKeySequence(settings.value(QStringLiteral("shortcut/proofread"), QStringLiteral("F7")).toString()));
+}
+
+void polishButton(QAbstractButton* button) {
+    if (!button) return;
+    button->setCursor(Qt::PointingHandCursor);
+    button->setMinimumHeight(30);
 }
 
 class WritingWorkspaceFilter final : public QObject {
@@ -61,56 +73,102 @@ public:
         QWidget* page = window_->findChild<QWidget*>(QStringLiteral("writingPage"));
         if (!page) return;
 
-        if (auto* tabs = page->findChild<QTabWidget*>(QStringLiteral("writingTabs"))) if (tabs->tabBar()) tabs->tabBar()->hide();
+        if (auto* tabs = page->findChild<QTabWidget*>(QStringLiteral("writingTabs"))) {
+            if (tabs->tabBar()) tabs->tabBar()->hide();
+            tabs->setDocumentMode(true);
+        }
         if (QWidget* hero = page->findChild<QWidget*>(QStringLiteral("writingHero"))) hero->hide();
 
+        QWidget* commandBar = page->findChild<QWidget*>(QStringLiteral("writingCommandBar"));
         QWidget* index = page->findChild<QWidget*>(QStringLiteral("indexPanel"));
         QWidget* editorPanel = page->findChild<QWidget*>(QStringLiteral("editorPanel"));
         QWidget* metadata = page->findChild<QWidget*>(QStringLiteral("metadataPanel"));
         QSplitter* split = index ? qobject_cast<QSplitter*>(index->parentWidget()) : nullptr;
 
         if (split && editorPanel && metadata && metadata->parentWidget() != split) {
-            const bool visible = metadata->isVisible();
             metadata->setParent(split);
             split->addWidget(metadata);
-            metadata->setVisible(visible);
-            split->setStretchFactor(0, 0); split->setStretchFactor(1, 1); split->setStretchFactor(2, 0);
-            split->setSizes({250, 900, visible ? 285 : 0});
         }
-        if (index) { index->setMinimumWidth(220); index->setMaximumWidth(290); }
-        if (metadata) { metadata->setMinimumWidth(250); metadata->setMaximumWidth(310); }
+        if (split) {
+            split->setChildrenCollapsible(true);
+            split->setHandleWidth(1);
+            split->setStretchFactor(0, 0);
+            split->setStretchFactor(1, 1);
+            split->setStretchFactor(2, 0);
+            if (!splitInitialized_) {
+                split->setSizes({248, 980, 292});
+                splitInitialized_ = true;
+            }
+        }
+
+        if (index) {
+            index->setMinimumWidth(210);
+            index->setMaximumWidth(300);
+        }
+        if (metadata) {
+            metadata->setMinimumWidth(250);
+            metadata->setMaximumWidth(320);
+            metadata->show();
+        }
+        if (editorPanel) editorPanel->setMinimumWidth(420);
+
+        if (commandBar) {
+            commandBar->setMaximumHeight(42);
+            for (QToolButton* b : commandBar->findChildren<QToolButton*>()) polishButton(b);
+            for (QPushButton* b : commandBar->findChildren<QPushButton*>()) polishButton(b);
+        }
 
         QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
         if (auto* editor = page->findChild<QTextEdit*>(QStringLiteral("sceneEditor"))) {
             QFont font(settings.value(QStringLiteral("editor/fontFamily"), QStringLiteral("Georgia")).toString());
-            font.setPointSize(qBound(10, settings.value(QStringLiteral("editor/fontSize"), 12).toInt(), 24));
+            font.setPointSize(qBound(10, settings.value(QStringLiteral("editor/fontSize"), 13).toInt(), 24));
             editor->setFont(font);
+            editor->setFrameShape(QFrame::NoFrame);
+            editor->setLineWrapMode(QTextEdit::WidgetWidth);
+            editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         }
         ensureWritingShortcuts(page, settings);
 
-        page->setStyleSheet(QStringLiteral(
-            "#writingPage,#writingEditorTab,#sceneBoardTab{background:palette(window);color:palette(window-text);}"
-            "#writingTabs::pane{border:0;background:palette(window);}"
-            "#writingHero{border:0;background:transparent;}"
-            "#writingCommandBar,#focusBar,#sceneBoardToolbar,#sceneBoardOutlinePanel{background:palette(base);border:1px solid palette(mid);border-radius:9px;}"
-            "#indexPanel,#editorPanel,#metadataPanel{background:palette(base);border:1px solid palette(mid);border-radius:8px;}"
-            "#indexTitle,#editorPanelTitle,#sectionLabel{color:#b98a53;font-size:8pt;font-weight:700;letter-spacing:1px;}"
-            "#manuscriptTree,#sceneBoardOutline{background:palette(base);color:palette(text);border:0;padding:5px;}"
-            "#manuscriptTree::item,#sceneBoardOutline::item{padding:6px;border-radius:5px;}"
-            "#manuscriptTree::item:selected,#sceneBoardOutline::item:selected{background:palette(highlight);color:palette(highlighted-text);}"
-            "#sceneEditor{background:palette(base);color:palette(text);border:0;padding:42px 72px;selection-background-color:palette(highlight);selection-color:palette(highlighted-text);}"
-            "#metadataPanel QLineEdit,#metadataPanel QComboBox{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:6px;padding:7px;}"
-            "#writingPrimary{background:#c59a5d;color:#121418;border:1px solid #c59a5d;border-radius:6px;font-weight:700;padding:7px 11px;}"
-            "#writingSubtle,QToolButton{background:palette(alternate-base);color:palette(button-text);border:1px solid palette(mid);border-radius:6px;padding:6px 9px;}"
-            "#writingSubtle:hover,QToolButton:hover{background:palette(highlight);color:palette(highlighted-text);}"
-            "#proofState,#wordCount,#focusSceneName,#sceneBoardSubheading,#sceneBoardSelection{color:palette(window-text);font-size:8.5pt;}"
-            "#sceneBoardHeading{font-size:15pt;font-weight:700;color:palette(text);}"
-            "#sceneBoardCanvas{background:palette(window);border:1px solid palette(mid);border-radius:8px;}"
-        ));
+        page->setStyleSheet(QStringLiteral(R"QSS(
+#writingPage,#writingEditorTab,#sceneBoardTab{background:#0e1116;color:#d9dee7;}
+#writingTabs::pane{border:0;background:#0e1116;}
+#writingHero{display:none;border:0;background:transparent;}
+#writingCommandBar{background:#12171d;border:0;border-bottom:1px solid #252d38;border-radius:0;padding:3px 8px;}
+#writingCommandBar QToolButton,#writingCommandBar QPushButton{background:transparent;color:#aeb7c4;border:0;border-radius:6px;padding:5px 8px;min-width:28px;}
+#writingCommandBar QToolButton:hover,#writingCommandBar QPushButton:hover{background:#1c232c;color:#f0f3f7;}
+#writingCommandBar QToolButton:checked{background:#2b241c;color:#d7ad72;}
+#indexPanel{background:#11161d;border:0;border-right:1px solid #252d38;border-radius:0;}
+#editorPanel{background:#0e1116;border:0;border-radius:0;}
+#metadataPanel{background:#11161d;border:0;border-left:1px solid #252d38;border-radius:0;}
+#indexTitle,#editorPanelTitle,#sectionLabel{color:#c8a16d;font-size:8pt;font-weight:700;letter-spacing:1px;}
+#manuscriptTree,#sceneBoardOutline{background:#11161d;color:#cfd6df;border:0;padding:7px;outline:0;}
+#manuscriptTree::item,#sceneBoardOutline::item{padding:8px 7px;border-radius:6px;margin:1px 0;}
+#manuscriptTree::item:hover,#sceneBoardOutline::item:hover{background:#171e27;}
+#manuscriptTree::item:selected,#sceneBoardOutline::item:selected{background:#222b36;color:#ffffff;}
+#sceneEditor{background:#0e1116;color:#e0ddd5;border:0;padding:58px 10%;selection-background-color:#5a4936;selection-color:#fff8ec;font-family:'Georgia';}
+#sceneEditor QScrollBar:vertical{background:#0e1116;width:9px;margin:4px 2px;}
+#sceneEditor QScrollBar::handle:vertical{background:#343b45;border-radius:4px;min-height:34px;}
+#sceneEditor QScrollBar::add-line:vertical,#sceneEditor QScrollBar::sub-line:vertical{height:0;}
+#metadataPanel QLineEdit,#metadataPanel QComboBox{background:#0d1116;color:#d9dee7;border:1px solid #2b3440;border-radius:7px;padding:7px 9px;}
+#metadataPanel QLineEdit:focus,#metadataPanel QComboBox:focus{border-color:#8e6c46;}
+#writingPrimary{background:#c59a5d;color:#111315;border:0;border-radius:6px;font-weight:700;padding:7px 11px;}
+#writingSubtle{background:transparent;color:#aeb7c4;border:1px solid #303946;border-radius:6px;padding:6px 9px;}
+#writingSubtle:hover{background:#1a212a;color:#f1f4f8;}
+#proofState,#wordCount,#focusSceneName,#sceneBoardSubheading,#sceneBoardSelection{color:#788596;font-size:8.5pt;}
+#focusBar{background:#0b0e12;border:0;border-bottom:1px solid #252d38;}
+#focusExit{background:transparent;border:0;color:#8f99a7;}
+#sceneBoardToolbar,#sceneBoardOutlinePanel{background:#11161d;border:1px solid #28313c;border-radius:9px;}
+#sceneBoardHeading{font-size:15pt;font-weight:700;color:#edf1f5;}
+#sceneBoardCanvas{background:#0b0e12;border:1px solid #28313c;border-radius:9px;}
+QSplitter::handle{background:#252d38;}
+QPushButton{background:#171d25;color:#cbd2dc;border:1px solid #303946;border-radius:6px;padding:6px 9px;}
+QPushButton:hover{background:#202833;color:#f3f5f7;}
+)QSS"));
     }
 
 private:
     QPointer<QMainWindow> window_;
+    bool splitInitialized_ = false;
 };
 
 } // namespace
