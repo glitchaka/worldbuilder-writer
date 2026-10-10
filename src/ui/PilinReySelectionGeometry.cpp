@@ -9,6 +9,10 @@
 
 namespace wbw {
 
+void PilinReyEditor::selectObjectIds(const QStringList& ids) {
+    selectObjects(ids);
+}
+
 void PilinReyEditor::nudgeSelection(double dx, double dy) {
     if (selectedObjectIds_.isEmpty() || (dx == 0.0 && dy == 0.0)) return;
     mutateDocument([&](QJsonObject& pilin) {
@@ -17,14 +21,15 @@ void PilinReyEditor::nudgeSelection(double dx, double dy) {
             QJsonObject layer = layers.at(li).toObject();
             if (layer.value(QStringLiteral("locked")).toBool(false)) continue;
             QJsonArray objects = layer.value(QStringLiteral("objects")).toArray();
-            bool changed = false;
+            bool layerChanged = false;
             for (int oi = 0; oi < objects.size(); ++oi) {
                 QJsonObject object = objects.at(oi).toObject();
                 if (!selectedObjectIds_.contains(object.value(QStringLiteral("id")).toString())) continue;
+                bool objectChanged = false;
                 if (object.contains(QStringLiteral("x"))) {
                     object.insert(QStringLiteral("x"), object.value(QStringLiteral("x")).toDouble() + dx);
                     object.insert(QStringLiteral("y"), object.value(QStringLiteral("y")).toDouble() + dy);
-                    changed = true;
+                    objectChanged = true;
                 }
                 QJsonArray points = object.value(QStringLiteral("points")).toArray();
                 if (!points.isEmpty()) {
@@ -35,11 +40,14 @@ void PilinReyEditor::nudgeSelection(double dx, double dy) {
                         points.replace(pi, point);
                     }
                     object.insert(QStringLiteral("points"), points);
-                    changed = true;
+                    objectChanged = true;
                 }
-                if (changed) objects.replace(oi, object);
+                if (objectChanged) {
+                    objects.replace(oi, object);
+                    layerChanged = true;
+                }
             }
-            if (changed) {
+            if (layerChanged) {
                 layer.insert(QStringLiteral("objects"), objects);
                 layers.replace(li, layer);
             }
