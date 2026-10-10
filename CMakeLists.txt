@@ -62,6 +62,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/SettingsWorkspace.h
     src/ui/RcVisualFixture.cpp
     src/ui/RcVisualFixture.h
+    src/ui/RcVisualFixtureStartup.cpp
     src/ui/RelationshipBoard.cpp
     "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
     src/ui/MapExportDialog.cpp
