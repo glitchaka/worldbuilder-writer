@@ -49,6 +49,8 @@ public:
 
     void setMap(const QJsonObject& map);
     QJsonObject map() const { return map_; }
+    void nudgeSelection(double dx, double dy);
+    void transformSelectedPathGeometry(double scaleFactor, double rotationDegrees);
 
 signals:
     void markerMoved(const QString& id, double x, double y);
