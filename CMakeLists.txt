@@ -36,6 +36,8 @@ qt_add_executable(WorldbuilderWriter
     src/ui/NavigationConsistencyController.cpp
     src/ui/LibraryMockupController.cpp
     src/ui/MapMockupController.cpp
+    src/ui/MapSelectionController.cpp
+    src/ui/MapSelectionController.h
     src/ui/WritingMockupController.cpp
     src/ui/WritingShortcutBridge.cpp
     src/ui/WritingShortcutBridge.h
@@ -54,6 +56,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.h
     src/ui/PilinReyEditorNative.cpp
+    src/ui/PilinReySelectionGeometry.cpp
     src/ui/ProjectHubPage.cpp
     src/ui/SettingsDialog.cpp
     src/ui/SemanticTextEdit.cpp
