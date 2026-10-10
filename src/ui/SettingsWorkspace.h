@@ -3,6 +3,7 @@
 #include <QWidget>
 
 class QComboBox;
+class QLayout;
 class QLineEdit;
 class QListWidget;
 class QSpinBox;
