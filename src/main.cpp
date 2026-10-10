@@ -1,4 +1,5 @@
 #include "ui/MainWindow.h"
+#include "ui/MapMockupController.h"
 #include "ui/ProductReorganizer.h"
 #include "ui/ThemeManager.h"
 
@@ -90,10 +91,12 @@ int main(int argc, char* argv[]) {
     }
 
     wbw::applyProductReorganization(&window);
+    wbw::installMapMockupController(&window);
     wbw::ThemeManager::applySaved();
     window.show();
     QTimer::singleShot(0, [&window]() {
         wbw::applyProductReorganization(&window);
+        wbw::installMapMockupController(&window);
         wbw::ThemeManager::applySaved();
     });
     return app.exec();
