@@ -37,8 +37,6 @@ qt_standard_project_setup()
 
 enable_testing()
 
-# Keep the checked-in V4 sources readable while generating compiler-neutral copies.
-# The generated pass also carries the current responsive workspace refinements.
 set(WBW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${WBW_GENERATED_DIR}")
 
@@ -51,8 +49,6 @@ string(REPLACE
     "int tw = 1, th = 1; SDL_GetTextureSize(texture, reinterpret_cast<float*>(&tw), reinterpret_cast<float*>(&th));\n            const float aspect = 1.0f;"
     "float tw = 1.0f, th = 1.0f; SDL_GetTextureSize(texture, &tw, &th);\n            const float aspect = th > 0.0f ? tw / th : 1.0f;"
     WBW_PILIN_V4 "${WBW_PILIN_V4}")
-
-# The editor must adapt to the actual window instead of keeping the first tiny fit.
 string(REPLACE
     "setMinimumSize(720, 460);"
     "setMinimumSize(320, 220);"
@@ -85,9 +81,6 @@ string(REPLACE
     "SDL_SetRenderDrawColor(renderer_, 38, 40, 44, 255); SDL_RenderClear(renderer_);"
     "SDL_SetRenderDrawColor(renderer_, 18, 19, 21, 255); SDL_RenderClear(renderer_);"
     WBW_PILIN_V4 "${WBW_PILIN_V4}")
-
-# Match the approved canvas-first layout: a narrow single-column tool rail and
-# tool parameters in a contextual floating card, not permanently bolted under it.
 string(REPLACE
     "if (++col == 2) { col = 0; ++row; }"
     "if (++col == 1) { col = 0; ++row; }"
@@ -108,7 +101,6 @@ string(REPLACE
     "viewport_->setTool(tool); toolOptionsLabel_"
     "viewport_->setTool(tool); if (auto* options = canvasHost_->findChild<QWidget*>(QStringLiteral(\"pilinToolOptions\"))) { const bool needsOptions = tool == Tool::Coast || tool == Tool::Eraser || tool == Tool::Forest || tool == Tool::Mountain || tool == Tool::River || tool == Tool::Road || tool == Tool::Border || tool == Tool::Region; options->setVisible(needsOptions); } layoutFloatingPanels(); toolOptionsLabel_"
     WBW_PILIN_V4 "${WBW_PILIN_V4}")
-
 file(WRITE "${WBW_GENERATED_DIR}/PilinReyEditorV4.cpp" "${WBW_PILIN_V4}")
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MapExporterV2.cpp" WBW_MAP_EXPORTER_V2)
@@ -134,6 +126,7 @@ qt_add_executable(WorldbuilderWriter
     src/storage/GoogleDriveService.cpp
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
+    src/ui/ProductReorganizer.cpp
     src/ui/RelationshipBoard.cpp
     "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
     src/ui/MapExportDialog.cpp
