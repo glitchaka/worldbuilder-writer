@@ -90,8 +90,8 @@ void applyProductUi(wbw::MainWindow& window) {
 }
 
 int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
-    QDir dir(outputDirectory.isEmpty() ? QStringLiteral("rc-qa") : outputDirectory);
-    if (!dir.exists() && !QDir().mkpath(dir.path())) return 90;
+    QDir dir(QDir::cleanPath(outputDirectory.isEmpty() ? QStringLiteral("rc-qa") : outputDirectory));
+    if (!dir.exists() && !QDir().mkpath(dir.absolutePath())) return 90;
     QStringList failures;
     auto require = [&failures](bool condition, const QString& name) { if (!condition) failures.append(name); };
     auto* nav = window.findChild<QListWidget*>(QStringLiteral("sideNavigation"));
@@ -148,16 +148,18 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
                     break;
             }
             const QPixmap shot = window.grab();
+            const QString screenshotPath = dir.absoluteFilePath(QStringLiteral("%1.png").arg(slugs.at(row)));
             require(!shot.isNull(), QStringLiteral("screenshot-%1").arg(slugs.at(row)));
-            if (!shot.isNull()) shot.save(dir.filePath(QStringLiteral("%1.png").arg(slugs.at(row))));
+            require(!shot.isNull() && shot.save(screenshotPath, "PNG"), QStringLiteral("screenshot-write-%1").arg(slugs.at(row)));
         }
     }
 
-    QFile report(dir.filePath(QStringLiteral("rc-smoke.txt")));
-    if (report.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&report); out << (failures.isEmpty() ? QStringLiteral("PASS\n") : QStringLiteral("FAIL\n"));
-        for (const QString& failure : failures) out << failure << '\n';
-    }
+    QFile report(dir.absoluteFilePath(QStringLiteral("rc-smoke.txt")));
+    if (!report.open(QIODevice::WriteOnly | QIODevice::Text)) return 93;
+    QTextStream out(&report);
+    out << (failures.isEmpty() ? QStringLiteral("PASS\n") : QStringLiteral("FAIL\n"));
+    for (const QString& failure : failures) out << failure << '\n';
+    report.close();
     return failures.isEmpty() ? 0 : 2;
 }
 
@@ -165,6 +167,9 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
+    const QStringList args = QApplication::arguments();
+    const bool rcSmoke = args.contains(QStringLiteral("--rc-smoke"));
+    if (rcSmoke) app.setQuitOnLastWindowClosed(false);
     QCoreApplication::setApplicationName(QStringLiteral("Worldbuilder Writer"));
     QCoreApplication::setOrganizationName(QStringLiteral("Worldbuilder Writer"));
     app.setStyle(QStringLiteral("Fusion"));
@@ -177,11 +182,10 @@ int main(int argc, char* argv[]) {
     window.resize(1600, 1000);
     window.show();
     QTimer::singleShot(0, [&window]() { applyProductUi(window); });
-    const QStringList args = QApplication::arguments();
-    if (args.contains(QStringLiteral("--rc-smoke"))) {
+    if (rcSmoke) {
         QString qaDir = QStringLiteral("rc-qa");
         for (const QString& arg : args) if (arg.startsWith(QStringLiteral("--qa-dir="))) qaDir = arg.mid(QStringLiteral("--qa-dir=").size());
-        QTimer::singleShot(650, &app, [&app, &window, qaDir]() { app.exit(runRcSmoke(window, qaDir)); });
+        QTimer::singleShot(900, &app, [&app, &window, qaDir]() { app.exit(runRcSmoke(window, qaDir)); });
     }
     return app.exec();
 }
