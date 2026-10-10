@@ -2,9 +2,11 @@
 
 #include <QWidget>
 
+class QComboBox;
 class QGridLayout;
 class QHideEvent;
 class QLabel;
+class QLineEdit;
 class QShowEvent;
 class QScrollArea;
 class QVBoxLayout;
@@ -35,6 +37,8 @@ private:
     QWidget* cardsHost_ = nullptr;
     QGridLayout* cards_ = nullptr;
     QLabel* emptyState_ = nullptr;
+    QLineEdit* search_ = nullptr;
+    QComboBox* statusFilter_ = nullptr;
 };
 
 } // namespace wbw
