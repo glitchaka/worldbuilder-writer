@@ -20,6 +20,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMarginsF>
 #include <QMessageBox>
@@ -99,6 +100,11 @@ QJsonObject effectiveLayout(const ArchiveDocument& document) {
     return layout;
 }
 
+int savedAutosaveIntervalMs() {
+    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+    return qBound(5, settings.value(QStringLiteral("editor/autosaveSeconds"), 15).toInt(), 300) * 1000;
+}
+
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -107,7 +113,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     createShell();
 
     autosaveTimer_ = new QTimer(this);
-    autosaveTimer_->setInterval(15000);
+    autosaveTimer_->setInterval(savedAutosaveIntervalMs());
     connect(autosaveTimer_, &QTimer::timeout, this, [this]() {
         if (document_.isDirty() && !document_.sourcePath().isEmpty()) saveProject(true);
     });
@@ -249,6 +255,7 @@ void MainWindow::createShell() {
     connect(settings, &QPushButton::clicked, this, [this]() {
         SettingsDialog dialog(this);
         dialog.exec();
+        if (autosaveTimer_) autosaveTimer_->setInterval(savedAutosaveIntervalMs());
     });
     connect(quickSave, &QPushButton::clicked, this, [this]() { saveProject(); });
     connect(focus, &QPushButton::clicked, writingPage_, &WritingPage::openFocusMode);
