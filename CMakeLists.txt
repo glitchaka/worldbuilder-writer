@@ -127,6 +127,7 @@ qt_add_executable(WorldbuilderWriter
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
     src/ui/ProductReorganizer.cpp
+    src/ui/MapMockupController.cpp
     src/ui/RelationshipBoard.cpp
     "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
     src/ui/MapExportDialog.cpp
