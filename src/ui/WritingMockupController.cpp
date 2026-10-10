@@ -1,7 +1,6 @@
 #include "ui/WritingMockupController.h"
 
 #include <QAbstractButton>
-#include <QCheckBox>
 #include <QComboBox>
 #include <QEvent>
 #include <QFont>
@@ -30,72 +29,62 @@
 namespace wbw {
 namespace {
 
-QPushButton* buttonByText(QWidget* page, const QString& text) {
-    if (!page) return nullptr;
-    for (QPushButton* button : page->findChildren<QPushButton*>())
+QPushButton* buttonByText(QWidget* root, const QString& text) {
+    if (!root) return nullptr;
+    for (QPushButton* button : root->findChildren<QPushButton*>())
         if (button->text() == text) return button;
     return nullptr;
 }
 
-void ensureWritingShortcuts(QWidget* page, const QSettings& settings) {
-    if (!page) return;
-    auto* focus = page->findChild<QShortcut*>(QStringLiteral("wbwFocusShortcut"));
-    if (!focus) {
-        focus = new QShortcut(page);
-        focus->setObjectName(QStringLiteral("wbwFocusShortcut"));
-        focus->setContext(Qt::WindowShortcut);
-        if (QPushButton* button = buttonByText(page, QObject::tr("Enfoque")))
-            QObject::connect(focus, &QShortcut::activated, button, &QPushButton::click);
-    }
-    focus->setKey(QKeySequence(settings.value(QStringLiteral("shortcut/focus"), QStringLiteral("Ctrl+Shift+F")).toString()));
-
-    auto* proof = page->findChild<QShortcut*>(QStringLiteral("wbwProofShortcut"));
-    if (!proof) {
-        proof = new QShortcut(page);
-        proof->setObjectName(QStringLiteral("wbwProofShortcut"));
-        proof->setContext(Qt::WindowShortcut);
-        if (QPushButton* button = buttonByText(page, QObject::tr("Revisar")))
-            QObject::connect(proof, &QShortcut::activated, button, &QPushButton::click);
-    }
-    proof->setKey(QKeySequence(settings.value(QStringLiteral("shortcut/proofread"), QStringLiteral("F7")).toString()));
-}
-
-void polishButton(QAbstractButton* button) {
-    if (!button) return;
-    button->setCursor(Qt::PointingHandCursor);
-    button->setMinimumHeight(30);
-}
-
-QLineEdit* fieldByPlaceholder(QWidget* parent, const QString& placeholder) {
-    if (!parent) return nullptr;
-    for (QLineEdit* edit : parent->findChildren<QLineEdit*>(QString(), Qt::FindDirectChildrenOnly))
-        if (edit->placeholderText() == placeholder) return edit;
+QLineEdit* fieldByPlaceholder(QWidget* root, const QString& text) {
+    if (!root) return nullptr;
+    for (QLineEdit* edit : root->findChildren<QLineEdit*>())
+        if (edit->placeholderText() == text) return edit;
     return nullptr;
 }
 
-QToolButton* detailsButton(QWidget* commandBar) {
-    if (!commandBar) return nullptr;
-    for (QToolButton* button : commandBar->findChildren<QToolButton*>())
-        if (button->text() == QObject::tr("Detalles")) return button;
+QToolButton* toolByText(QWidget* root, const QString& text) {
+    if (!root) return nullptr;
+    for (QToolButton* button : root->findChildren<QToolButton*>())
+        if (button->text() == text) return button;
     return nullptr;
 }
 
-void addMetadataField(QVBoxLayout* layout, QWidget* owner, const QString& caption, QWidget* field) {
+void ensureShortcut(QWidget* root, const QString& name, const QKeySequence& key, QPushButton* target) {
+    if (!root || !target) return;
+    auto* shortcut = root->findChild<QShortcut*>(name);
+    if (!shortcut) {
+        shortcut = new QShortcut(root);
+        shortcut->setObjectName(name);
+        shortcut->setContext(Qt::WindowShortcut);
+        QObject::connect(shortcut, &QShortcut::activated, target, &QPushButton::click);
+    }
+    shortcut->setKey(key);
+}
+
+void addMetaCard(QVBoxLayout* layout, QWidget* owner, const QString& title, QWidget* field) {
     if (!layout || !owner || !field) return;
-    auto* label = new QLabel(caption, owner);
-    label->setObjectName(QStringLiteral("metadataFieldLabel"));
-    layout->addWidget(label);
-    layout->addWidget(field);
+    auto* card = new QFrame(owner);
+    card->setObjectName(QStringLiteral("writingMetaCard"));
+    auto* box = new QVBoxLayout(card);
+    box->setContentsMargins(12, 10, 12, 11);
+    box->setSpacing(6);
+    auto* label = new QLabel(title, card);
+    label->setObjectName(QStringLiteral("writingMetaLabel"));
+    box->addWidget(label);
+    field->setParent(card);
+    field->setMinimumHeight(34);
+    box->addWidget(field);
+    layout->addWidget(card);
 }
 
-void rebuildMetadataPanel(QWidget* metadata) {
-    if (!metadata || metadata->property("wbwMetadataEditorial").toBool()) return;
-
-    QLineEdit* title = fieldByPlaceholder(metadata, QObject::tr("Título de escena"));
-    QLineEdit* pov = fieldByPlaceholder(metadata, QObject::tr("POV"));
-    QLineEdit* location = fieldByPlaceholder(metadata, QObject::tr("Ubicación"));
-    QLineEdit* layer = fieldByPlaceholder(metadata, QObject::tr("Capa narrativa"));
-    QComboBox* status = metadata->findChild<QComboBox*>(QString(), Qt::FindDirectChildrenOnly);
+void buildMetadata(QWidget* metadata) {
+    if (!metadata || metadata->property("wbwEditorialMetadata").toBool()) return;
+    auto* title = fieldByPlaceholder(metadata, QObject::tr("Título de escena"));
+    auto* pov = fieldByPlaceholder(metadata, QObject::tr("POV"));
+    auto* location = fieldByPlaceholder(metadata, QObject::tr("Ubicación"));
+    auto* layer = fieldByPlaceholder(metadata, QObject::tr("Capa narrativa"));
+    auto* status = metadata->findChild<QComboBox*>();
     if (!title || !pov || !location || !layer || !status) return;
 
     if (QLayout* old = metadata->layout()) {
@@ -104,37 +93,96 @@ void rebuildMetadataPanel(QWidget* metadata) {
     }
 
     auto* layout = new QVBoxLayout(metadata);
-    layout->setContentsMargins(14, 16, 14, 18);
-    layout->setSpacing(7);
+    layout->setContentsMargins(14, 18, 14, 18);
+    layout->setSpacing(10);
 
-    auto* kicker = new QLabel(QObject::tr("ESCENA"), metadata);
-    kicker->setObjectName(QStringLiteral("metadataKicker"));
+    auto* eyebrow = new QLabel(QObject::tr("ESCENA ACTUAL"), metadata);
+    eyebrow->setObjectName(QStringLiteral("writingContextEyebrow"));
     auto* heading = new QLabel(QObject::tr("Contexto"), metadata);
-    heading->setObjectName(QStringLiteral("metadataTitle"));
-    auto* copy = new QLabel(QObject::tr("Datos de la escena actual. El manuscrito sigue siendo la superficie principal."), metadata);
-    copy->setObjectName(QStringLiteral("metadataCopy"));
-    copy->setWordWrap(true);
-    layout->addWidget(kicker);
+    heading->setObjectName(QStringLiteral("writingContextTitle"));
+    auto* description = new QLabel(QObject::tr("Información que acompaña al manuscrito sin competir con la escritura."), metadata);
+    description->setObjectName(QStringLiteral("writingContextDescription"));
+    description->setWordWrap(true);
+    layout->addWidget(eyebrow);
     layout->addWidget(heading);
-    layout->addWidget(copy);
-    layout->addSpacing(8);
+    layout->addWidget(description);
+    layout->addSpacing(4);
 
-    addMetadataField(layout, metadata, QObject::tr("Título"), title);
-    addMetadataField(layout, metadata, QObject::tr("Estado"), status);
-    addMetadataField(layout, metadata, QObject::tr("POV"), pov);
-    addMetadataField(layout, metadata, QObject::tr("Ubicación"), location);
-    addMetadataField(layout, metadata, QObject::tr("Capa narrativa"), layer);
+    addMetaCard(layout, metadata, QObject::tr("TÍTULO DE ESCENA"), title);
+    addMetaCard(layout, metadata, QObject::tr("ESTADO"), status);
+    addMetaCard(layout, metadata, QObject::tr("PUNTO DE VISTA"), pov);
+    addMetaCard(layout, metadata, QObject::tr("UBICACIÓN"), location);
+    addMetaCard(layout, metadata, QObject::tr("CAPA NARRATIVA"), layer);
     layout->addStretch(1);
 
-    title->setObjectName(QStringLiteral("metadataTitleField"));
-    status->setObjectName(QStringLiteral("metadataStatusField"));
-    pov->setObjectName(QStringLiteral("metadataPovField"));
-    location->setObjectName(QStringLiteral("metadataLocationField"));
-    layer->setObjectName(QStringLiteral("metadataLayerField"));
-    for (QWidget* field : {static_cast<QWidget*>(title), static_cast<QWidget*>(status), static_cast<QWidget*>(pov), static_cast<QWidget*>(location), static_cast<QWidget*>(layer)})
-        field->setMinimumHeight(34);
+    metadata->setProperty("wbwEditorialMetadata", true);
+}
 
-    metadata->setProperty("wbwMetadataEditorial", true);
+void buildIndexHeader(QWidget* index) {
+    if (!index || index->property("wbwEditorialIndex").toBool()) return;
+    auto* layout = qobject_cast<QVBoxLayout*>(index->layout());
+    if (!layout) return;
+    auto* eyebrow = new QLabel(QObject::tr("MANUSCRITO"), index);
+    eyebrow->setObjectName(QStringLiteral("writingIndexEyebrow"));
+    auto* title = new QLabel(QObject::tr("Capítulos y escenas"), index);
+    title->setObjectName(QStringLiteral("writingIndexHeading"));
+    auto* copy = new QLabel(QObject::tr("Orden narrativo, escenas y acceso rápido."), index);
+    copy->setObjectName(QStringLiteral("writingIndexCopy"));
+    copy->setWordWrap(true);
+    layout->insertWidget(0, copy);
+    layout->insertWidget(0, title);
+    layout->insertWidget(0, eyebrow);
+    if (QLabel* legacy = index->findChild<QLabel*>(QStringLiteral("indexTitle"))) legacy->hide();
+    index->setProperty("wbwEditorialIndex", true);
+}
+
+void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
+    if (!editorPanel || !editor || editorPanel->property("wbwEditorialStage").toBool()) return;
+    auto* parentLayout = qobject_cast<QVBoxLayout*>(editorPanel->layout());
+    if (!parentLayout) return;
+    const int editorIndex = parentLayout->indexOf(editor);
+    if (editorIndex < 0) return;
+    parentLayout->removeWidget(editor);
+
+    auto* stage = new QFrame(editorPanel);
+    stage->setObjectName(QStringLiteral("writingDocumentStage"));
+    auto* stageLayout = new QVBoxLayout(stage);
+    stageLayout->setContentsMargins(0, 0, 0, 0);
+    stageLayout->setSpacing(0);
+
+    auto* header = new QFrame(stage);
+    header->setObjectName(QStringLiteral("writingDocumentHeader"));
+    auto* headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(30, 18, 30, 16);
+    auto* titles = new QVBoxLayout;
+    titles->setSpacing(2);
+    auto* eyebrow = new QLabel(QObject::tr("MANUSCRITO"), header);
+    eyebrow->setObjectName(QStringLiteral("writingDocumentEyebrow"));
+    auto* sceneTitle = new QLabel(QObject::tr("Escena sin título"), header);
+    sceneTitle->setObjectName(QStringLiteral("writingDocumentTitle"));
+    auto* hint = new QLabel(QObject::tr("Las referencias del atlas viven dentro del texto y abren su ficha contextual."), header);
+    hint->setObjectName(QStringLiteral("writingDocumentHint"));
+    hint->setWordWrap(true);
+    titles->addWidget(eyebrow);
+    titles->addWidget(sceneTitle);
+    titles->addWidget(hint);
+    headerLayout->addLayout(titles, 1);
+    stageLayout->addWidget(header);
+
+    editor->setParent(stage);
+    stageLayout->addWidget(editor, 1);
+    parentLayout->insertWidget(editorIndex, stage, 1);
+
+    if (QLineEdit* sourceTitle = fieldByPlaceholder(editorPanel->window(), QObject::tr("Título de escena"))) {
+        QObject::connect(sourceTitle, &QLineEdit::textChanged, sceneTitle, [sceneTitle](const QString& text) {
+            const QString clean = text.trimmed();
+            sceneTitle->setText(clean.isEmpty() ? QObject::tr("Escena sin título") : clean);
+        });
+        const QString clean = sourceTitle->text().trimmed();
+        if (!clean.isEmpty()) sceneTitle->setText(clean);
+    }
+
+    editorPanel->setProperty("wbwEditorialStage", true);
 }
 
 class WritingWorkspaceFilter final : public QObject {
@@ -147,167 +195,131 @@ public:
         return QObject::eventFilter(watched, event);
     }
 
+private:
     void apply() {
         if (!window_) return;
         QWidget* page = window_->findChild<QWidget*>(QStringLiteral("writingPage"));
         if (!page) return;
 
-        if (auto* tabs = page->findChild<QTabWidget*>(QStringLiteral("writingTabs"))) {
-            if (tabs->tabBar()) tabs->tabBar()->hide();
-            tabs->setDocumentMode(true);
-        }
+        if (auto* tabs = page->findChild<QTabWidget*>(QStringLiteral("writingTabs")); tabs && tabs->tabBar()) tabs->tabBar()->hide();
         if (QWidget* hero = page->findChild<QWidget*>(QStringLiteral("writingHero"))) hero->hide();
 
-        QWidget* commandBar = page->findChild<QWidget*>(QStringLiteral("writingCommandBar"));
+        QWidget* command = page->findChild<QWidget*>(QStringLiteral("writingCommandBar"));
         QWidget* index = page->findChild<QWidget*>(QStringLiteral("indexPanel"));
         QWidget* editorPanel = page->findChild<QWidget*>(QStringLiteral("editorPanel"));
         QWidget* metadata = page->findChild<QWidget*>(QStringLiteral("metadataPanel"));
-        QSplitter* split = index ? qobject_cast<QSplitter*>(index->parentWidget()) : nullptr;
-        const bool wideWriting = window_->width() >= 1240;
+        auto* editor = page->findChild<QTextEdit*>(QStringLiteral("sceneEditor"));
+        auto* split = index ? qobject_cast<QSplitter*>(index->parentWidget()) : nullptr;
 
-        if (split && editorPanel && metadata && metadata->parentWidget() != split) {
+        if (split && metadata && metadata->parentWidget() != split) {
             metadata->setParent(split);
             split->addWidget(metadata);
         }
-        rebuildMetadataPanel(metadata);
 
-        if (index) {
-            index->setMinimumWidth(wideWriting ? 220 : 190);
-            index->setMaximumWidth(wideWriting ? 285 : 220);
-            if (QLabel* title = index->findChild<QLabel*>(QStringLiteral("indexTitle")))
-                title->setText(wideWriting ? QObject::tr("CAPÍTULOS Y ESCENAS") : QObject::tr("ÍNDICE"));
-        }
-        if (metadata) {
-            metadata->setMinimumWidth(220);
-            metadata->setMaximumWidth(300);
-            metadata->setVisible(wideWriting);
-        }
-        if (QToolButton* details = detailsButton(commandBar)) {
-            QSignalBlocker blocker(details);
-            details->setChecked(wideWriting);
-        }
-        if (editorPanel) editorPanel->setMinimumWidth(320);
+        buildIndexHeader(index);
+        buildMetadata(metadata);
+        buildDocumentStage(editorPanel, editor);
 
+        const bool wide = window_->width() >= 1180;
+        if (index) { index->setMinimumWidth(wide ? 236 : 196); index->setMaximumWidth(wide ? 286 : 224); }
+        if (metadata) { metadata->setVisible(wide); metadata->setMinimumWidth(wide ? 260 : 0); metadata->setMaximumWidth(wide ? 320 : 0); }
         if (split) {
-            split->setChildrenCollapsible(true);
             split->setHandleWidth(1);
+            split->setChildrenCollapsible(true);
             split->setStretchFactor(0, 0);
             split->setStretchFactor(1, 1);
             split->setStretchFactor(2, 0);
-            if (!splitInitialized_ || lastWideWriting_ != wideWriting) {
-                split->setSizes(wideWriting ? QList<int>{236, 960, 286} : QList<int>{200, 720, 0});
-                splitInitialized_ = true;
-                lastWideWriting_ = wideWriting;
-            }
+            split->setSizes(wide ? QList<int>{252, 930, 292} : QList<int>{205, 850, 0});
         }
-
-        if (commandBar) {
-            commandBar->setMaximumHeight(42);
-            for (QToolButton* b : commandBar->findChildren<QToolButton*>()) polishButton(b);
-            for (QPushButton* b : commandBar->findChildren<QPushButton*>()) polishButton(b);
+        if (QToolButton* details = toolByText(command, QObject::tr("Detalles"))) {
+            QSignalBlocker blocker(details);
+            details->setChecked(wide);
         }
 
         QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
-        if (auto* editor = page->findChild<QTextEdit*>(QStringLiteral("sceneEditor"))) {
+        if (editor) {
             QFont font(settings.value(QStringLiteral("editor/fontFamily"), QStringLiteral("Georgia")).toString());
-            font.setPointSize(qBound(10, settings.value(QStringLiteral("editor/fontSize"), 13).toInt(), 24));
+            font.setPointSize(qBound(11, settings.value(QStringLiteral("editor/fontSize"), 14).toInt(), 24));
             editor->setFont(font);
             editor->setFrameShape(QFrame::NoFrame);
             editor->setLineWrapMode(QTextEdit::WidgetWidth);
             editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         }
 
-        QWidget* board = page->findChild<QWidget*>(QStringLiteral("sceneBoardTab"));
-        if (board) {
-            if (auto* toolbar = board->findChild<QWidget*>(QStringLiteral("sceneBoardToolbar"))) {
-                toolbar->setMinimumHeight(54);
-                toolbar->setMaximumHeight(64);
-                for (QPushButton* b : toolbar->findChildren<QPushButton*>()) polishButton(b);
+        if (command) {
+            command->setMinimumHeight(46);
+            command->setMaximumHeight(46);
+            for (QAbstractButton* button : command->findChildren<QAbstractButton*>()) {
+                button->setCursor(Qt::PointingHandCursor);
+                button->setMinimumHeight(30);
             }
-            if (auto* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) {
-                outline->setMinimumWidth(wideWriting ? 210 : 185);
-                outline->setMaximumWidth(wideWriting ? 260 : 220);
-            }
+        }
+
+        if (QWidget* board = page->findChild<QWidget*>(QStringLiteral("sceneBoardTab"))) {
+            if (QWidget* toolbar = board->findChild<QWidget*>(QStringLiteral("sceneBoardToolbar"))) { toolbar->setMinimumHeight(66); toolbar->setMaximumHeight(72); }
+            if (QWidget* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) { outline->setMinimumWidth(210); outline->setMaximumWidth(270); }
             if (auto* view = board->findChild<QGraphicsView*>(QStringLiteral("sceneBoardCanvas"))) {
                 view->setFrameShape(QFrame::NoFrame);
                 view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
                 view->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
             }
-            const auto splitters = board->findChildren<QSplitter*>();
-            for (QSplitter* boardSplit : splitters) {
-                boardSplit->setChildrenCollapsible(true);
-                boardSplit->setHandleWidth(1);
-                boardSplit->setStretchFactor(0, 0);
-                boardSplit->setStretchFactor(1, 1);
-                if (!boardSplitInitialized_) {
-                    boardSplit->setSizes({220, 1150});
-                    boardSplitInitialized_ = true;
-                }
-            }
         }
 
-        ensureWritingShortcuts(page, settings);
+        ensureShortcut(page, QStringLiteral("wbwFocusShortcut"), QKeySequence(settings.value(QStringLiteral("shortcut/focus"), QStringLiteral("Ctrl+Shift+F")).toString()), buttonByText(page, QObject::tr("Enfoque")));
+        ensureShortcut(page, QStringLiteral("wbwProofShortcut"), QKeySequence(settings.value(QStringLiteral("shortcut/proofread"), QStringLiteral("F7")).toString()), buttonByText(page, QObject::tr("Revisar")));
 
         page->setStyleSheet(QStringLiteral(R"QSS(
-#writingPage,#writingEditorTab,#sceneBoardTab{background:#0e1116;color:#d9dee7;}
-#writingTabs::pane{border:0;background:#0e1116;}
-#writingHero{display:none;border:0;background:transparent;}
-#writingCommandBar{background:#12171d;border:0;border-bottom:1px solid #252d38;border-radius:0;padding:3px 8px;}
-#writingCommandBar QToolButton,#writingCommandBar QPushButton{background:transparent;color:#aeb7c4;border:0;border-radius:6px;padding:5px 8px;min-width:28px;}
-#writingCommandBar QToolButton:hover,#writingCommandBar QPushButton:hover{background:#1c232c;color:#f0f3f7;}
-#writingCommandBar QToolButton:checked{background:#2b241c;color:#d7ad72;}
-#indexPanel{background:#11161d;border:0;border-right:1px solid #252d38;border-radius:0;}
-#editorPanel{background:#0e1116;border:0;border-radius:0;}
-#metadataPanel{background:#11161d;border:0;border-left:1px solid #252d38;border-radius:0;}
-#indexTitle,#editorPanelTitle,#sectionLabel{color:#c8a16d;font-size:8pt;font-weight:700;letter-spacing:1px;}
-#metadataKicker{color:#c8a16d;font-size:8pt;font-weight:700;letter-spacing:1px;}
-#metadataTitle{color:#f0f2f5;font-family:'Georgia';font-size:17pt;font-weight:600;}
-#metadataCopy{color:#7f8997;font-family:'Georgia';font-size:9pt;}
-#metadataFieldLabel{color:#8894a3;font-size:8pt;font-weight:700;letter-spacing:.55px;margin-top:5px;}
-#manuscriptTree,#sceneBoardOutline{background:#11161d;color:#cfd6df;border:0;padding:7px;outline:0;}
-#manuscriptTree::item,#sceneBoardOutline::item{padding:8px 7px;border-radius:6px;margin:1px 0;}
-#manuscriptTree::item:hover,#sceneBoardOutline::item:hover{background:#171e27;}
-#manuscriptTree::item:selected,#sceneBoardOutline::item:selected{background:#222b36;color:#ffffff;}
-#sceneEditor{background:#0e1116;color:#e0ddd5;border:0;padding:64px 11%;selection-background-color:#5a4936;selection-color:#fff8ec;font-family:'Georgia';}
-#sceneEditor QScrollBar:vertical{background:#0e1116;width:9px;margin:4px 2px;}
-#sceneEditor QScrollBar::handle:vertical{background:#343b45;border-radius:4px;min-height:34px;}
-#sceneEditor QScrollBar::add-line:vertical,#sceneEditor QScrollBar::sub-line:vertical{height:0;}
-#metadataPanel QLineEdit,#metadataPanel QComboBox{background:#0d1116;color:#d9dee7;border:1px solid #2b3440;border-radius:7px;padding:7px 9px;}
-#metadataPanel QLineEdit:focus,#metadataPanel QComboBox:focus{border-color:#8e6c46;}
-#writingPrimary{background:#c59a5d;color:#111315;border:0;border-radius:6px;font-weight:700;padding:7px 11px;}
-#writingSubtle{background:transparent;color:#aeb7c4;border:1px solid #303946;border-radius:6px;padding:6px 9px;}
-#writingSubtle:hover{background:#1a212a;color:#f1f4f8;}
-#proofState,#wordCount,#focusSceneName,#sceneBoardSubheading,#sceneBoardSelection{color:#788596;font-size:8.5pt;}
-#focusBar{background:#0b0e12;border:0;border-bottom:1px solid #252d38;}
-#focusExit{background:transparent;border:0;color:#8f99a7;}
-#sceneBoardToolbar{background:#11161d;border:0;border-bottom:1px solid #252d38;border-radius:0;padding:4px 8px;}
-#sceneBoardOutlinePanel{background:#11161d;border:0;border-right:1px solid #252d38;border-radius:0;}
-#sceneBoardHeading{font-family:'Georgia';font-size:17pt;font-weight:700;color:#edf1f5;}
-#sceneBoardSubheading{color:#7f8997;font-size:8.5pt;}
-#sceneBoardSearch,#sceneBoardStatus{background:#0d1116;color:#dbe0e7;border:1px solid #2c3541;border-radius:7px;padding:6px 8px;}
-#sceneBoardSearch:focus,#sceneBoardStatus:focus{border-color:#8e6c46;}
-#sceneBoardCanvas{background:#0a0d11;border:0;border-radius:0;}
-#sceneBoardCanvas QScrollBar:horizontal,#sceneBoardCanvas QScrollBar:vertical{background:#0a0d11;}
-#sceneBoardCanvas QScrollBar::handle:horizontal,#sceneBoardCanvas QScrollBar::handle:vertical{background:#333b45;border-radius:4px;min-width:28px;min-height:28px;}
-QCheckBox{color:#9ca6b4;spacing:6px;}
-QSplitter::handle{background:#252d38;}
-QPushButton{background:#171d25;color:#cbd2dc;border:1px solid #303946;border-radius:6px;padding:6px 9px;}
-QPushButton:hover{background:#202833;color:#f3f5f7;}
+#writingPage,#writingEditorTab,#sceneBoardTab{background:#0a0c0f;color:#d8d3c8;}
+#writingTabs::pane{border:0;background:#0a0c0f;}
+#writingCommandBar{background:#0d1014;border:0;border-bottom:1px solid #292821;padding:4px 18px;}
+#writingCommandBar QToolButton,#writingCommandBar QPushButton{background:transparent;color:#9f9b92;border:0;border-radius:6px;padding:5px 9px;}
+#writingCommandBar QToolButton:hover,#writingCommandBar QPushButton:hover{background:#1b1c1d;color:#f4efe4;}
+#writingCommandBar QToolButton:checked{background:#31291f;color:#e0b677;}
+#indexPanel{background:#0d1013;border:0;border-right:1px solid #292821;}
+#writingIndexEyebrow,#writingDocumentEyebrow,#writingContextEyebrow{color:#b88a52;font-size:7.5pt;font-weight:700;letter-spacing:1.5px;}
+#writingIndexHeading{color:#f1ede4;font-family:'Georgia';font-size:16pt;font-weight:600;}
+#writingIndexCopy{color:#767870;font-family:'Georgia';font-size:8.5pt;}
+#manuscriptTree{background:transparent;color:#c8c5bc;border:0;outline:0;padding:6px 0;}
+#manuscriptTree::item{padding:8px 8px;border-radius:6px;margin:1px 0;}
+#manuscriptTree::item:hover{background:#171a1d;color:#f0ece3;}
+#manuscriptTree::item:selected{background:#28251f;color:#e7c28a;border-left:2px solid #b88a52;}
+#editorPanel{background:#0a0c0f;border:0;}
+#writingDocumentStage{background:#0a0c0f;border:0;}
+#writingDocumentHeader{background:#0a0c0f;border:0;border-bottom:1px solid #1f211f;}
+#writingDocumentTitle{color:#f2eee5;font-family:'Georgia';font-size:22pt;font-weight:500;}
+#writingDocumentHint{color:#70736e;font-family:'Georgia';font-size:8.5pt;}
+#sceneEditor{background:#11120f;color:#ded8ca;border:0;padding:58px 13%;selection-background-color:#5a4630;selection-color:#fff7e8;font-family:'Georgia';}
+#sceneEditor QScrollBar:vertical{background:#11120f;width:8px;}
+#sceneEditor QScrollBar::handle:vertical{background:#34342e;border-radius:4px;min-height:36px;}
+#metadataPanel{background:#0d1013;border:0;border-left:1px solid #292821;}
+#writingContextTitle{color:#f1ede4;font-family:'Georgia';font-size:18pt;font-weight:600;}
+#writingContextDescription{color:#767870;font-family:'Georgia';font-size:8.5pt;}
+#writingMetaCard{background:#121518;border:1px solid #2a2b27;border-radius:9px;}
+#writingMetaLabel{color:#8f918c;font-size:7.5pt;font-weight:700;letter-spacing:.9px;}
+#writingMetaCard QLineEdit,#writingMetaCard QComboBox{background:#0c0f12;color:#dedad2;border:1px solid #33342f;border-radius:6px;padding:7px 9px;}
+#writingMetaCard QLineEdit:focus,#writingMetaCard QComboBox:focus{border-color:#8c673f;}
+#proofState,#wordCount,#focusSceneName,#sceneBoardSubheading,#sceneBoardSelection{color:#747872;font-size:8.5pt;}
+#focusBar{background:#090b0d;border:0;border-bottom:1px solid #262720;}
+#sceneBoardToolbar{background:#0d1013;border:0;border-bottom:1px solid #292821;padding:5px 12px;}
+#sceneBoardOutlinePanel{background:#0d1013;border:0;border-right:1px solid #292821;}
+#sceneBoardHeading{color:#f1ede4;font-family:'Georgia';font-size:18pt;font-weight:600;}
+#sceneBoardOutline{background:transparent;color:#c7c3ba;border:0;outline:0;}
+#sceneBoardOutline::item{padding:8px;border-radius:6px;}
+#sceneBoardOutline::item:selected{background:#28251f;color:#e7c28a;}
+#sceneBoardSearch,#sceneBoardStatus{background:#101317;color:#ddd9d0;border:1px solid #33342f;border-radius:7px;padding:7px 9px;}
+#sceneBoardCanvas{background:#090b0d;border:0;}
+QSplitter::handle{background:#292821;}
 )QSS"));
     }
 
-private:
     QPointer<QMainWindow> window_;
-    bool splitInitialized_ = false;
-    bool boardSplitInitialized_ = false;
-    bool lastWideWriting_ = false;
 };
 
 } // namespace
 
 void installWritingMockupController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingMockupController").toBool()) return;
-    window->setProperty("wbwWritingMockupController", true);
+    if (!window || window->property("wbwWritingMockupControllerV3").toBool()) return;
+    window->setProperty("wbwWritingMockupControllerV3", true);
     auto* filter = new WritingWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
