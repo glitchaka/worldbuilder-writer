@@ -1,11 +1,15 @@
 #include "ui/WritingMockupController.h"
 
 #include <QAbstractButton>
+#include <QCheckBox>
+#include <QComboBox>
 #include <QEvent>
 #include <QFont>
 #include <QFrame>
+#include <QGraphicsView>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMainWindow>
 #include <QPointer>
 #include <QPushButton>
@@ -17,6 +21,7 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <QToolButton>
+#include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -97,33 +102,25 @@ public:
             split->setStretchFactor(1, 1);
             split->setStretchFactor(2, 0);
             if (!splitInitialized_) {
-                split->setSizes({248, 980, 292});
+                split->setSizes({236, 960, 286});
                 splitInitialized_ = true;
             }
         }
 
         if (index) {
-            index->setMinimumWidth(210);
-            index->setMaximumWidth(300);
-            index->show();
+            index->setMinimumWidth(205);
+            index->setMaximumWidth(285);
         }
         if (metadata) {
-            metadata->setMinimumWidth(250);
-            metadata->setMaximumWidth(320);
+            metadata->setMinimumWidth(245);
+            metadata->setMaximumWidth(310);
             metadata->show();
         }
-        if (editorPanel) editorPanel->setMinimumWidth(420);
+        if (editorPanel) editorPanel->setMinimumWidth(430);
 
         if (commandBar) {
             commandBar->setMaximumHeight(42);
-            for (QToolButton* b : commandBar->findChildren<QToolButton*>()) {
-                polishButton(b);
-                if (b->text() == QObject::tr("Índice") || b->text() == QObject::tr("Detalles")) {
-                    b->blockSignals(true);
-                    b->setChecked(true);
-                    b->blockSignals(false);
-                }
-            }
+            for (QToolButton* b : commandBar->findChildren<QToolButton*>()) polishButton(b);
             for (QPushButton* b : commandBar->findChildren<QPushButton*>()) polishButton(b);
         }
 
@@ -136,6 +133,36 @@ public:
             editor->setLineWrapMode(QTextEdit::WidgetWidth);
             editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         }
+
+        QWidget* board = page->findChild<QWidget*>(QStringLiteral("sceneBoardTab"));
+        if (board) {
+            if (auto* toolbar = board->findChild<QWidget*>(QStringLiteral("sceneBoardToolbar"))) {
+                toolbar->setMinimumHeight(54);
+                toolbar->setMaximumHeight(64);
+                for (QPushButton* b : toolbar->findChildren<QPushButton*>()) polishButton(b);
+            }
+            if (auto* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) {
+                outline->setMinimumWidth(210);
+                outline->setMaximumWidth(260);
+            }
+            if (auto* view = board->findChild<QGraphicsView*>(QStringLiteral("sceneBoardCanvas"))) {
+                view->setFrameShape(QFrame::NoFrame);
+                view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+                view->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            }
+            const auto splitters = board->findChildren<QSplitter*>();
+            for (QSplitter* boardSplit : splitters) {
+                boardSplit->setChildrenCollapsible(true);
+                boardSplit->setHandleWidth(1);
+                boardSplit->setStretchFactor(0, 0);
+                boardSplit->setStretchFactor(1, 1);
+                if (!boardSplitInitialized_) {
+                    boardSplit->setSizes({230, 1150});
+                    boardSplitInitialized_ = true;
+                }
+            }
+        }
+
         ensureWritingShortcuts(page, settings);
 
         page->setStyleSheet(QStringLiteral(R"QSS(
@@ -154,7 +181,7 @@ public:
 #manuscriptTree::item,#sceneBoardOutline::item{padding:8px 7px;border-radius:6px;margin:1px 0;}
 #manuscriptTree::item:hover,#sceneBoardOutline::item:hover{background:#171e27;}
 #manuscriptTree::item:selected,#sceneBoardOutline::item:selected{background:#222b36;color:#ffffff;}
-#sceneEditor{background:#0e1116;color:#e0ddd5;border:0;padding:58px 10%;selection-background-color:#5a4936;selection-color:#fff8ec;font-family:'Georgia';}
+#sceneEditor{background:#0e1116;color:#e0ddd5;border:0;padding:64px 11%;selection-background-color:#5a4936;selection-color:#fff8ec;font-family:'Georgia';}
 #sceneEditor QScrollBar:vertical{background:#0e1116;width:9px;margin:4px 2px;}
 #sceneEditor QScrollBar::handle:vertical{background:#343b45;border-radius:4px;min-height:34px;}
 #sceneEditor QScrollBar::add-line:vertical,#sceneEditor QScrollBar::sub-line:vertical{height:0;}
@@ -166,9 +193,16 @@ public:
 #proofState,#wordCount,#focusSceneName,#sceneBoardSubheading,#sceneBoardSelection{color:#788596;font-size:8.5pt;}
 #focusBar{background:#0b0e12;border:0;border-bottom:1px solid #252d38;}
 #focusExit{background:transparent;border:0;color:#8f99a7;}
-#sceneBoardToolbar,#sceneBoardOutlinePanel{background:#11161d;border:1px solid #28313c;border-radius:9px;}
-#sceneBoardHeading{font-size:15pt;font-weight:700;color:#edf1f5;}
-#sceneBoardCanvas{background:#0b0e12;border:1px solid #28313c;border-radius:9px;}
+#sceneBoardToolbar{background:#11161d;border:0;border-bottom:1px solid #252d38;border-radius:0;padding:4px 8px;}
+#sceneBoardOutlinePanel{background:#11161d;border:0;border-right:1px solid #252d38;border-radius:0;}
+#sceneBoardHeading{font-family:'Georgia';font-size:17pt;font-weight:700;color:#edf1f5;}
+#sceneBoardSubheading{color:#7f8997;font-size:8.5pt;}
+#sceneBoardSearch,#sceneBoardStatus{background:#0d1116;color:#dbe0e7;border:1px solid #2c3541;border-radius:7px;padding:6px 8px;}
+#sceneBoardSearch:focus,#sceneBoardStatus:focus{border-color:#8e6c46;}
+#sceneBoardCanvas{background:#0a0d11;border:0;border-radius:0;}
+#sceneBoardCanvas QScrollBar:horizontal,#sceneBoardCanvas QScrollBar:vertical{background:#0a0d11;}
+#sceneBoardCanvas QScrollBar::handle:horizontal,#sceneBoardCanvas QScrollBar::handle:vertical{background:#333b45;border-radius:4px;min-width:28px;min-height:28px;}
+QCheckBox{color:#9ca6b4;spacing:6px;}
 QSplitter::handle{background:#252d38;}
 QPushButton{background:#171d25;color:#cbd2dc;border:1px solid #303946;border-radius:6px;padding:6px 9px;}
 QPushButton:hover{background:#202833;color:#f3f5f7;}
@@ -178,6 +212,7 @@ QPushButton:hover{background:#202833;color:#f3f5f7;}
 private:
     QPointer<QMainWindow> window_;
     bool splitInitialized_ = false;
+    bool boardSplitInitialized_ = false;
 };
 
 } // namespace
