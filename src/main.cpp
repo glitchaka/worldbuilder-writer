@@ -2,14 +2,18 @@
 #include "ui/LibraryMockupController.h"
 #include "ui/MapMockupController.h"
 #include "ui/ProductReorganizer.h"
+#include "ui/SettingsWorkspace.h"
 #include "ui/ThemeManager.h"
 #include "ui/WritingMockupController.h"
 
 #include <QApplication>
 #include <QCoreApplication>
 #include <QHBoxLayout>
+#include <QLabel>
+#include <QListWidget>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWindow>
@@ -75,6 +79,33 @@ private:
     }
 };
 
+void installSettingsWorkspace(wbw::MainWindow& window) {
+    auto* navigation = window.findChild<QListWidget*>(QStringLiteral("sideNavigation"));
+    auto* pages = window.findChild<QStackedWidget*>(QStringLiteral("pageStack"));
+    if (!navigation || !pages || window.findChild<wbw::SettingsWorkspace*>()) return;
+
+    auto* settings = new wbw::SettingsWorkspace(pages);
+    settings->setObjectName(QStringLiteral("settingsWorkspace"));
+    pages->addWidget(settings);
+
+    navigation->addItem(QObject::tr("Configuración / salida"));
+    QListWidgetItem* item = navigation->item(navigation->count() - 1);
+    item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    item->setSizeHint(QSize(136, 38));
+
+    if (QWidget* oldAction = window.findChild<QWidget*>(QStringLiteral("settingsAction"))) oldAction->hide();
+
+    QObject::connect(navigation, &QListWidget::currentRowChanged, &window,
+        [&window, pages, settings](int row) {
+            if (row != 6) return;
+            pages->setCurrentWidget(settings);
+            if (auto* title = window.findChild<QLabel*>(QStringLiteral("projectTitle"))) title->setText(QObject::tr("Configuración / salida"));
+            if (auto* state = window.findChild<QLabel*>(QStringLiteral("saveState"))) state->setText(QObject::tr("Preferencias, copias y exportación"));
+            if (auto* save = window.findChild<QPushButton*>(QStringLiteral("primarySave"))) save->hide();
+            if (auto* focus = window.findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->hide();
+        });
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -93,6 +124,7 @@ int main(int argc, char* argv[]) {
     }
 
     wbw::applyProductReorganization(&window);
+    installSettingsWorkspace(window);
     wbw::installLibraryMockupController(&window);
     wbw::installMapMockupController(&window);
     wbw::installWritingMockupController(&window);
@@ -100,6 +132,7 @@ int main(int argc, char* argv[]) {
     window.show();
     QTimer::singleShot(0, [&window]() {
         wbw::applyProductReorganization(&window);
+        installSettingsWorkspace(window);
         wbw::installLibraryMockupController(&window);
         wbw::installMapMockupController(&window);
         wbw::installWritingMockupController(&window);
