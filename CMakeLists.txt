@@ -51,7 +51,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/MapExporterV2.cpp
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.h
-    src/ui/PilinReyEditorQt.cpp
+    src/ui/PilinReyEditorNative.cpp
     src/ui/ProjectHubPage.cpp
     src/ui/SettingsDialog.cpp
     src/ui/SemanticTextEdit.cpp
