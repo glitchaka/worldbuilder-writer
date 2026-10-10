@@ -7,6 +7,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QStackedWidget>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
 #include <QWidget>
