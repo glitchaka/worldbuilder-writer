@@ -65,6 +65,7 @@ private:
     bool detailsWereVisible_ = false;
     bool tabBarWasVisible_ = true;
     bool topShellWasVisible_ = true;
+    bool sideRailWasVisible_ = true;
     Qt::WindowStates previousWindowState_ = Qt::WindowNoState;
 
     QTabWidget* tabs_ = nullptr;
