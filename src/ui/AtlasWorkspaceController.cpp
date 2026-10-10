@@ -48,8 +48,7 @@ public:
 
         QWidget* world = window_->findChild<QWidget*>(QStringLiteral("worldPage"));
         QWidget* atlas = window_->findChild<QWidget*>(QStringLiteral("atlasTab"));
-        QFrame* context = window_->findChild<QFrame*>(QStringLiteral("atlasContextRail"));
-        if (!world || !atlas || !context) {
+        if (!world || !atlas) {
             applying_ = false;
             return;
         }
@@ -58,6 +57,15 @@ public:
             world->setProperty("wbwAtlasObserved", true);
             world->installEventFilter(this);
             atlas->installEventFilter(this);
+        }
+
+        QFrame* context = window_->findChild<QFrame*>(QStringLiteral("atlasContextRail"));
+        if (!context) {
+            applying_ = false;
+            return;
+        }
+        if (!context->property("wbwAtlasContextObserved").toBool()) {
+            context->setProperty("wbwAtlasContextObserved", true);
             context->installEventFilter(this);
         }
 
@@ -96,15 +104,16 @@ public:
         for (QTextEdit* edit : atlas->findChildren<QTextEdit*>()) {
             QWidget* parent = edit->parentWidget();
             const QString role = parent ? parent->objectName() : QString();
+            edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
             if (role == QStringLiteral("atlasSummaryField")) {
-                edit->setMinimumHeight(76);
-                edit->setMaximumHeight(118);
+                edit->setMinimumHeight(72);
+                edit->setMaximumHeight(108);
             } else if (role == QStringLiteral("atlasEditorialSection")) {
-                edit->setMinimumHeight(54);
-                edit->setMaximumHeight(88);
+                edit->setMinimumHeight(50);
+                edit->setMaximumHeight(78);
             } else if (role == QStringLiteral("atlasContextCard")) {
-                edit->setMinimumHeight(52);
-                edit->setMaximumHeight(82);
+                edit->setMinimumHeight(48);
+                edit->setMaximumHeight(72);
             }
         }
 
@@ -133,8 +142,8 @@ private:
 } // namespace
 
 void installAtlasWorkspaceController(QMainWindow* window) {
-    if (!window || window->property("wbwAtlasWorkspaceControllerV1").toBool()) return;
-    window->setProperty("wbwAtlasWorkspaceControllerV1", true);
+    if (!window || window->property("wbwAtlasWorkspaceControllerV2").toBool()) return;
+    window->setProperty("wbwAtlasWorkspaceControllerV2", true);
     auto* filter = new AtlasWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
