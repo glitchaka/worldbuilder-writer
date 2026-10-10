@@ -16,7 +16,7 @@ public:
     explicit SettingsWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::PaletteChange))
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
@@ -32,33 +32,33 @@ public:
         }
 
         page->setStyleSheet(QStringLiteral(R"QSS(
-#settingsWorkspace{background:#0e1116;color:#d9dee7;}
+#settingsWorkspace{background:palette(window);color:palette(window-text);}
 #settingsKicker{color:#c59a5d;font-size:8pt;font-weight:700;letter-spacing:1px;}
-#settingsWorkspaceTitle{color:#f0f2f5;font-family:'Georgia';font-size:25pt;font-weight:600;}
-#settingsWorkspaceCopy{color:#818c99;font-size:9.5pt;}
-#settingsWorkspaceNavigation{background:#11161d;border:1px solid #29323d;border-radius:10px;padding:7px;color:#9ba5b2;outline:0;}
+#settingsWorkspaceTitle{color:palette(text);font-family:'Georgia';font-size:25pt;font-weight:600;}
+#settingsWorkspaceCopy{color:palette(window-text);font-size:9.5pt;}
+#settingsWorkspaceNavigation{background:palette(base);border:1px solid palette(mid);border-radius:10px;padding:7px;color:palette(window-text);outline:0;}
 #settingsWorkspaceNavigation::item{padding:9px 10px;border-radius:7px;margin:1px 0;}
-#settingsWorkspaceNavigation::item:hover{background:#18202a;color:#eef1f4;}
-#settingsWorkspaceNavigation::item:selected{background:#222c38;color:#ffffff;border-left:2px solid #c59a5d;}
-#settingsWorkspacePages,#settingsWorkspacePage{background:#0e1116;}
-#settingsPageTitle{color:#f0f2f5;font-family:'Georgia';font-size:19pt;font-weight:600;}
-#settingsPageCopy{color:#818c99;}
-#settingsCard{background:#131920;border:1px solid #2a333f;border-radius:10px;}
-#settingsCardTitle{color:#eef1f4;font-size:11pt;font-weight:700;}
-#settingsCardCopy,#settingsOutputText,#cloudStatus{color:#8792a0;}
-#settingsSecondary{background:#171e27;color:#cfd6df;border:1px solid #303a46;border-radius:7px;padding:7px 11px;}
-#settingsSecondary:hover{background:#202a35;color:#ffffff;}
+#settingsWorkspaceNavigation::item:hover{background:palette(alternate-base);color:palette(text);}
+#settingsWorkspaceNavigation::item:selected{background:palette(highlight);color:palette(highlighted-text);border-left:2px solid #c59a5d;}
+#settingsWorkspacePages,#settingsWorkspacePage{background:palette(window);}
+#settingsPageTitle{color:palette(text);font-family:'Georgia';font-size:19pt;font-weight:600;}
+#settingsPageCopy{color:palette(window-text);}
+#settingsCard{background:palette(base);border:1px solid palette(mid);border-radius:10px;}
+#settingsCardTitle{color:palette(text);font-size:11pt;font-weight:700;}
+#settingsCardCopy,#settingsOutputText,#cloudStatus{color:palette(window-text);}
+#settingsSecondary{background:palette(alternate-base);color:palette(button-text);border:1px solid palette(mid);border-radius:7px;padding:7px 11px;}
+#settingsSecondary:hover{background:palette(highlight);color:palette(highlighted-text);}
 #settingsPrimary{background:#c59a5d;color:#111315;border:0;border-radius:7px;padding:7px 11px;font-weight:700;}
 #settingsPrimary:hover{background:#d3a86c;}
-#settingsWorkspace QLineEdit,#settingsWorkspace QComboBox,#settingsWorkspace QSpinBox,#settingsWorkspace QKeySequenceEdit{background:#10151b;color:#dce1e7;border:1px solid #2d3743;border-radius:7px;padding:8px 9px;}
+#settingsWorkspace QLineEdit,#settingsWorkspace QComboBox,#settingsWorkspace QSpinBox,#settingsWorkspace QKeySequenceEdit{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:7px;padding:8px 9px;}
 #settingsWorkspace QLineEdit:focus,#settingsWorkspace QComboBox:focus,#settingsWorkspace QSpinBox:focus,#settingsWorkspace QKeySequenceEdit:focus{border-color:#8b6843;}
-#settingsWorkspace QCheckBox{color:#c5ccd5;spacing:8px;}
-#cloudBackups{background:#10151b;color:#dce1e7;border:1px solid #2d3743;border-radius:8px;outline:0;}
-#cloudBackups::item{padding:8px;border-bottom:1px solid #242d37;}
-#cloudBackups::item:hover{background:#18202a;}
-#cloudBackups::item:selected{background:#222c38;color:#ffffff;}
-#settingsWorkspace QScrollBar:vertical{background:#0e1116;width:9px;}
-#settingsWorkspace QScrollBar::handle:vertical{background:#343c47;border-radius:4px;min-height:34px;}
+#settingsWorkspace QCheckBox{color:palette(window-text);spacing:8px;}
+#cloudBackups{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:8px;outline:0;}
+#cloudBackups::item{padding:8px;border-bottom:1px solid palette(mid);}
+#cloudBackups::item:hover{background:palette(alternate-base);}
+#cloudBackups::item:selected{background:palette(highlight);color:palette(highlighted-text);}
+#settingsWorkspace QScrollBar:vertical{background:transparent;width:9px;}
+#settingsWorkspace QScrollBar::handle:vertical{background:palette(mid);border-radius:4px;min-height:34px;}
 )QSS"));
     }
 
