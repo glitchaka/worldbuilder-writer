@@ -1,5 +1,6 @@
 #include "ui/PilinReyEditor.h"
 
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QPointF>
@@ -109,6 +110,52 @@ void PilinReyEditor::transformSelectedPathGeometry(double scaleFactor, double ro
             }
         }
         pilin.insert(QStringLiteral("layers"), layers);
+    });
+}
+
+void PilinReyEditor::editSelectedLabelStyle() {
+    if (selectedObjectIds_.size() != 1) return;
+    const QString id = selectedObjectIds_.first();
+    QJsonObject current;
+    for (const QJsonValue& layerValue : map_.value(QStringLiteral("pilinRey")).toObject().value(QStringLiteral("layers")).toArray()) {
+        for (const QJsonValue& objectValue : layerValue.toObject().value(QStringLiteral("objects")).toArray()) {
+            const QJsonObject object = objectValue.toObject();
+            if (object.value(QStringLiteral("id")).toString() == id) {
+                current = object;
+                break;
+            }
+        }
+        if (!current.isEmpty()) break;
+    }
+    if (current.value(QStringLiteral("type")).toString() != QStringLiteral("label")) return;
+
+    bool ok = false;
+    const int fontSize = QInputDialog::getInt(this, tr("Estilo de etiqueta"), tr("Tamaño:"),
+                                               current.value(QStringLiteral("fontSize")).toInt(54), 18, 220, 2, &ok);
+    if (!ok) return;
+    const QStringList weights{tr("Normal"), tr("Negrita")};
+    const QString weight = QInputDialog::getItem(this, tr("Estilo de etiqueta"), tr("Peso:"), weights,
+                                                  current.value(QStringLiteral("bold")).toBool(false) ? 1 : 0,
+                                                  false, &ok);
+    if (!ok) return;
+
+    mutateDocument([&](QJsonObject& pilin) {
+        QJsonArray layers = pilin.value(QStringLiteral("layers")).toArray();
+        for (int li = 0; li < layers.size(); ++li) {
+            QJsonObject layer = layers.at(li).toObject();
+            QJsonArray objects = layer.value(QStringLiteral("objects")).toArray();
+            for (int oi = 0; oi < objects.size(); ++oi) {
+                QJsonObject object = objects.at(oi).toObject();
+                if (object.value(QStringLiteral("id")).toString() != id) continue;
+                object.insert(QStringLiteral("fontSize"), fontSize);
+                object.insert(QStringLiteral("bold"), weight == tr("Negrita"));
+                objects.replace(oi, object);
+                layer.insert(QStringLiteral("objects"), objects);
+                layers.replace(li, layer);
+                pilin.insert(QStringLiteral("layers"), layers);
+                return;
+            }
+        }
     });
 }
 
