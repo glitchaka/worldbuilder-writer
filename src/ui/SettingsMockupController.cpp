@@ -15,10 +15,9 @@ public:
     explicit SettingsWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        Q_UNUSED(watched);
-        if (event->type() == QEvent::Show || event->type() == QEvent::LayoutRequest)
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
             QTimer::singleShot(0, this, [this]() { apply(); });
-        return false;
+        return QObject::eventFilter(watched, event);
     }
 
     void apply() {
@@ -60,7 +59,6 @@ void installSettingsMockupController(QMainWindow* window) {
     window->setProperty("wbwSettingsMockupController", true);
     auto* filter = new SettingsWorkspaceFilter(window);
     window->installEventFilter(filter);
-    for (QWidget* widget : window->findChildren<QWidget*>()) widget->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
 }
 
