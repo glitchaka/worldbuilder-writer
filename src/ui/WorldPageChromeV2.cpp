@@ -18,6 +18,25 @@
 #include <QVBoxLayout>
 
 namespace wbw {
+namespace {
+
+QString blockTitle(QWidget* block) {
+    if (!block) return {};
+    for (QLabel* label : block->findChildren<QLabel*>())
+        if (label->objectName() == QStringLiteral("fieldTitle")) return label->text().trimmed();
+    return {};
+}
+
+void makeEditorialBlock(QWidget* block, const QString& role) {
+    if (!block) return;
+    block->setObjectName(role);
+    if (auto* layout = qobject_cast<QVBoxLayout*>(block->layout())) {
+        layout->setContentsMargins(12, 10, 12, 12);
+        layout->setSpacing(6);
+    }
+}
+
+} // namespace
 
 void WorldPage::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
@@ -29,139 +48,198 @@ void WorldPage::applyAtlasChrome() {
     if (atlasChromeApplied_) return;
     auto* editor = findChild<QWidget*>(QStringLiteral("worldEditorCard"));
     auto* index = findChild<QWidget*>(QStringLiteral("worldIndexPanel"));
-    if (!editor || !index) return;
+    auto* atlasTab = findChild<QWidget*>(QStringLiteral("atlasTab"));
+    if (!editor || !index || !atlasTab) return;
     auto* editorLayout = qobject_cast<QVBoxLayout*>(editor->layout());
-    if (!editorLayout) return;
+    auto* atlasLayout = qobject_cast<QVBoxLayout*>(atlasTab->layout());
+    if (!editorLayout || !atlasLayout) return;
 
-    const auto labels = editor->findChildren<QLabel*>();
     QList<QWidget*> fieldBlocks;
-    for (QLabel* label : labels) {
+    for (QLabel* label : editor->findChildren<QLabel*>()) {
         if (!label || label->objectName() != QStringLiteral("fieldTitle")) continue;
         QWidget* block = label->parentWidget();
         if (!block || block == editor || fieldBlocks.contains(block)) continue;
         fieldBlocks.append(block);
     }
-
-    for (QLabel* label : editor->findChildren<QLabel*>()) {
+    for (QLabel* label : editor->findChildren<QLabel*>())
         if (label->objectName() == QStringLiteral("panelTitle")) label->hide();
+
+    // The module title already exists in the application shell. Remove the old page hero so
+    // the atlas starts directly with useful information instead of duplicated chrome.
+    for (QLabel* label : atlasTab->findChildren<QLabel*>()) {
+        const QString name = label->objectName();
+        if (name == QStringLiteral("pageKicker") || name == QStringLiteral("pageTitle") || name == QStringLiteral("pageDescription")) label->hide();
     }
+    atlasLayout->setContentsMargins(0, 0, 0, 0);
+    atlasLayout->setSpacing(0);
 
     auto* editorialSplit = new QSplitter(Qt::Horizontal, editor);
     editorialSplit->setObjectName(QStringLiteral("atlasEditorialSplit"));
-    editorialSplit->setChildrenCollapsible(false);
-    editorialSplit->setHandleWidth(6);
+    editorialSplit->setChildrenCollapsible(true);
+    editorialSplit->setHandleWidth(1);
 
     auto* centerScroll = new QScrollArea(editorialSplit);
     centerScroll->setObjectName(QStringLiteral("atlasCenterScroll"));
     centerScroll->setWidgetResizable(true);
     centerScroll->setFrameShape(QFrame::NoFrame);
+    centerScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     auto* center = new QWidget(centerScroll);
     center->setObjectName(QStringLiteral("atlasCenterEditorial"));
     auto* centerLayout = new QVBoxLayout(center);
-    centerLayout->setContentsMargins(18, 18, 18, 28);
-    centerLayout->setSpacing(12);
+    centerLayout->setContentsMargins(24, 22, 24, 34);
+    centerLayout->setSpacing(14);
 
-    auto* right = new QFrame(editorialSplit);
-    right->setObjectName(QStringLiteral("atlasContextRail"));
-    right->setMinimumWidth(250);
-    right->setMaximumWidth(330);
-    auto* rightLayout = new QVBoxLayout(right);
-    rightLayout->setContentsMargins(14, 16, 14, 18);
-    rightLayout->setSpacing(10);
-
-    auto addSectionLabel = [](QVBoxLayout* layout, const QString& text, const QString& objectName) {
-        auto* label = new QLabel(text);
-        label->setObjectName(objectName);
-        layout->addWidget(label);
-    };
-
-    addSectionLabel(centerLayout, tr("FICHA EDITORIAL"), QStringLiteral("atlasEditorialKicker"));
-    auto* centerTitle = new QLabel(tr("Entrada de atlas"));
+    auto* titleRow = new QHBoxLayout;
+    auto* titleColumn = new QVBoxLayout;
+    titleColumn->setSpacing(3);
+    auto* kicker = new QLabel(tr("FICHA DE MUNDO"), center);
+    kicker->setObjectName(QStringLiteral("atlasEditorialKicker"));
+    auto* centerTitle = new QLabel(tr("Entrada de atlas"), center);
     centerTitle->setObjectName(QStringLiteral("atlasEditorialTitle"));
-    centerLayout->addWidget(centerTitle);
+    auto* centerSubtitle = new QLabel(tr("Información útil, relaciones y material de referencia en una sola superficie editorial."), center);
+    centerSubtitle->setObjectName(QStringLiteral("atlasEditorialSubtitle"));
+    centerSubtitle->setWordWrap(true);
+    titleColumn->addWidget(kicker);
+    titleColumn->addWidget(centerTitle);
+    titleColumn->addWidget(centerSubtitle);
+    titleRow->addLayout(titleColumn, 1);
+    centerLayout->addLayout(titleRow);
 
-    addSectionLabel(rightLayout, tr("CONTEXTO"), QStringLiteral("atlasContextKicker"));
+    if (worldName_) {
+        connect(worldName_, &QLineEdit::textChanged, this, [centerTitle](const QString& value) {
+            centerTitle->setText(value.trimmed().isEmpty() ? QObject::tr("Entrada de atlas") : value.trimmed());
+        });
+        if (!worldName_->text().trimmed().isEmpty()) centerTitle->setText(worldName_->text().trimmed());
+    }
 
     auto* identity = new QFrame(center);
-    identity->setObjectName(QStringLiteral("atlasEditorialCard"));
+    identity->setObjectName(QStringLiteral("atlasIdentityStrip"));
     auto* identityGrid = new QGridLayout(identity);
-    identityGrid->setContentsMargins(14, 14, 14, 14);
+    identityGrid->setContentsMargins(12, 10, 12, 10);
     identityGrid->setHorizontalSpacing(10);
-    identityGrid->setVerticalSpacing(10);
+    identityGrid->setVerticalSpacing(8);
 
-    auto* body = new QWidget(center);
-    body->setObjectName(QStringLiteral("atlasEditorialBody"));
-    auto* bodyLayout = new QVBoxLayout(body);
-    bodyLayout->setContentsMargins(0, 0, 0, 0);
-    bodyLayout->setSpacing(12);
+    auto* summaryHost = new QFrame(center);
+    summaryHost->setObjectName(QStringLiteral("atlasSummaryCard"));
+    auto* summaryLayout = new QVBoxLayout(summaryHost);
+    summaryLayout->setContentsMargins(14, 12, 14, 14);
+    summaryLayout->setSpacing(6);
+    auto* summaryHeading = new QLabel(tr("RESUMEN"), summaryHost);
+    summaryHeading->setObjectName(QStringLiteral("atlasSectionTitle"));
+    summaryLayout->addWidget(summaryHeading);
 
-    int identityItem = 0;
+    auto* contentGridHost = new QWidget(center);
+    contentGridHost->setObjectName(QStringLiteral("atlasContentGrid"));
+    auto* contentGrid = new QGridLayout(contentGridHost);
+    contentGrid->setContentsMargins(0, 0, 0, 0);
+    contentGrid->setHorizontalSpacing(12);
+    contentGrid->setVerticalSpacing(12);
+    contentGrid->setColumnStretch(0, 1);
+    contentGrid->setColumnStretch(1, 1);
+
+    auto* rightScroll = new QScrollArea(editorialSplit);
+    rightScroll->setObjectName(QStringLiteral("atlasContextScroll"));
+    rightScroll->setWidgetResizable(true);
+    rightScroll->setFrameShape(QFrame::NoFrame);
+    rightScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    rightScroll->setMinimumWidth(265);
+    rightScroll->setMaximumWidth(350);
+    auto* right = new QFrame(rightScroll);
+    right->setObjectName(QStringLiteral("atlasContextRail"));
+    auto* rightLayout = new QVBoxLayout(right);
+    rightLayout->setContentsMargins(14, 18, 14, 24);
+    rightLayout->setSpacing(10);
+    auto* contextKicker = new QLabel(tr("CONTEXTO"), right);
+    contextKicker->setObjectName(QStringLiteral("atlasContextKicker"));
+    auto* contextCopy = new QLabel(tr("Relaciones, conflictos, etiquetas, adjuntos y notas rápidas."), right);
+    contextCopy->setObjectName(QStringLiteral("atlasContextCopy"));
+    contextCopy->setWordWrap(true);
+    rightLayout->addWidget(contextKicker);
+    rightLayout->addWidget(contextCopy);
+
+    int identityColumn = 0;
+    int contentIndex = 0;
     for (QWidget* block : fieldBlocks) {
-        QString title;
-        const auto childLabels = block->findChildren<QLabel*>();
-        for (QLabel* candidate : childLabels) {
-            if (candidate->objectName() == QStringLiteral("fieldTitle")) { title = candidate->text(); break; }
-        }
-
-        const bool isIdentity = title == tr("Tipo") || title == tr("Nombre") || title == tr("Alias") || title == tr("Resumen");
-        const bool isContext = title == tr("Relaciones") || title == tr("Conflictos") || title == tr("Etiquetas") || title == tr("Adjuntos") || title == tr("Notas");
-
-        block->setObjectName(QStringLiteral("atlasFieldCard"));
-        if (isIdentity) {
+        const QString title = blockTitle(block);
+        if (title == tr("Tipo") || title == tr("Nombre") || title == tr("Alias")) {
+            makeEditorialBlock(block, QStringLiteral("atlasIdentityField"));
             block->setParent(identity);
-            const bool wide = !block->findChildren<QTextEdit*>().isEmpty();
-            if (wide) identityGrid->addWidget(block, 1, 0, 1, 3);
-            else { identityGrid->addWidget(block, 0, identityItem % 3); ++identityItem; }
-        } else if (isContext) {
+            identityGrid->addWidget(block, 0, identityColumn++);
+            continue;
+        }
+        if (title == tr("Resumen")) {
+            makeEditorialBlock(block, QStringLiteral("atlasSummaryField"));
+            for (QLabel* label : block->findChildren<QLabel*>()) if (label->objectName() == QStringLiteral("fieldTitle")) label->hide();
+            block->setParent(summaryHost);
+            summaryLayout->addWidget(block);
+            continue;
+        }
+        const bool context = title == tr("Relaciones") || title == tr("Conflictos") || title == tr("Etiquetas") || title == tr("Adjuntos") || title == tr("Notas");
+        if (context) {
+            makeEditorialBlock(block, QStringLiteral("atlasContextCard"));
             block->setParent(right);
             rightLayout->addWidget(block);
-        } else {
-            block->setParent(body);
-            bodyLayout->addWidget(block);
+            continue;
         }
+        makeEditorialBlock(block, QStringLiteral("atlasEditorialSection"));
+        block->setParent(contentGridHost);
+        contentGrid->addWidget(block, contentIndex / 2, contentIndex % 2);
+        ++contentIndex;
     }
 
     centerLayout->addWidget(identity);
-    centerLayout->addWidget(body);
+    centerLayout->addWidget(summaryHost);
+    auto* contentHeading = new QLabel(tr("MUNDO Y CONTEXTO"), center);
+    contentHeading->setObjectName(QStringLiteral("atlasSectionTitle"));
+    centerLayout->addWidget(contentHeading);
+    centerLayout->addWidget(contentGridHost);
     centerLayout->addStretch(1);
     rightLayout->addStretch(1);
-    centerScroll->setWidget(center);
 
+    centerScroll->setWidget(center);
+    rightScroll->setWidget(right);
     editorialSplit->addWidget(centerScroll);
-    editorialSplit->addWidget(right);
+    editorialSplit->addWidget(rightScroll);
     editorialSplit->setStretchFactor(0, 1);
     editorialSplit->setStretchFactor(1, 0);
-    editorialSplit->setSizes({900, 290});
+    editorialSplit->setSizes({980, 310});
 
     editorLayout->addWidget(editorialSplit, 1);
     editorLayout->setContentsMargins(0, 0, 0, 0);
     editorLayout->setSpacing(0);
-
     index->setMinimumWidth(230);
-    index->setMaximumWidth(310);
+    index->setMaximumWidth(300);
 
     atlasChromeApplied_ = true;
-    setStyleSheet(styleSheet() + QStringLiteral(
-        "#worldPage,#atlasTab{background:#0f1115;color:#e8ebef;}"
-        "#worldTabs::pane{border:0;background:#0f1115;}"
-        "#worldTabs QTabBar::tab{background:transparent;color:#8f97a3;border:0;padding:9px 13px;}"
-        "#worldTabs QTabBar::tab:selected{color:#f0f2f5;border-bottom:2px solid #c59a5d;}"
-        "#worldIndexPanel{background:#14171c;border:0;border-right:1px solid #2a2f36;}"
-        "#worldIndexPanel QListWidget{background:transparent;color:#d9dde3;border:0;outline:0;}"
-        "#worldIndexPanel QListWidget::item{padding:8px 9px;border-radius:6px;}"
-        "#worldIndexPanel QListWidget::item:selected{background:#252b33;color:#ffffff;}"
-        "#worldEditorCard,#atlasCenterScroll,#atlasCenterEditorial,#atlasEditorialBody{background:#0f1115;border:0;}"
-        "#atlasContextRail{background:#14171c;border:0;border-left:1px solid #2a2f36;}"
-        "#atlasEditorialKicker,#atlasContextKicker{color:#c59a5d;font-size:8pt;font-weight:700;letter-spacing:1px;}"
-        "#atlasEditorialTitle{color:#f2f3f5;font-family:'Georgia';font-size:22pt;padding-bottom:2px;}"
-        "#atlasEditorialCard,#atlasFieldCard{background:#171a20;border:1px solid #2a2f36;border-radius:10px;}"
-        "#atlasFieldCard{padding:11px;}"
-        "#atlasFieldCard #fieldTitle{color:#9ba3ae;font-size:8pt;font-weight:700;letter-spacing:.7px;}"
-        "#atlasFieldCard QLineEdit,#atlasFieldCard QTextEdit,#atlasFieldCard QComboBox{background:#111419;color:#e7eaee;border:1px solid #30353d;border-radius:7px;padding:7px;}"
-        "#atlasFieldCard QTextEdit{min-height:90px;}"
-        "#atlasEditorialSplit::handle{background:#20242a;}"
-        "#pageKicker,#pageTitle,#pageDescription{color:#8f97a3;}"
-    ));
+    setStyleSheet(styleSheet() + QStringLiteral(R"QSS(
+#worldPage,#atlasTab{background:#0d1014;color:#e8ebef;}
+#worldTabs::pane{border:0;background:#0d1014;}
+#worldTabs QTabBar::tab{background:transparent;color:#7f8996;border:0;padding:9px 13px;}
+#worldTabs QTabBar::tab:selected{color:#f0f2f5;border-bottom:2px solid #c59a5d;}
+#worldIndexPanel{background:#11161c;border:0;border-right:1px solid #252d37;}
+#worldIndexPanel QListWidget{background:transparent;color:#d8dde5;border:0;outline:0;padding:6px;}
+#worldIndexPanel QListWidget::item{padding:9px 8px;border-radius:6px;margin:1px 0;}
+#worldIndexPanel QListWidget::item:hover{background:#171e27;}
+#worldIndexPanel QListWidget::item:selected{background:#232c37;color:#ffffff;}
+#worldEditorCard,#atlasCenterScroll,#atlasCenterEditorial,#atlasContentGrid{background:#0d1014;border:0;}
+#atlasContextScroll,#atlasContextRail{background:#11161c;border:0;}
+#atlasContextRail{border-left:1px solid #252d37;}
+#atlasEditorialKicker,#atlasContextKicker,#atlasSectionTitle{color:#c79b60;font-size:8pt;font-weight:700;letter-spacing:1px;}
+#atlasEditorialTitle{color:#f2f3f5;font-family:'Georgia';font-size:24pt;font-weight:500;}
+#atlasEditorialSubtitle,#atlasContextCopy{color:#7d8998;font-family:'Georgia';font-size:9pt;}
+#atlasIdentityStrip,#atlasSummaryCard,#atlasEditorialSection,#atlasContextCard{background:#12171d;border:1px solid #28313b;border-radius:9px;}
+#atlasIdentityField{background:transparent;border:0;}
+#atlasSummaryField{background:transparent;border:0;padding:0;}
+#atlasIdentityField #fieldTitle,#atlasEditorialSection #fieldTitle,#atlasContextCard #fieldTitle{color:#8e99a7;font-size:8pt;font-weight:700;letter-spacing:.65px;}
+#atlasIdentityField QLineEdit,#atlasIdentityField QComboBox,#atlasSummaryField QTextEdit,#atlasEditorialSection QTextEdit,#atlasEditorialSection QLineEdit,#atlasEditorialSection QComboBox,#atlasContextCard QTextEdit,#atlasContextCard QLineEdit,#atlasContextCard QListWidget{background:#0d1116;color:#e2e6eb;border:0;border-radius:6px;padding:7px;selection-background-color:#5a4936;}
+#atlasSummaryField QTextEdit{font-family:'Georgia';font-size:11pt;min-height:105px;}
+#atlasEditorialSection QTextEdit{min-height:96px;}
+#atlasContextCard QTextEdit{min-height:80px;}
+#atlasEditorialSplit::handle{background:#252d37;}
+#atlasCenterScroll QScrollBar:vertical,#atlasContextScroll QScrollBar:vertical{background:transparent;width:8px;}
+#atlasCenterScroll QScrollBar::handle:vertical,#atlasContextScroll QScrollBar::handle:vertical{background:#343d48;border-radius:4px;min-height:30px;}
+#pageKicker,#pageTitle,#pageDescription{background:transparent;color:transparent;max-height:0px;}
+)QSS"));
 }
 
 void WorldPage::applyMapsChrome() {
@@ -200,7 +278,8 @@ void WorldPage::applyMapsChrome() {
 
     auto* titleRow = qobject_cast<QHBoxLayout*>(centerLayout->itemAt(0)->layout());
     if (titleRow) {
-        for (int i = 0; i < titleRow->count(); ++i) if (QWidget* widget = titleRow->itemAt(i)->widget()) widget->hide();
+        for (int i = 0; i < titleRow->count(); ++i)
+            if (QWidget* widget = titleRow->itemAt(i)->widget()) widget->hide();
     }
 
     auto* canvasHost = mapCanvas_->findChild<QWidget*>(QStringLiteral("pilinCanvasHost"));
@@ -267,18 +346,19 @@ void WorldPage::applyMapsChrome() {
         connect(mapName_, &QLineEdit::editingFinished, this, [this]() {
             if (!mapPicker_ || !mapList_) return;
             const int row = mapList_->currentRow();
-            if (row >= 0 && row < mapPicker_->count()) mapPicker_->setItemText(row, mapName_->text().trimmed().isEmpty() ? tr("Mapa sin nombre") : mapName_->text().trimmed());
+            if (row >= 0 && row < mapPicker_->count())
+                mapPicker_->setItemText(row, mapName_->text().trimmed().isEmpty() ? tr("Mapa sin nombre") : mapName_->text().trimmed());
         });
     }
 
     setStyleSheet(styleSheet() + QStringLiteral(
         "#mapEditorCard{border:0;background:transparent;}"
-        "#mapWorkspaceBar{border:1px solid rgba(125,125,125,0.24);border-radius:7px;}"
-        "#mapWorkspaceKicker{font-size:7pt;font-weight:700;letter-spacing:1px;padding:0 3px;}"
-        "#mapPicker{border:0;background:transparent;font-weight:600;padding:4px 6px;}"
-        "#mapWorkspaceName{min-height:20px;padding:4px 7px;}"
-        "#mapChromeButton{background:transparent;border:0;padding:2px;font-size:12pt;}"
-        "#mapChromeButton:hover{background:rgba(130,130,130,0.15);}"
+        "#mapWorkspaceBar{background:#171b21;border:1px solid #303843;border-radius:8px;}"
+        "#mapWorkspaceKicker{color:#c59a5d;font-size:7pt;font-weight:700;letter-spacing:1px;padding:0 3px;}"
+        "#mapPicker{color:#e1e6ec;border:0;background:transparent;font-weight:600;padding:4px 6px;}"
+        "#mapWorkspaceName{background:#101419;color:#e1e6ec;border:1px solid #303843;border-radius:6px;min-height:20px;padding:4px 7px;}"
+        "#mapChromeButton{color:#b9c2ce;background:transparent;border:0;padding:2px;font-size:12pt;}"
+        "#mapChromeButton:hover{background:#252d37;}"
     ));
 }
 
