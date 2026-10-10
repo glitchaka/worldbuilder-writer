@@ -101,6 +101,10 @@ private:
         } else {
             for (int i = 0; i < expected.size(); ++i) nav_->item(i)->setText(expected.at(i));
         }
+        nav_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        nav_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        nav_->setMinimumHeight(expected.size() * 44 + 12);
+        nav_->setMaximumHeight(expected.size() * 44 + 12);
         for (int i = 0; i < nav_->count(); ++i) {
             nav_->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
             nav_->item(i)->setSizeHint(QSize(190, 42));
@@ -114,6 +118,8 @@ private:
         rail_->setMinimumWidth(railWidth);
         rail_->setMaximumWidth(railWidth);
         if (nav_) {
+            nav_->setMinimumHeight(nav_->count() * 44 + 12);
+            nav_->setMaximumHeight(nav_->count() * 44 + 12);
             for (int i = 0; i < nav_->count(); ++i)
                 if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(railWidth - 20, 42));
         }
