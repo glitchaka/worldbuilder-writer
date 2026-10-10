@@ -21,7 +21,8 @@ QString popoverTitle(QFrame* frame) {
     for (QLabel* label : labels) {
         const QString text = label->text().trimmed();
         if (text == QObject::tr("Capas") || text == QObject::tr("Assets") ||
-            text == QObject::tr("Assets y sellos") || text == QObject::tr("Plantilla") ||
+            text == QObject::tr("Assets cartográficos") || text == QObject::tr("Assets y sellos") ||
+            text == QObject::tr("Plantilla") || text == QObject::tr("Plantilla de referencia") ||
             text == QObject::tr("Apariencia") || text == QObject::tr("Selección")) return text;
     }
     return {};
@@ -99,8 +100,13 @@ void normalizePopoverTitles(QWidget* editor) {
     const auto frames = editor->findChildren<QFrame*>(QStringLiteral("pilinPopover"));
     for (QFrame* frame : frames) {
         for (QLabel* label : frame->findChildren<QLabel*>()) {
-            if (label->text().trimmed() == QObject::tr("Assets")) {
+            const QString text = label->text().trimmed();
+            if (text == QObject::tr("Assets") || text == QObject::tr("Assets cartográficos")) {
                 label->setText(QObject::tr("Assets y sellos"));
+                break;
+            }
+            if (text == QObject::tr("Plantilla de referencia")) {
+                label->setText(QObject::tr("Plantilla"));
                 break;
             }
         }
@@ -185,15 +191,15 @@ public:
         const auto frames = editor->findChildren<QFrame*>(QStringLiteral("pilinPopover"));
         for (QFrame* frame : frames) {
             const QString title = popoverTitle(frame);
-            if (title == QObject::tr("Assets") || title == QObject::tr("Assets y sellos")) assets = frame;
+            if (title == QObject::tr("Assets") || title == QObject::tr("Assets cartográficos") || title == QObject::tr("Assets y sellos")) assets = frame;
             else if (title == QObject::tr("Capas")) layers = frame;
         }
 
         if (assets) {
-            assets->setMinimumWidth(260);
-            assets->setMaximumWidth(300);
+            assets->setMinimumWidth(268);
+            assets->setMaximumWidth(310);
             assets->adjustSize();
-            const bool enoughRoom = canvas->width() >= 1080;
+            const bool enoughRoom = canvas->width() >= 980;
             if (enoughRoom && editor->isVisible()) assets->show();
             if (!enoughRoom && !assets->underMouse()) assets->hide();
             if (assets->isVisible()) {
@@ -203,8 +209,8 @@ public:
         }
 
         if (layers && layers->isVisible()) {
-            layers->setMinimumWidth(260);
-            layers->setMaximumWidth(300);
+            layers->setMinimumWidth(268);
+            layers->setMaximumWidth(310);
             layers->adjustSize();
             layers->move(qMax(margin, canvas->width() - layers->width() - margin), 66);
             layers->raise();
