@@ -20,7 +20,6 @@ public:
         return QObject::eventFilter(watched, event);
     }
 
-private:
     void apply() {
         if (!window_) return;
         QWidget* hub = window_->findChild<QWidget*>(QStringLiteral("projectHubPage"));
@@ -87,6 +86,7 @@ QFrame#projectCardNew:hover,QFrame#projectCardNew:focus{background:#151615;borde
         grid->setRowStretch((cards.size() + columns - 1) / columns, 1);
     }
 
+private:
     QPointer<QMainWindow> window_;
 };
 
