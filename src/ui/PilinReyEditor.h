@@ -49,6 +49,7 @@ public:
 
     void setMap(const QJsonObject& map);
     QJsonObject map() const { return map_; }
+    void selectObjectIds(const QStringList& ids);
     void nudgeSelection(double dx, double dy);
     void transformSelectedPathGeometry(double scaleFactor, double rotationDegrees);
 
