@@ -4,9 +4,11 @@
 #include "ui/WritingPage.h"
 
 #include <QEvent>
+#include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QPointer>
+#include <QPushButton>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTabWidget>
@@ -47,6 +49,10 @@ private:
         rail_ = window_->findChild<QWidget*>(QStringLiteral("sideRail"));
         if (!nav_ || !pages_) return;
 
+        normalizeNavigation();
+        connect(nav_, &QListWidget::currentRowChanged, this, [this](int) {
+            QTimer::singleShot(0, this, [this]() { enforceCurrentRoute(); });
+        });
         connect(pages_, &QStackedWidget::currentChanged, this, [this](int) {
             QTimer::singleShot(0, this, [this]() { enforceCurrentRoute(); });
         });
@@ -77,33 +83,69 @@ private:
         QTimer::singleShot(0, this, [this]() { enforceCurrentRoute(); enforceReadableRail(); });
     }
 
+    void normalizeNavigation() {
+        if (!nav_) return;
+        const QStringList expected{
+            QObject::tr("Biblioteca"),
+            QObject::tr("Escritura"),
+            QObject::tr("Tablero de escenas"),
+            QObject::tr("Atlas / documentación"),
+            QObject::tr("Mapas"),
+            QObject::tr("Revisión"),
+            QObject::tr("Configuración / salida")
+        };
+        if (nav_->count() != expected.size()) {
+            nav_->clear();
+            nav_->addItems(expected);
+        } else {
+            for (int i = 0; i < expected.size(); ++i) nav_->item(i)->setText(expected.at(i));
+        }
+        for (int i = 0; i < nav_->count(); ++i) {
+            nav_->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            nav_->item(i)->setSizeHint(QSize(190, 42));
+        }
+    }
+
     void enforceReadableRail() {
         if (!window_ || !rail_) return;
         const int width = window_->width();
-        const int railWidth = width < 1040 ? 142 : (width < 1320 ? 158 : 178);
+        const int railWidth = width < 1040 ? 168 : (width < 1320 ? 188 : 204);
         rail_->setMinimumWidth(railWidth);
         rail_->setMaximumWidth(railWidth);
         if (nav_) {
             for (int i = 0; i < nav_->count(); ++i)
-                if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(railWidth - 18, 38));
+                if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(railWidth - 20, 42));
         }
+    }
+
+    void setHeader(const QString& title, const QString& state) {
+        if (!window_) return;
+        if (auto* label = window_->findChild<QLabel*>(QStringLiteral("projectTitle"))) label->setText(title);
+        if (auto* label = window_->findChild<QLabel*>(QStringLiteral("saveState"))) label->setText(state);
     }
 
     void enforceCurrentRoute() {
         if (!window_ || !nav_ || !pages_) return;
+        normalizeNavigation();
         enforceReadableRail();
         const int row = nav_->currentRow();
+        if (auto* save = window_->findChild<QPushButton*>(QStringLiteral("primarySave"))) save->setVisible(row > 0 && row != 6);
+        if (auto* focus = window_->findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->setVisible(row == 1);
+
         switch (row) {
             case 0:
                 if (hub_ && pages_->currentWidget() != hub_) pages_->setCurrentWidget(hub_);
+                setHeader(QObject::tr("Biblioteca"), QObject::tr("Tus historias"));
                 break;
             case 1:
                 if (writing_ && pages_->currentWidget() != writing_) pages_->setCurrentWidget(writing_);
-                if (writingTabs_) writingTabs_->setCurrentIndex(0);
+                if (writingTabs_) { writingTabs_->setCurrentIndex(0); if (writingTabs_->tabBar()) writingTabs_->tabBar()->hide(); }
+                setHeader(QObject::tr("Escritura"), QObject::tr("Manuscrito"));
                 break;
             case 2:
                 if (writing_ && pages_->currentWidget() != writing_) pages_->setCurrentWidget(writing_);
-                if (writingTabs_) writingTabs_->setCurrentIndex(1);
+                if (writingTabs_) { writingTabs_->setCurrentIndex(1); if (writingTabs_->tabBar()) writingTabs_->tabBar()->hide(); }
+                setHeader(QObject::tr("Tablero de escenas"), QObject::tr("Estructura visual · arrastra para reordenar"));
                 break;
             case 3:
                 if (world_ && pages_->currentWidget() != world_) pages_->setCurrentWidget(world_);
@@ -112,6 +154,7 @@ private:
                     if (worldTabs_->tabBar()) worldTabs_->tabBar()->show();
                     worldTabs_->setCurrentIndex(0);
                 }
+                setHeader(QObject::tr("Atlas / documentación"), QObject::tr("Personajes, lugares, culturas, relaciones y referencias"));
                 break;
             case 4:
                 if (world_ && pages_->currentWidget() != world_) pages_->setCurrentWidget(world_);
@@ -121,15 +164,19 @@ private:
                     if (mapIndex >= 0) worldTabs_->setCurrentIndex(mapIndex);
                     if (worldTabs_->tabBar()) worldTabs_->tabBar()->hide();
                 }
+                setHeader(QObject::tr("Mapas"), QObject::tr("Pilín Rey"));
                 break;
             case 5:
                 if (review_ && pages_->currentWidget() != review_) pages_->setCurrentWidget(review_);
+                setHeader(QObject::tr("Revisión"), QObject::tr("Consistencia, lenguaje y salida"));
                 break;
             case 6:
                 if (!settings_) settings_ = window_->findChild<QWidget*>(QStringLiteral("settingsWorkspace"));
                 if (settings_ && pages_->currentWidget() != settings_) pages_->setCurrentWidget(settings_);
+                setHeader(QObject::tr("Configuración / salida"), QObject::tr("Preferencias, copias y exportación"));
                 break;
             default:
+                nav_->setCurrentRow(0);
                 break;
         }
     }
