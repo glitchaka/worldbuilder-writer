@@ -14,6 +14,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
+#include <QEventLoop>
 #include <QFile>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -108,9 +109,24 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::ThemeManager::applySaved();
 }
 
+void settleUi() {
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 40);
+}
+
 int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     QDir dir(QDir::cleanPath(outputDirectory.isEmpty() ? QStringLiteral("rc-qa") : outputDirectory));
     if (!dir.exists() && !QDir().mkpath(dir.absolutePath())) return 90;
+
+    QFile progress(dir.absoluteFilePath(QStringLiteral("rc-progress.txt")));
+    if (progress.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream p(&progress); p << "START\n"; p.flush();
+    }
+    auto mark = [&progress](const QString& line) {
+        if (!progress.isOpen()) return;
+        QTextStream p(&progress); p << line << '\n'; p.flush();
+    };
+
     QStringList failures;
     auto require = [&failures](bool condition, const QString& name) { if (!condition) failures.append(name); };
     auto* nav = window.findChild<QListWidget*>(QStringLiteral("sideNavigation"));
@@ -128,10 +144,13 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     const QStringList slugs{QStringLiteral("library"), QStringLiteral("writing"), QStringLiteral("scenes"), QStringLiteral("atlas"), QStringLiteral("maps"), QStringLiteral("review"), QStringLiteral("settings")};
     if (nav) {
         for (int row = 0; row < qMin(nav->count(), static_cast<int>(slugs.size())); ++row) {
+            const QString slug = slugs.at(row);
+            mark(QStringLiteral("ROUTE %1 BEGIN").arg(slug));
             nav->setCurrentRow(row);
-            QApplication::processEvents();
-            applyProductUi(window);
-            QApplication::processEvents();
+            settleUi();
+            window.repaint();
+            settleUi();
+            mark(QStringLiteral("ROUTE %1 SETTLED").arg(slug));
             switch (row) {
                 case 0:
                     require(window.findChild<QWidget*>(QStringLiteral("projectHubPage")) != nullptr, QStringLiteral("libraryPage"));
@@ -167,9 +186,10 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
                     break;
             }
             const QPixmap shot = window.grab();
-            const QString screenshotPath = dir.absoluteFilePath(QStringLiteral("%1.png").arg(slugs.at(row)));
-            require(!shot.isNull(), QStringLiteral("screenshot-%1").arg(slugs.at(row)));
-            require(!shot.isNull() && shot.save(screenshotPath, "PNG"), QStringLiteral("screenshot-write-%1").arg(slugs.at(row)));
+            const QString screenshotPath = dir.absoluteFilePath(QStringLiteral("%1.png").arg(slug));
+            require(!shot.isNull(), QStringLiteral("screenshot-%1").arg(slug));
+            require(!shot.isNull() && shot.save(screenshotPath, "PNG"), QStringLiteral("screenshot-write-%1").arg(slug));
+            mark(QStringLiteral("ROUTE %1 CAPTURED").arg(slug));
         }
     }
 
@@ -179,6 +199,8 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     out << (failures.isEmpty() ? QStringLiteral("PASS\n") : QStringLiteral("FAIL\n"));
     for (const QString& failure : failures) out << failure << '\n';
     report.close();
+    mark(QStringLiteral("DONE"));
+    progress.close();
     return failures.isEmpty() ? 0 : 2;
 }
 
@@ -200,7 +222,7 @@ int main(int argc, char* argv[]) {
     applyProductUi(window);
     window.resize(1600, 1000);
     window.show();
-    QTimer::singleShot(0, [&window]() { applyProductUi(window); });
+    if (!rcSmoke) QTimer::singleShot(0, [&window]() { applyProductUi(window); });
     if (rcSmoke) {
         QString qaDir = QStringLiteral("rc-qa");
         for (const QString& arg : args) if (arg.startsWith(QStringLiteral("--qa-dir="))) qaDir = arg.mid(QStringLiteral("--qa-dir=").size());
