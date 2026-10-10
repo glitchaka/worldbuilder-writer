@@ -45,6 +45,7 @@ private:
         writingTabs_ = window_->findChild<QTabWidget*>(QStringLiteral("writingTabs"));
         worldTabs_ = window_->findChild<QTabWidget*>(QStringLiteral("worldTabs"));
         mapsTab_ = window_->findChild<QWidget*>(QStringLiteral("mapsTab"));
+        atlasTab_ = window_->findChild<QWidget*>(QStringLiteral("atlasTab"));
         settings_ = window_->findChild<QWidget*>(QStringLiteral("settingsWorkspace"));
         rail_ = window_->findChild<QWidget*>(QStringLiteral("sideRail"));
         if (!nav_ || !pages_) return;
@@ -63,7 +64,7 @@ private:
                     if (kind != QStringLiteral("character")) return;
                     QTimer::singleShot(0, this, [this]() {
                         if (nav_) nav_->setCurrentRow(3);
-                        if (worldTabs_) worldTabs_->setCurrentIndex(0);
+                        if (worldTabs_ && worldTabs_->count() > 0) worldTabs_->setCurrentIndex(0);
                     });
                 });
         }
@@ -152,7 +153,8 @@ private:
                 if (worldTabs_) {
                     for (int i = 0; i < worldTabs_->count(); ++i) worldTabs_->setTabVisible(i, worldTabs_->widget(i) != mapsTab_);
                     if (worldTabs_->tabBar()) worldTabs_->tabBar()->show();
-                    worldTabs_->setCurrentIndex(0);
+                    const int atlasIndex = atlasTab_ ? worldTabs_->indexOf(atlasTab_) : -1;
+                    worldTabs_->setCurrentIndex(atlasIndex >= 0 ? atlasIndex : qMin(1, worldTabs_->count() - 1));
                 }
                 setHeader(QObject::tr("Atlas / documentación"), QObject::tr("Personajes, lugares, culturas, relaciones y referencias"));
                 break;
@@ -190,6 +192,7 @@ private:
     QPointer<QWidget> review_;
     QPointer<QWidget> settings_;
     QPointer<QWidget> mapsTab_;
+    QPointer<QWidget> atlasTab_;
     QPointer<QWidget> rail_;
     QPointer<QTabWidget> writingTabs_;
     QPointer<QTabWidget> worldTabs_;
