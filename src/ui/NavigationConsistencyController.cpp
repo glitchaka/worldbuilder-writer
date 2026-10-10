@@ -107,21 +107,20 @@ private:
         nav_->setMaximumHeight(expected.size() * 44 + 12);
         for (int i = 0; i < nav_->count(); ++i) {
             nav_->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-            nav_->item(i)->setSizeHint(QSize(190, 42));
+            nav_->item(i)->setSizeHint(QSize(196, 42));
         }
     }
 
     void enforceReadableRail() {
         if (!window_ || !rail_) return;
-        const int width = window_->width();
-        const int railWidth = width < 1040 ? 168 : (width < 1320 ? 188 : 204);
+        constexpr int railWidth = 220;
         rail_->setMinimumWidth(railWidth);
         rail_->setMaximumWidth(railWidth);
         if (nav_) {
             nav_->setMinimumHeight(nav_->count() * 44 + 12);
             nav_->setMaximumHeight(nav_->count() * 44 + 12);
             for (int i = 0; i < nav_->count(); ++i)
-                if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(railWidth - 20, 42));
+                if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(196, 42));
         }
     }
 
