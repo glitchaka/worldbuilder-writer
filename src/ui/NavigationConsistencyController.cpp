@@ -4,11 +4,13 @@
 #include "ui/WritingPage.h"
 
 #include <QEvent>
+#include <QFrame>
 #include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QPointer>
 #include <QPushButton>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTabWidget>
@@ -29,7 +31,7 @@ public:
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
         if (watched == window_ && (event->type() == QEvent::Resize || event->type() == QEvent::Show))
-            QTimer::singleShot(0, this, [this]() { enforceReadableRail(); });
+            QTimer::singleShot(0, this, [this]() { enforceReadableRail(); enforceCurrentRoute(); });
         return QObject::eventFilter(watched, event);
     }
 
@@ -130,6 +132,67 @@ private:
         if (auto* label = window_->findChild<QLabel*>(QStringLiteral("saveState"))) label->setText(state);
     }
 
+    void enforceWritingColumns() {
+        if (!window_) return;
+        QWidget* index = window_->findChild<QWidget*>(QStringLiteral("indexPanel"));
+        QWidget* metadata = window_->findChild<QWidget*>(QStringLiteral("metadataPanel"));
+        if (!index || !metadata) return;
+        QSplitter* split = qobject_cast<QSplitter*>(index->parentWidget());
+        if (!split || split->count() < 3) return;
+        const bool wide = window_->width() >= 1240;
+        metadata->setVisible(wide);
+        metadata->setMinimumWidth(wide ? 240 : 0);
+        metadata->setMaximumWidth(wide ? 310 : 0);
+        index->setMinimumWidth(wide ? 220 : 190);
+        index->setMaximumWidth(wide ? 285 : 220);
+        split->setStretchFactor(0, 0);
+        split->setStretchFactor(1, 1);
+        split->setStretchFactor(2, 0);
+        split->setSizes(wide ? QList<int>{240, 920, 285} : QList<int>{200, 820, 0});
+        metadata->raise();
+    }
+
+    void enforceMapPanels() {
+        if (!window_) return;
+        QWidget* editor = window_->findChild<QWidget*>(QStringLiteral("pilinReyEditor"));
+        QWidget* canvas = editor ? editor->findChild<QWidget*>(QStringLiteral("pilinCanvasHost")) : nullptr;
+        if (!editor || !canvas || canvas->width() < 300) return;
+
+        QFrame* assets = nullptr;
+        QFrame* layers = nullptr;
+        const auto frames = editor->findChildren<QFrame*>(QStringLiteral("pilinPopover"));
+        for (QFrame* frame : frames) {
+            QString title;
+            for (QLabel* label : frame->findChildren<QLabel*>()) {
+                const QString text = label->text().trimmed();
+                if (text == QObject::tr("Assets") || text == QObject::tr("Assets cartográficos") || text == QObject::tr("Assets y sellos")) { title = QStringLiteral("assets"); break; }
+                if (text == QObject::tr("Capas")) { title = QStringLiteral("layers"); break; }
+            }
+            if (title == QStringLiteral("assets")) assets = frame;
+            else if (title == QStringLiteral("layers")) layers = frame;
+        }
+
+        const int margin = 14;
+        int y = 66;
+        if (layers && canvas->width() >= 1220) {
+            layers->setMinimumWidth(268);
+            layers->setMaximumWidth(310);
+            layers->adjustSize();
+            layers->show();
+            layers->move(qMax(margin, canvas->width() - layers->width() - margin), y);
+            layers->raise();
+            y = layers->geometry().bottom() + 10;
+        }
+        if (assets && canvas->width() >= 980) {
+            assets->setMinimumWidth(268);
+            assets->setMaximumWidth(310);
+            assets->adjustSize();
+            assets->show();
+            assets->move(qMax(margin, canvas->width() - assets->width() - margin), y);
+            assets->raise();
+        }
+    }
+
     void enforceCurrentRoute() {
         if (!window_ || !nav_ || !pages_) return;
         normalizeNavigation();
@@ -147,6 +210,7 @@ private:
                 if (writing_ && pages_->currentWidget() != writing_) pages_->setCurrentWidget(writing_);
                 if (writingTabs_) { writingTabs_->setCurrentIndex(0); if (writingTabs_->tabBar()) writingTabs_->tabBar()->hide(); }
                 setHeader(QObject::tr("Escritura"), QObject::tr("Manuscrito"));
+                QTimer::singleShot(0, this, [this]() { enforceWritingColumns(); });
                 break;
             case 2:
                 if (writing_ && pages_->currentWidget() != writing_) pages_->setCurrentWidget(writing_);
@@ -172,6 +236,7 @@ private:
                     if (worldTabs_->tabBar()) worldTabs_->tabBar()->hide();
                 }
                 setHeader(QObject::tr("Mapas"), QObject::tr("Pilín Rey"));
+                QTimer::singleShot(0, this, [this]() { enforceMapPanels(); });
                 break;
             case 5:
                 if (review_ && pages_->currentWidget() != review_) pages_->setCurrentWidget(review_);
