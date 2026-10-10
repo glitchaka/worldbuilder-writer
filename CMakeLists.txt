@@ -132,6 +132,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/WritingMockupController.cpp
     src/ui/PlanningMockupController.cpp
     src/ui/ReviewMockupController.cpp
+    src/ui/SettingsMockupController.cpp
     src/ui/SettingsWorkspace.cpp
     src/ui/SettingsWorkspace.h
     src/ui/RelationshipBoard.cpp
