@@ -27,8 +27,6 @@ enable_testing()
 set(WBW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${WBW_GENERATED_DIR}")
 
-# MapExporterV2 still receives three portability casts at configure time. The map editor itself
-# is compiled directly from source; there is no generated/patched UI implementation anymore.
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MapExporterV2.cpp" WBW_MAP_EXPORTER_V2)
 string(REPLACE
     "const int count=std::max(24,pts.size()*density/2);"
@@ -62,6 +60,8 @@ qt_add_executable(WorldbuilderWriter
     src/ui/SettingsMockupController.cpp
     src/ui/SettingsWorkspace.cpp
     src/ui/SettingsWorkspace.h
+    src/ui/RcVisualFixture.cpp
+    src/ui/RcVisualFixture.h
     src/ui/RelationshipBoard.cpp
     "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
     src/ui/MapExportDialog.cpp
