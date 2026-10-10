@@ -3,14 +3,12 @@
 #include <QEvent>
 #include <QFrame>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QPointer>
 #include <QPushButton>
 #include <QTabBar>
 #include <QTabWidget>
-#include <QTextEdit>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -18,70 +16,17 @@
 namespace wbw {
 namespace {
 
-enum class ReviewSection {
-    Summary,
-    Consistency,
-    Language,
-    Structure,
-    Style,
-    Notes
-};
-
-void applyReviewStyle(QWidget* analysis) {
-    if (!analysis) return;
-    analysis->setStyleSheet(QStringLiteral(R"QSS(
-#reviewAnalysisTab{background:palette(window);color:palette(window-text);}
-#reviewSectionBar{background:palette(base);border:1px solid palette(mid);border-radius:10px;}
-#reviewFilterButton{background:transparent;color:palette(window-text);border:0;border-radius:7px;padding:8px 11px;min-height:30px;}
-#reviewFilterButton:hover{background:palette(alternate-base);color:palette(text);}
-#reviewFilterButton:checked{background:palette(alternate-base);color:#c59a5d;border:1px solid #8b6843;}
-#reviewAnalysisTab #reviewCard,#reviewDashboard{background:palette(base);border:1px solid palette(mid);border-radius:10px;}
-#reviewAnalysisTab #reviewCardTitle{color:palette(text);font-family:'Georgia';font-size:13pt;font-weight:700;}
-#reviewAnalysisTab QListWidget{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:8px;outline:0;}
-#reviewAnalysisTab QListWidget::item{padding:9px 10px;border-bottom:1px solid palette(mid);}
-#reviewAnalysisTab QListWidget::item:hover{background:palette(alternate-base);}
-#reviewAnalysisTab QListWidget::item:selected{background:palette(highlight);color:palette(highlighted-text);}
-#reviewAnalysisTab QTextEdit,#reviewAnalysisTab QSpinBox{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:7px;padding:8px;}
-#reviewDashboardTitle{font-family:'Georgia';font-size:16pt;color:palette(text);font-weight:700;}
-#reviewDashboardCopy{color:palette(window-text);}
-#reviewMetric{background:palette(alternate-base);border:1px solid palette(mid);border-radius:9px;}
-#reviewMetricValue{font-size:18pt;font-weight:700;color:palette(text);}
-#reviewMetricLabel{color:palette(window-text);font-size:8pt;}
-#reviewAnalysisTab QScrollBar:vertical{background:transparent;width:9px;}
-#reviewAnalysisTab QScrollBar::handle:vertical{background:palette(mid);border-radius:4px;min-height:34px;}
-)QSS"));
-}
+enum class ReviewSection { Summary, Consistency, Language, Structure, Style, Notes };
 
 bool matchesSection(const QString& text, ReviewSection section) {
-    const QString normalized = text.trimmed().toLower();
+    const QString value = text.trimmed().toLower();
     switch (section) {
-        case ReviewSection::Summary:
-            return true;
-        case ReviewSection::Consistency:
-            return normalized.startsWith(QObject::tr("Repetición cercana:").toLower()) ||
-                   normalized.contains(QObject::tr("consistencia").toLower()) ||
-                   normalized.contains(QObject::tr("continuidad").toLower());
-        case ReviewSection::Language:
-            return normalized.startsWith(QObject::tr("Muletilla:").toLower()) ||
-                   normalized.startsWith(QObject::tr("Palabra duplicada consecutiva:").toLower()) ||
-                   normalized.startsWith(QObject::tr("Espacios dobles o múltiples:").toLower()) ||
-                   normalized.contains(QObject::tr("ortografía").toLower()) ||
-                   normalized.contains(QObject::tr("gramática").toLower());
-        case ReviewSection::Structure:
-            return normalized.contains(QObject::tr("estructura").toLower()) ||
-                   normalized.contains(QObject::tr("capítulo").toLower()) ||
-                   normalized.contains(QObject::tr("escena").toLower()) ||
-                   normalized.contains(QObject::tr("ritmo").toLower());
-        case ReviewSection::Style:
-            return normalized.contains(QObject::tr("estilo").toLower()) ||
-                   normalized.contains(QObject::tr("voz").toLower()) ||
-                   normalized.contains(QObject::tr("pov").toLower()) ||
-                   normalized.contains(QObject::tr("repetición").toLower()) ||
-                   normalized.contains(QObject::tr("muletilla").toLower());
-        case ReviewSection::Notes:
-            return normalized.contains(QObject::tr("nota").toLower()) ||
-                   normalized.contains(QObject::tr("pendiente").toLower()) ||
-                   normalized.contains(QObject::tr("observación").toLower());
+        case ReviewSection::Summary: return true;
+        case ReviewSection::Consistency: return value.contains(QObject::tr("consistencia").toLower()) || value.contains(QObject::tr("continuidad").toLower()) || value.startsWith(QObject::tr("Repetición cercana:").toLower());
+        case ReviewSection::Language: return value.contains(QObject::tr("ortografía").toLower()) || value.contains(QObject::tr("gramática").toLower()) || value.startsWith(QObject::tr("Muletilla:").toLower()) || value.startsWith(QObject::tr("Palabra duplicada consecutiva:").toLower()) || value.startsWith(QObject::tr("Espacios dobles o múltiples:").toLower());
+        case ReviewSection::Structure: return value.contains(QObject::tr("estructura").toLower()) || value.contains(QObject::tr("capítulo").toLower()) || value.contains(QObject::tr("escena").toLower()) || value.contains(QObject::tr("ritmo").toLower());
+        case ReviewSection::Style: return value.contains(QObject::tr("estilo").toLower()) || value.contains(QObject::tr("voz").toLower()) || value.contains(QObject::tr("pov").toLower()) || value.contains(QObject::tr("muletilla").toLower());
+        case ReviewSection::Notes: return value.contains(QObject::tr("nota").toLower()) || value.contains(QObject::tr("pendiente").toLower()) || value.contains(QObject::tr("observación").toLower());
     }
     return true;
 }
@@ -91,45 +36,9 @@ public:
     explicit ReviewWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::PaletteChange))
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
-    }
-
-    void apply() {
-        if (!window_) return;
-        auto* tabs = window_->findChild<QTabWidget*>(QStringLiteral("reviewTabs"));
-        QWidget* analysis = window_->findChild<QWidget*>(QStringLiteral("reviewAnalysisTab"));
-        if (!tabs || !analysis) return;
-        auto* layout = qobject_cast<QVBoxLayout*>(analysis->layout());
-        if (!layout) return;
-
-        tabs->setDocumentMode(true);
-        if (tabs->tabBar()) tabs->tabBar()->hide();
-        tabs->setCurrentWidget(analysis);
-
-        const auto heroes = window_->findChildren<QWidget*>(QStringLiteral("reviewHero"));
-        for (QWidget* hero : heroes) hero->hide();
-
-        if (!applied_) {
-            applied_ = true;
-            auto* sectionBar = new QFrame(analysis);
-            sectionBar->setObjectName(QStringLiteral("reviewSectionBar"));
-            auto* bar = new QHBoxLayout(sectionBar);
-            bar->setContentsMargins(8, 7, 8, 7);
-            bar->setSpacing(5);
-
-            addFilter(sectionBar, bar, QObject::tr("Resumen"), ReviewSection::Summary, true);
-            addFilter(sectionBar, bar, QObject::tr("Consistencia"), ReviewSection::Consistency);
-            addFilter(sectionBar, bar, QObject::tr("Lenguaje"), ReviewSection::Language);
-            addFilter(sectionBar, bar, QObject::tr("Estructura"), ReviewSection::Structure);
-            addFilter(sectionBar, bar, QObject::tr("Estilo"), ReviewSection::Style);
-            addFilter(sectionBar, bar, QObject::tr("Notas"), ReviewSection::Notes);
-            bar->addStretch();
-            layout->insertWidget(0, sectionBar);
-        }
-
-        applyReviewStyle(analysis);
     }
 
 private:
@@ -145,20 +54,68 @@ private:
 
     void filter(ReviewSection section) {
         if (!window_) return;
-        const auto lists = window_->findChildren<QListWidget*>();
-        for (QListWidget* list : lists) {
-            QWidget* p = list->parentWidget();
+        for (QListWidget* list : window_->findChildren<QListWidget*>()) {
+            QWidget* parent = list->parentWidget();
             bool inAnalysis = false;
-            while (p) {
-                if (p->objectName() == QStringLiteral("reviewAnalysisTab")) { inAnalysis = true; break; }
-                p = p->parentWidget();
+            while (parent) {
+                if (parent->objectName() == QStringLiteral("reviewAnalysisTab")) { inAnalysis = true; break; }
+                parent = parent->parentWidget();
             }
             if (!inAnalysis) continue;
-            for (int i = 0; i < list->count(); ++i) {
-                QListWidgetItem* item = list->item(i);
-                if (item) item->setHidden(!matchesSection(item->text(), section));
-            }
+            for (int i = 0; i < list->count(); ++i)
+                if (QListWidgetItem* item = list->item(i)) item->setHidden(!matchesSection(item->text(), section));
         }
+    }
+
+    void apply() {
+        if (!window_) return;
+        auto* tabs = window_->findChild<QTabWidget*>(QStringLiteral("reviewTabs"));
+        QWidget* analysis = window_->findChild<QWidget*>(QStringLiteral("reviewAnalysisTab"));
+        if (!tabs || !analysis) return;
+        auto* layout = qobject_cast<QVBoxLayout*>(analysis->layout());
+        if (!layout) return;
+
+        tabs->setDocumentMode(true);
+        if (tabs->tabBar()) tabs->tabBar()->hide();
+        tabs->setCurrentWidget(analysis);
+        for (QWidget* hero : window_->findChildren<QWidget*>(QStringLiteral("reviewHero"))) hero->hide();
+
+        if (!applied_) {
+            applied_ = true;
+            auto* barFrame = new QFrame(analysis);
+            barFrame->setObjectName(QStringLiteral("reviewSectionBar"));
+            auto* bar = new QHBoxLayout(barFrame);
+            bar->setContentsMargins(8, 7, 8, 7);
+            bar->setSpacing(5);
+            addFilter(barFrame, bar, QObject::tr("Resumen"), ReviewSection::Summary, true);
+            addFilter(barFrame, bar, QObject::tr("Consistencia"), ReviewSection::Consistency);
+            addFilter(barFrame, bar, QObject::tr("Lenguaje"), ReviewSection::Language);
+            addFilter(barFrame, bar, QObject::tr("Estructura"), ReviewSection::Structure);
+            addFilter(barFrame, bar, QObject::tr("Estilo"), ReviewSection::Style);
+            addFilter(barFrame, bar, QObject::tr("Notas"), ReviewSection::Notes);
+            bar->addStretch(1);
+            layout->insertWidget(0, barFrame);
+        }
+
+        analysis->setStyleSheet(QStringLiteral(R"QSS(
+#reviewAnalysisTab{background:#0a0c0f;color:#d9d4ca;}
+#reviewSectionBar{background:#0d1013;border:1px solid #2b2b27;border-radius:10px;}
+#reviewFilterButton{background:transparent;color:#888a84;border:0;border-radius:7px;padding:8px 11px;min-height:30px;}
+#reviewFilterButton:hover{background:#191b1b;color:#f1ede4;}
+#reviewFilterButton:checked{background:#30271f;color:#e8c48d;border:1px solid #6a5136;}
+#reviewAnalysisTab #reviewCard,#reviewDashboard{background:#111416;border:1px solid #2a2b27;border-radius:10px;}
+#reviewAnalysisTab #reviewCardTitle{color:#f1ede4;font-family:'Georgia';font-size:13pt;font-weight:700;}
+#reviewAnalysisTab QListWidget{background:#0d1013;color:#d3cfc6;border:1px solid #2b2b27;border-radius:8px;outline:0;}
+#reviewAnalysisTab QListWidget::item{padding:9px 10px;border-bottom:1px solid #23241f;}
+#reviewAnalysisTab QListWidget::item:hover{background:#171a1d;}
+#reviewAnalysisTab QListWidget::item:selected{background:#28251f;color:#e7c28a;}
+#reviewAnalysisTab QTextEdit,#reviewAnalysisTab QSpinBox{background:#0d1013;color:#d9d4ca;border:1px solid #30312c;border-radius:7px;padding:8px;}
+#reviewDashboardTitle{font-family:'Georgia';font-size:17pt;color:#f2eee5;font-weight:700;}
+#reviewDashboardCopy{color:#7d7f79;}
+#reviewMetric{background:#151817;border:1px solid #2b2b27;border-radius:9px;}
+#reviewMetricValue{font-size:18pt;font-weight:700;color:#f1ede4;}
+#reviewMetricLabel{color:#7f817c;font-size:8pt;}
+)QSS"));
     }
 
     QPointer<QMainWindow> window_;
@@ -168,8 +125,8 @@ private:
 } // namespace
 
 void installReviewMockupController(QMainWindow* window) {
-    if (!window || window->property("wbwReviewMockupController").toBool()) return;
-    window->setProperty("wbwReviewMockupController", true);
+    if (!window || window->property("wbwReviewMockupControllerV3").toBool()) return;
+    window->setProperty("wbwReviewMockupControllerV3", true);
     auto* filter = new ReviewWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
