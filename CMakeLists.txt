@@ -32,7 +32,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL3)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets Network)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets Network Svg)
 qt_standard_project_setup()
 
 enable_testing()
@@ -46,10 +46,10 @@ qt_add_executable(WorldbuilderWriter
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
     src/ui/RelationshipBoard.cpp
-    src/ui/MapExporter.cpp
+    src/ui/MapExporterV2.cpp
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.h
-    src/ui/PilinReyEditorV3.cpp
+    src/ui/PilinReyEditorV4.cpp
     src/ui/ProjectHubPage.cpp
     src/ui/SettingsDialog.cpp
     src/ui/SemanticTextEdit.cpp
@@ -68,6 +68,7 @@ target_link_libraries(WorldbuilderWriter PRIVATE
     Qt6::Multimedia
     Qt6::MultimediaWidgets
     Qt6::Network
+    Qt6::Svg
     SDL3::SDL3
     miniz
 )
@@ -84,10 +85,10 @@ add_test(NAME core-smoke COMMAND WorldbuilderWriterCoreSmoke)
 
 add_executable(WorldbuilderWriterMapExporterSmoke
     tests/MapExporterSmoke.cpp
-    src/ui/MapExporter.cpp
+    src/ui/MapExporterV2.cpp
 )
 target_include_directories(WorldbuilderWriterMapExporterSmoke PRIVATE src)
-target_link_libraries(WorldbuilderWriterMapExporterSmoke PRIVATE Qt6::Widgets Qt6::PrintSupport)
+target_link_libraries(WorldbuilderWriterMapExporterSmoke PRIVATE Qt6::Widgets Qt6::PrintSupport Qt6::Svg)
 add_test(NAME map-exporter-smoke COMMAND WorldbuilderWriterMapExporterSmoke)
 
 if(WIN32)
