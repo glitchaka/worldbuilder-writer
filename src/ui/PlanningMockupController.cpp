@@ -2,10 +2,12 @@
 
 #include <QEvent>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QPointer>
+#include <QPushButton>
 #include <QSplitter>
 #include <QTextEdit>
 #include <QTimer>
@@ -57,16 +59,69 @@ void styleAtlasWorkspace(QWidget* world) {
 #atlasEditorialKicker,#atlasContextKicker,#atlasSectionTitle{color:#b88a52;font-size:7.5pt;font-weight:700;letter-spacing:1.3px;}
 #atlasEditorialTitle{color:#f1ede4;font-family:'Georgia';font-size:25pt;font-weight:500;}
 #atlasEditorialSubtitle,#atlasContextCopy{color:#797b76;font-family:'Georgia';font-size:9pt;}
-#atlasIdentityStrip,#atlasSummaryCard,#atlasEditorialSection,#atlasContextCard{background:#121518;border:1px solid #2b2b27;border-radius:10px;}
+#atlasIdentityStrip,#atlasSummaryCard,#atlasEditorialSection,#atlasContextCard,#atlasAttachmentActions{background:#121518;border:1px solid #2b2b27;border-radius:10px;}
 #atlasIdentityField{background:transparent;border:0;}
 #atlasSummaryField{background:transparent;border:0;padding:0;}
 #atlasIdentityField #fieldTitle,#atlasEditorialSection #fieldTitle,#atlasContextCard #fieldTitle{color:#8d8f8a;font-size:7.5pt;font-weight:700;letter-spacing:.8px;}
-#atlasIdentityField QLineEdit,#atlasIdentityField QComboBox,#atlasSummaryField QTextEdit,#atlasEditorialSection QTextEdit,#atlasEditorialSection QLineEdit,#atlasEditorialSection QComboBox,#atlasContextCard QTextEdit,#atlasContextCard QLineEdit,#atlasContextCard QListWidget{background:#0d1013;color:#ddd8cf;border:1px solid #32332e;border-radius:7px;padding:8px;selection-background-color:#5a4630;}
-#atlasSummaryField QTextEdit{font-family:'Georgia';font-size:11pt;min-height:112px;}
-#atlasEditorialSection QTextEdit{min-height:98px;}
-#atlasContextCard QTextEdit{min-height:82px;}
+#atlasIdentityField QLineEdit,#atlasIdentityField QComboBox{background:#0d1013;color:#ddd8cf;border:1px solid #32332e;border-radius:7px;padding:8px;selection-background-color:#5a4630;}
+#atlasSummaryField QTextEdit,#atlasEditorialSection QTextEdit,#atlasContextCard QTextEdit{background:transparent;color:#d8d3c8;border:0;border-radius:0;padding:2px 0;selection-background-color:#5a4630;font-family:'Georgia';}
+#atlasEditorialSection QLineEdit,#atlasEditorialSection QComboBox,#atlasContextCard QLineEdit,#atlasContextCard QListWidget{background:#0d1013;color:#ddd8cf;border:1px solid #32332e;border-radius:7px;padding:7px;selection-background-color:#5a4630;}
+#atlasSummaryField QTextEdit{font-size:11pt;min-height:76px;max-height:126px;}
+#atlasEditorialSection QTextEdit{font-size:10pt;min-height:56px;max-height:96px;}
+#atlasContextCard QTextEdit{font-size:9.5pt;min-height:54px;max-height:90px;}
+#atlasContextCard QListWidget{min-height:56px;max-height:92px;}
+#atlasAttachmentActions QPushButton{background:transparent;color:#c8c3ba;border:1px solid #363630;border-radius:7px;padding:7px 9px;}
+#atlasAttachmentActions QPushButton:hover{background:#24241f;color:#fff8eb;border-color:#76573a;}
 #atlasEditorialSplit::handle{background:#292821;}
 )QSS"));
+}
+
+QPushButton* buttonByText(QWidget* root, const QString& text) {
+    if (!root) return nullptr;
+    for (QPushButton* button : root->findChildren<QPushButton*>())
+        if (button->text() == text) return button;
+    return nullptr;
+}
+
+void installAtlasAttachmentActions(QWidget* world) {
+    if (!world || world->property("wbwAtlasAttachmentActions").toBool()) return;
+    auto* context = world->findChild<QFrame*>(QStringLiteral("atlasContextRail"));
+    if (!context) return;
+    auto* contextLayout = qobject_cast<QVBoxLayout*>(context->layout());
+    if (!contextLayout) return;
+
+    QPushButton* oldAdd = buttonByText(world, QObject::tr("Añadir adjunto…"));
+    QPushButton* oldRemove = buttonByText(world, QObject::tr("Quitar"));
+    QPushButton* oldExport = buttonByText(world, QObject::tr("Exportar…"));
+    if (!oldAdd || !oldRemove || !oldExport) return;
+
+    oldAdd->hide();
+    oldRemove->hide();
+    oldExport->hide();
+
+    auto* card = new QFrame(context);
+    card->setObjectName(QStringLiteral("atlasAttachmentActions"));
+    auto* box = new QVBoxLayout(card);
+    box->setContentsMargins(10, 9, 10, 10);
+    box->setSpacing(7);
+    auto* heading = new QLabel(QObject::tr("MATERIAL DE REFERENCIA"), card);
+    heading->setObjectName(QStringLiteral("atlasSectionTitle"));
+    auto* actions = new QHBoxLayout;
+    actions->setSpacing(5);
+    auto* add = new QPushButton(QObject::tr("+ Adjuntar"), card);
+    auto* remove = new QPushButton(QObject::tr("Quitar"), card);
+    auto* exportButton = new QPushButton(QObject::tr("Exportar"), card);
+    actions->addWidget(add);
+    actions->addWidget(remove);
+    actions->addWidget(exportButton);
+    box->addWidget(heading);
+    box->addLayout(actions);
+    contextLayout->insertWidget(2, card);
+
+    QObject::connect(add, &QPushButton::clicked, oldAdd, &QPushButton::click);
+    QObject::connect(remove, &QPushButton::clicked, oldRemove, &QPushButton::click);
+    QObject::connect(exportButton, &QPushButton::clicked, oldExport, &QPushButton::click);
+    world->setProperty("wbwAtlasAttachmentActions", true);
 }
 
 class PlanningWorkspaceFilter final : public QObject {
@@ -74,7 +129,7 @@ public:
     explicit PlanningWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest))
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
@@ -142,7 +197,10 @@ public:
             styleCharacterWorkspace(tab);
         }
 
-        if (QWidget* world = window_->findChild<QWidget*>(QStringLiteral("worldPage"))) styleAtlasWorkspace(world);
+        if (QWidget* world = window_->findChild<QWidget*>(QStringLiteral("worldPage"))) {
+            styleAtlasWorkspace(world);
+            installAtlasAttachmentActions(world);
+        }
     }
 
 private:
@@ -154,8 +212,8 @@ private:
 } // namespace
 
 void installPlanningMockupController(QMainWindow* window) {
-    if (!window || window->property("wbwPlanningMockupControllerV3").toBool()) return;
-    window->setProperty("wbwPlanningMockupControllerV3", true);
+    if (!window || window->property("wbwPlanningMockupControllerV4").toBool()) return;
+    window->setProperty("wbwPlanningMockupControllerV4", true);
     auto* filter = new PlanningWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
