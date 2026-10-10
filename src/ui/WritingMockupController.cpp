@@ -1,12 +1,15 @@
 #include "ui/WritingMockupController.h"
 
 #include <QEvent>
+#include <QFont>
 #include <QFrame>
 #include <QMainWindow>
 #include <QPointer>
+#include <QSettings>
 #include <QSplitter>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QTimer>
 #include <QToolButton>
 #include <QWidget>
@@ -16,14 +19,11 @@ namespace {
 
 class WritingWorkspaceFilter final : public QObject {
 public:
-    explicit WritingWorkspaceFilter(QMainWindow* window)
-        : QObject(window), window_(window) {}
+    explicit WritingWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize ||
-            event->type() == QEvent::LayoutRequest) {
+        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
             QTimer::singleShot(0, this, [this]() { apply(); });
-        }
         return QObject::eventFilter(watched, event);
     }
 
@@ -35,7 +35,6 @@ public:
         if (auto* tabs = page->findChild<QTabWidget*>(QStringLiteral("writingTabs"))) {
             if (tabs->tabBar()) tabs->tabBar()->hide();
         }
-
         if (QWidget* hero = page->findChild<QWidget*>(QStringLiteral("writingHero"))) hero->hide();
 
         QWidget* index = page->findChild<QWidget*>(QStringLiteral("indexPanel"));
@@ -55,13 +54,14 @@ public:
             split->setSizes({250, 900, visible ? 285 : 0});
         }
 
-        if (index) {
-            index->setMinimumWidth(220);
-            index->setMaximumWidth(290);
-        }
-        if (metadata) {
-            metadata->setMinimumWidth(250);
-            metadata->setMaximumWidth(310);
+        if (index) { index->setMinimumWidth(220); index->setMaximumWidth(290); }
+        if (metadata) { metadata->setMinimumWidth(250); metadata->setMaximumWidth(310); }
+
+        QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+        if (auto* editor = page->findChild<QTextEdit*>(QStringLiteral("sceneEditor"))) {
+            QFont font(settings.value(QStringLiteral("editor/fontFamily"), QStringLiteral("Georgia")).toString());
+            font.setPointSize(qBound(10, settings.value(QStringLiteral("editor/fontSize"), 12).toInt(), 24));
+            editor->setFont(font);
         }
 
         page->setStyleSheet(QStringLiteral(
@@ -74,7 +74,7 @@ public:
             "#manuscriptTree,#sceneBoardOutline{background:#15181d;color:#d8dde5;border:0;padding:5px;}"
             "#manuscriptTree::item,#sceneBoardOutline::item{padding:6px;border-radius:5px;}"
             "#manuscriptTree::item:selected,#sceneBoardOutline::item:selected{background:#292f38;color:#ffffff;}"
-            "#sceneEditor{background:#121419;color:#e6e8ec;border:0;padding:42px 72px;font-family:'Georgia';font-size:12pt;selection-background-color:#5a4935;}"
+            "#sceneEditor{background:#121419;color:#e6e8ec;border:0;padding:42px 72px;selection-background-color:#5a4935;}"
             "#metadataPanel QLineEdit,#metadataPanel QComboBox{background:#111318;color:#e4e7ec;border:1px solid #333943;border-radius:6px;padding:7px;}"
             "#writingPrimary{background:#c59a5d;color:#121418;border:1px solid #c59a5d;border-radius:6px;font-weight:700;padding:7px 11px;}"
             "#writingSubtle,QToolButton{background:#1b1f25;color:#d9dde4;border:1px solid #303640;border-radius:6px;padding:6px 9px;}"
