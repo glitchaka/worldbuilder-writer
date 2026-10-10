@@ -3,13 +3,17 @@
 #include <QWidget>
 
 class QComboBox;
+class QLabel;
 class QLayout;
 class QLineEdit;
 class QListWidget;
+class QPushButton;
 class QSpinBox;
 class QStackedWidget;
 
 namespace wbw {
+
+class GoogleDriveService;
 
 class SettingsWorkspace final : public QWidget {
     Q_OBJECT
@@ -24,6 +28,8 @@ private:
     QWidget* makeCard(const QString& title, const QString& description, QLayout* body);
     void persistEditor();
     void chooseBackupDirectory();
+    void refreshCloudState();
+    void populateCloudBackups(const QJsonArray& files);
 
     QListWidget* navigation_ = nullptr;
     QStackedWidget* pages_ = nullptr;
@@ -33,6 +39,14 @@ private:
     QSpinBox* autosaveSeconds_ = nullptr;
     QComboBox* proofLanguage_ = nullptr;
     QLineEdit* backupDirectory_ = nullptr;
+
+    GoogleDriveService* drive_ = nullptr;
+    QLineEdit* clientId_ = nullptr;
+    QLineEdit* clientSecret_ = nullptr;
+    QLabel* cloudStatus_ = nullptr;
+    QListWidget* cloudBackups_ = nullptr;
+    QPushButton* connectDrive_ = nullptr;
+    QPushButton* disconnectDrive_ = nullptr;
 };
 
 } // namespace wbw
