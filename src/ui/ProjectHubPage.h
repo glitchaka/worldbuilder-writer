@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QLocale>
 #include <QWidget>
 
 class QComboBox;
