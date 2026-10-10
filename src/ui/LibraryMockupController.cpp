@@ -16,8 +16,7 @@ public:
         : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest ||
-            event->type() == QEvent::PaletteChange)
+        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
