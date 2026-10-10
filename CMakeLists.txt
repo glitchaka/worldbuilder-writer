@@ -127,6 +127,7 @@ qt_add_executable(WorldbuilderWriter
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
     src/ui/ProductReorganizer.cpp
+    src/ui/NavigationConsistencyController.cpp
     src/ui/LibraryMockupController.cpp
     src/ui/MapMockupController.cpp
     src/ui/WritingMockupController.cpp
