@@ -18,6 +18,7 @@
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QShortcut>
 #include <QStackedWidget>
 #include <QTextStream>
 #include <QTimer>
@@ -112,7 +113,6 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
             QApplication::processEvents();
             applyProductUi(window);
             QApplication::processEvents();
-
             switch (row) {
                 case 0:
                     require(window.findChild<QWidget*>(QStringLiteral("projectHubPage")) != nullptr, QStringLiteral("libraryPage"));
@@ -147,7 +147,6 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
                     require(window.findChild<QListWidget*>(QStringLiteral("cloudBackups")) != nullptr, QStringLiteral("cloudSettings"));
                     break;
             }
-
             const QPixmap shot = window.grab();
             require(!shot.isNull(), QStringLiteral("screenshot-%1").arg(slugs.at(row)));
             if (!shot.isNull()) shot.save(dir.filePath(QStringLiteral("%1.png").arg(slugs.at(row))));
