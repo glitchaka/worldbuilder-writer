@@ -1,5 +1,6 @@
 #include "ui/WritingMockupController.h"
 
+#include <QAbstractButton>
 #include <QEvent>
 #include <QFont>
 #include <QFrame>
