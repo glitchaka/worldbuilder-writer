@@ -40,10 +40,23 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "C:\Qt\6.8.3\msvc2022_64\bin;$env:PATH"
+          Remove-Item -Recurse -Force "$pwd\rc-qa" -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path "$pwd\rc-qa" | Out-Null
-          & "$pwd\build\Release\WorldbuilderWriter.exe" --rc-smoke --qa-dir="$pwd\rc-qa"
-          if ($LASTEXITCODE -ne 0) { Get-Content "$pwd\rc-qa\rc-smoke.txt" -ErrorAction SilentlyContinue; exit $LASTEXITCODE }
+          Push-Location "$pwd"
+          & "$pwd\build\Release\WorldbuilderWriter.exe" --rc-smoke --qa-dir=rc-qa
+          $code = $LASTEXITCODE
+          Pop-Location
+          if ($code -ne 0) {
+            Get-Content "$pwd\rc-qa\rc-smoke.txt" -ErrorAction SilentlyContinue
+            exit $code
+          }
+          if (!(Test-Path "$pwd\rc-qa\rc-smoke.txt")) { Write-Error "RC smoke did not create rc-smoke.txt"; exit 91 }
+          $captures = @("library.png","writing.png","scenes.png","atlas.png","maps.png","review.png","settings.png")
+          foreach ($capture in $captures) {
+            if (!(Test-Path "$pwd\rc-qa\$capture")) { Write-Error "RC smoke missing $capture"; exit 92 }
+          }
           Get-Content "$pwd\rc-qa\rc-smoke.txt"
+          Get-ChildItem "$pwd\rc-qa" | Format-Table Name,Length
 
       - name: Upload RC visual captures
         if: always()
@@ -51,7 +64,7 @@ jobs:
         with:
           name: WorldbuilderWriter-rc-qa
           path: rc-qa/
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Install standalone bundle
         shell: pwsh
