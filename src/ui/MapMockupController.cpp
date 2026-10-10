@@ -200,7 +200,7 @@ public:
             assets->setMaximumWidth(310);
             assets->adjustSize();
             const bool enoughRoom = canvas->width() >= 980;
-            if (enoughRoom && editor->isVisible()) assets->show();
+            if (enoughRoom) assets->show();
             if (!enoughRoom && !assets->underMouse()) assets->hide();
             if (assets->isVisible()) {
                 assets->move(qMax(margin, canvas->width() - assets->width() - margin), 66);
