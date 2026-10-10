@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 #include "ui/LibraryMockupController.h"
 #include "ui/MapMockupController.h"
+#include "ui/NavigationConsistencyController.h"
 #include "ui/PlanningMockupController.h"
 #include "ui/ProductReorganizer.h"
 #include "ui/ReviewMockupController.h"
@@ -97,6 +98,7 @@ void installSettingsWorkspace(wbw::MainWindow& window) {
 void applyProductUi(wbw::MainWindow& window) {
     wbw::applyProductReorganization(&window);
     installSettingsWorkspace(window);
+    wbw::installNavigationConsistencyController(&window);
     wbw::installLibraryMockupController(&window);
     wbw::installMapMockupController(&window);
     wbw::installWritingMockupController(&window);
