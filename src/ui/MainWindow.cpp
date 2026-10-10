@@ -5,6 +5,7 @@
 #include "ui/PlanningPage.h"
 #include "ui/ProjectHubPage.h"
 #include "ui/ReviewPage.h"
+#include "ui/SettingsDialog.h"
 #include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
 
@@ -19,7 +20,6 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
-#include <QListView>
 #include <QListWidget>
 #include <QMarginsF>
 #include <QMessageBox>
@@ -123,74 +123,94 @@ void MainWindow::createShell() {
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    auto* top = new QWidget;
-    top->setObjectName(QStringLiteral("topShell"));
-    top->setFixedHeight(64);
-    auto* topLayout = new QHBoxLayout(top);
-    topLayout->setContentsMargins(18, 0, 18, 0);
-    topLayout->setSpacing(14);
+    auto* workspace = new QWidget;
+    workspace->setObjectName(QStringLiteral("workspaceShell"));
+    auto* workspaceLayout = new QHBoxLayout(workspace);
+    workspaceLayout->setContentsMargins(0, 0, 0, 0);
+    workspaceLayout->setSpacing(0);
+
+    auto* rail = new QWidget;
+    rail->setObjectName(QStringLiteral("sideRail"));
+    rail->setFixedWidth(184);
+    auto* railLayout = new QVBoxLayout(rail);
+    railLayout->setContentsMargins(12, 14, 12, 12);
+    railLayout->setSpacing(8);
 
     auto* brand = new QWidget;
     brand->setObjectName(QStringLiteral("appIdentity"));
     auto* brandLayout = new QHBoxLayout(brand);
-    brandLayout->setContentsMargins(0, 0, 0, 0);
-    brandLayout->setSpacing(10);
+    brandLayout->setContentsMargins(4, 0, 4, 10);
+    brandLayout->setSpacing(9);
     auto* mark = new QLabel(QStringLiteral("WW"));
     mark->setObjectName(QStringLiteral("appMark"));
     mark->setAlignment(Qt::AlignCenter);
-    mark->setFixedSize(38, 38);
+    mark->setFixedSize(34, 34);
     auto* brandText = new QVBoxLayout;
     brandText->setSpacing(0);
-    auto* name = new QLabel(QStringLiteral("Worldbuilder Writer"));
+    auto* name = new QLabel(QStringLiteral("Worldbuilder"));
     name->setObjectName(QStringLiteral("appName"));
-    auto* mode = new QLabel(tr("ARCHIVO DE PROYECTO"));
+    auto* mode = new QLabel(QStringLiteral("WRITER"));
     mode->setObjectName(QStringLiteral("appMode"));
     brandText->addWidget(name);
     brandText->addWidget(mode);
     brandLayout->addWidget(mark);
-    brandLayout->addLayout(brandText);
-    topLayout->addWidget(brand);
-
-    auto* libraryButton = makeButton(tr("Biblioteca"));
-    libraryButton->setObjectName(QStringLiteral("libraryAction"));
-    topLayout->addWidget(libraryButton);
+    brandLayout->addLayout(brandText, 1);
+    railLayout->addWidget(brand);
 
     navigation_ = new QListWidget;
-    navigation_->setObjectName(QStringLiteral("topNavigation"));
-    navigation_->setFlow(QListView::LeftToRight);
-    navigation_->setWrapping(false);
+    navigation_->setObjectName(QStringLiteral("sideNavigation"));
     navigation_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     navigation_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    navigation_->setFixedHeight(63);
-    navigation_->setMinimumWidth(470);
-    navigation_->addItems({tr("Planificación"), tr("Escritura"), tr("Mundo"), tr("Revisión")});
-    navigation_->setCurrentRow(-1);
+    navigation_->setSpacing(2);
+    navigation_->addItems({tr("Biblioteca"), tr("Planificación"), tr("Escritura"), tr("Mundo"), tr("Revisión")});
+    navigation_->setCurrentRow(0);
     for (int i = 0; i < navigation_->count(); ++i) {
-        navigation_->item(i)->setTextAlignment(Qt::AlignCenter);
-        navigation_->item(i)->setSizeHint(QSize(i == 0 ? 118 : 100, 62));
+        navigation_->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        navigation_->item(i)->setSizeHint(QSize(156, 38));
     }
-    topLayout->addWidget(navigation_);
-    topLayout->addStretch(1);
+    railLayout->addWidget(navigation_);
+    railLayout->addStretch(1);
+
+    auto* settings = makeButton(tr("Configuración"));
+    settings->setObjectName(QStringLiteral("settingsAction"));
+    settings->setMinimumHeight(38);
+    railLayout->addWidget(settings);
+    workspaceLayout->addWidget(rail);
+
+    auto* contentShell = new QWidget;
+    contentShell->setObjectName(QStringLiteral("contentShell"));
+    auto* contentLayout = new QVBoxLayout(contentShell);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(0);
+
+    auto* top = new QWidget;
+    top->setObjectName(QStringLiteral("topShell"));
+    top->setFixedHeight(48);
+    auto* topLayout = new QHBoxLayout(top);
+    topLayout->setContentsMargins(18, 0, 18, 0);
+    topLayout->setSpacing(10);
 
     auto* projectInfo = new QVBoxLayout;
+    projectInfo->setContentsMargins(0, 0, 0, 0);
     projectInfo->setSpacing(0);
-    projectTitle_ = new QLabel(tr("Biblioteca local"));
+    projectTitle_ = new QLabel(tr("Biblioteca"));
     projectTitle_->setObjectName(QStringLiteral("projectTitle"));
-    projectTitle_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    saveState_ = new QLabel;
+    saveState_ = new QLabel(tr("Proyectos locales"));
     saveState_->setObjectName(QStringLiteral("saveState"));
-    saveState_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     projectInfo->addWidget(projectTitle_);
     projectInfo->addWidget(saveState_);
     topLayout->addLayout(projectInfo);
+    topLayout->addStretch(1);
 
+    auto* focus = makeButton(tr("Enfoque"));
+    focus->setObjectName(QStringLiteral("secondaryAction"));
     auto* quickSave = makeButton(tr("Guardar"));
     quickSave->setObjectName(QStringLiteral("primarySave"));
-    auto* focus = makeButton(tr("Sin distracciones"));
-    focus->setObjectName(QStringLiteral("secondaryAction"));
-    topLayout->addWidget(quickSave);
+    focus->hide();
+    quickSave->hide();
     topLayout->addWidget(focus);
-    root->addWidget(top);
+    topLayout->addWidget(quickSave);
+    contentLayout->addWidget(top);
 
     pages_ = new QStackedWidget;
     pages_->setObjectName(QStringLiteral("pageStack"));
@@ -205,12 +225,30 @@ void MainWindow::createShell() {
     pages_->addWidget(worldPage_);
     pages_->addWidget(reviewPage_);
     pages_->setCurrentIndex(0);
-    root->addWidget(pages_, 1);
+    contentLayout->addWidget(pages_, 1);
+    workspaceLayout->addWidget(contentShell, 1);
+    root->addWidget(workspace, 1);
     setCentralWidget(central);
 
-    connect(libraryButton, &QPushButton::clicked, this, &MainWindow::openLibrary);
-    connect(navigation_, &QListWidget::currentRowChanged, this, [this](int row) {
-        if (row >= 0) pages_->setCurrentIndex(row + 1);
+    if (auto* hubBar = hubPage_->findChild<QWidget*>(QStringLiteral("hubDesktopBar"))) hubBar->hide();
+
+    connect(navigation_, &QListWidget::currentRowChanged, this, [this, top, quickSave, focus](int row) {
+        if (row < 0 || row >= pages_->count()) return;
+        pages_->setCurrentIndex(row);
+        top->show();
+        quickSave->setVisible(row > 0);
+        focus->setVisible(row == 2);
+        if (row == 0) {
+            hubPage_->refresh();
+            projectTitle_->setText(tr("Biblioteca"));
+            saveState_->setText(tr("Proyectos locales"));
+        } else {
+            updateWindowTitle();
+        }
+    });
+    connect(settings, &QPushButton::clicked, this, [this]() {
+        SettingsDialog dialog(this);
+        dialog.exec();
     });
     connect(quickSave, &QPushButton::clicked, this, [this]() { saveProject(); });
     connect(focus, &QPushButton::clicked, writingPage_, &WritingPage::openFocusMode);
@@ -233,11 +271,12 @@ void MainWindow::loadStartupProject() {
 
 void MainWindow::showLibrary() {
     hubPage_->refresh();
+    navigation_->setCurrentRow(0);
     pages_->setCurrentIndex(0);
-    navigation_->setCurrentRow(-1);
-    projectTitle_->setText(tr("Biblioteca local"));
-    saveState_->setText(tr("Archivo de proyectos"));
-    setWindowTitle(tr("Worldbuilder Writer — Biblioteca local"));
+    if (QWidget* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->show();
+    projectTitle_->setText(tr("Biblioteca"));
+    saveState_->setText(tr("Proyectos locales"));
+    setWindowTitle(tr("Worldbuilder Writer — Biblioteca"));
 }
 
 void MainWindow::newProject() {
@@ -299,11 +338,10 @@ void MainWindow::newProject() {
     }
     setDocument(std::move(document));
     hubPage_->refresh();
-    navigation_->setCurrentRow(1);
+    navigation_->setCurrentRow(2);
 }
 
 void MainWindow::openLibrary() {
-    if (!confirmDiscard()) return;
     showLibrary();
 }
 
@@ -339,7 +377,7 @@ bool MainWindow::loadPath(const QString& path) {
 
     setDocument(std::move(candidate));
     hubPage_->refresh();
-    navigation_->setCurrentRow(1);
+    navigation_->setCurrentRow(2);
     return true;
 }
 
@@ -525,8 +563,8 @@ void MainWindow::setDocument(ArchiveDocument document) {
     writingPage_->setDocument(&document_);
     worldPage_->setDocument(&document_);
     reviewPage_->setDocument(&document_);
-    if (navigation_->currentRow() < 0) navigation_->setCurrentRow(1);
-    pages_->setCurrentIndex(navigation_->currentRow() + 1);
+    if (navigation_->currentRow() <= 0) navigation_->setCurrentRow(2);
+    pages_->setCurrentIndex(navigation_->currentRow());
     updateWindowTitle();
 }
 
@@ -545,6 +583,7 @@ void MainWindow::onDocumentChanged() {
 void MainWindow::updateWindowTitle() {
     const QString title = document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle();
     setWindowTitle(QStringLiteral("%1%2 — Worldbuilder Writer").arg(document_.isDirty() ? QStringLiteral("* ") : QString(), title.isEmpty() ? tr("Sin título") : title));
+    if (navigation_ && navigation_->currentRow() == 0) return;
     projectTitle_->setText(title.isEmpty() ? tr("Sin título") : title);
     if (document_.isDirty()) saveState_->setText(tr("Cambios pendientes"));
     else saveState_->setText(document_.sourcePath().isEmpty() ? tr("Sin ubicación local") : tr("Guardado local"));
@@ -552,10 +591,10 @@ void MainWindow::updateWindowTitle() {
 
 void MainWindow::handleReference(const QString& kind, const QString& id) {
     if (kind == QStringLiteral("character")) {
-        navigation_->setCurrentRow(0);
+        navigation_->setCurrentRow(1);
         return;
     }
-    navigation_->setCurrentRow(2);
+    navigation_->setCurrentRow(3);
     worldPage_->openReference(kind, id);
 }
 
