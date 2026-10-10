@@ -32,9 +32,7 @@ public:
         setObjectName(QStringLiteral("appTitleBar"));
         setFixedHeight(30);
         auto* layout = new QHBoxLayout(this);
-        layout->setContentsMargins(0, 0, 0, 0);
-        layout->setSpacing(0);
-        layout->addStretch(1);
+        layout->setContentsMargins(0, 0, 0, 0); layout->setSpacing(0); layout->addStretch(1);
         auto* minimize = windowButton(QStringLiteral("—"), QStringLiteral("windowMinimize"));
         auto* maximize = windowButton(QStringLiteral("□"), QStringLiteral("windowMaximize"));
         auto* close = windowButton(QStringLiteral("×"), QStringLiteral("windowClose"));
@@ -67,8 +65,7 @@ void installSettingsWorkspace(wbw::MainWindow& window) {
     pages->addWidget(settings);
     navigation->addItem(QObject::tr("Configuración / salida"));
     QListWidgetItem* item = navigation->item(navigation->count() - 1);
-    item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    item->setSizeHint(QSize(136, 38));
+    item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter); item->setSizeHint(QSize(136, 38));
     if (QWidget* oldAction = window.findChild<QWidget*>(QStringLiteral("settingsAction"))) oldAction->hide();
     QObject::connect(navigation, &QListWidget::currentRowChanged, &window, [&window, pages, settings](int row) {
         if (row != 6) return;
@@ -94,7 +91,6 @@ void applyProductUi(wbw::MainWindow& window) {
 int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     QDir dir(outputDirectory.isEmpty() ? QStringLiteral("rc-qa") : outputDirectory);
     if (!dir.exists() && !QDir().mkpath(dir.path())) return 90;
-
     QStringList failures;
     auto require = [&failures](bool condition, const QString& name) { if (!condition) failures.append(name); };
     auto* nav = window.findChild<QListWidget*>(QStringLiteral("sideNavigation"));
@@ -105,36 +101,53 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     QMenuBar* nativeMenu = window.findChild<QMenuBar*>(QString(), Qt::FindDirectChildrenOnly);
     require(!nativeMenu || !nativeMenu->isVisible(), QStringLiteral("nativeMenuHidden"));
 
-    const QStringList expectedNavigation{
-        QObject::tr("Biblioteca"), QObject::tr("Escritura"), QObject::tr("Tablero de escenas"),
-        QObject::tr("Atlas / documentación"), QObject::tr("Mapas"), QObject::tr("Revisión"), QObject::tr("Configuración / salida")
-    };
+    const QStringList expectedNavigation{QObject::tr("Biblioteca"), QObject::tr("Escritura"), QObject::tr("Tablero de escenas"), QObject::tr("Atlas / documentación"), QObject::tr("Mapas"), QObject::tr("Revisión"), QObject::tr("Configuración / salida")};
     require(nav && nav->count() == expectedNavigation.size(), QStringLiteral("sevenProductModules"));
-    if (nav) for (int i = 0; i < qMin(nav->count(), expectedNavigation.size()); ++i)
-        require(nav->item(i)->text() == expectedNavigation.at(i), QStringLiteral("navigation[%1]").arg(i));
+    if (nav) for (int i = 0; i < qMin(nav->count(), expectedNavigation.size()); ++i) require(nav->item(i)->text() == expectedNavigation.at(i), QStringLiteral("navigation[%1]").arg(i));
 
-    require(window.findChild<QWidget*>(QStringLiteral("projectHubPage")) != nullptr, QStringLiteral("libraryPage"));
-    require(window.findChild<QWidget*>(QStringLiteral("hubCardsHost")) != nullptr, QStringLiteral("libraryCards"));
-    require(window.findChild<QWidget*>(QStringLiteral("writingPage")) != nullptr, QStringLiteral("writingPage"));
-    require(window.findChild<QWidget*>(QStringLiteral("sceneEditor")) != nullptr, QStringLiteral("manuscriptEditor"));
-    require(window.findChild<QWidget*>(QStringLiteral("indexPanel")) != nullptr, QStringLiteral("manuscriptIndex"));
-    require(window.findChild<QWidget*>(QStringLiteral("sceneBoardCanvas")) != nullptr, QStringLiteral("sceneBoard"));
-    require(window.findChild<QWidget*>(QStringLiteral("worldIndexPanel")) != nullptr, QStringLiteral("atlasIndex"));
-    require(window.findChild<QWidget*>(QStringLiteral("atlasContextRail")) != nullptr, QStringLiteral("atlasContextRail"));
-    require(window.findChild<QWidget*>(QStringLiteral("pilinReyEditor")) != nullptr, QStringLiteral("mapEditor"));
-    require(window.findChild<QWidget*>(QStringLiteral("pilinToolPalette")) != nullptr, QStringLiteral("mapToolPalette"));
-    require(window.findChild<QWidget*>(QStringLiteral("pilinTopCommands")) != nullptr, QStringLiteral("mapCommands"));
-    require(window.findChild<QWidget*>(QStringLiteral("reviewAnalysisTab")) != nullptr, QStringLiteral("reviewAnalysis"));
-    require(window.findChild<QWidget*>(QStringLiteral("reviewDashboard")) != nullptr, QStringLiteral("reviewDashboard"));
-    require(window.findChild<wbw::SettingsWorkspace*>() != nullptr, QStringLiteral("settingsWorkspace"));
-
+    const QStringList slugs{QStringLiteral("library"), QStringLiteral("writing"), QStringLiteral("scenes"), QStringLiteral("atlas"), QStringLiteral("maps"), QStringLiteral("review"), QStringLiteral("settings")};
     if (nav) {
-        const QStringList slugs{QStringLiteral("library"), QStringLiteral("writing"), QStringLiteral("scenes"), QStringLiteral("atlas"), QStringLiteral("maps"), QStringLiteral("review"), QStringLiteral("settings")};
         for (int row = 0; row < qMin(nav->count(), slugs.size()); ++row) {
             nav->setCurrentRow(row);
             QApplication::processEvents();
             applyProductUi(window);
             QApplication::processEvents();
+
+            switch (row) {
+                case 0:
+                    require(window.findChild<QWidget*>(QStringLiteral("projectHubPage")) != nullptr, QStringLiteral("libraryPage"));
+                    require(window.findChild<QWidget*>(QStringLiteral("hubCardsHost")) != nullptr, QStringLiteral("libraryCards"));
+                    break;
+                case 1:
+                    require(window.findChild<QWidget*>(QStringLiteral("sceneEditor")) != nullptr, QStringLiteral("manuscriptEditor"));
+                    require(window.findChild<QWidget*>(QStringLiteral("indexPanel")) != nullptr, QStringLiteral("manuscriptIndex"));
+                    require(window.findChild<QShortcut*>(QStringLiteral("wbwFocusShortcut")) != nullptr, QStringLiteral("focusShortcut"));
+                    require(window.findChild<QShortcut*>(QStringLiteral("wbwProofShortcut")) != nullptr, QStringLiteral("proofShortcut"));
+                    break;
+                case 2:
+                    require(window.findChild<QWidget*>(QStringLiteral("sceneBoardCanvas")) != nullptr, QStringLiteral("sceneBoard"));
+                    break;
+                case 3:
+                    require(window.findChild<QWidget*>(QStringLiteral("worldIndexPanel")) != nullptr, QStringLiteral("atlasIndex"));
+                    require(window.findChild<QWidget*>(QStringLiteral("atlasContextRail")) != nullptr, QStringLiteral("atlasContextRail"));
+                    require(window.findChild<QWidget*>(QStringLiteral("planningContextRail")) != nullptr, QStringLiteral("planningContextRail"));
+                    break;
+                case 4:
+                    require(window.findChild<QWidget*>(QStringLiteral("pilinReyEditor")) != nullptr, QStringLiteral("mapEditor"));
+                    require(window.findChild<QWidget*>(QStringLiteral("pilinToolPalette")) != nullptr, QStringLiteral("mapToolPalette"));
+                    require(window.findChild<QWidget*>(QStringLiteral("pilinTopCommands")) != nullptr, QStringLiteral("mapCommands"));
+                    break;
+                case 5:
+                    require(window.findChild<QWidget*>(QStringLiteral("reviewAnalysisTab")) != nullptr, QStringLiteral("reviewAnalysis"));
+                    require(window.findChild<QWidget*>(QStringLiteral("reviewDashboard")) != nullptr, QStringLiteral("reviewDashboard"));
+                    require(window.findChild<QWidget*>(QStringLiteral("reviewSectionBar")) != nullptr, QStringLiteral("reviewSectionBar"));
+                    break;
+                case 6:
+                    require(window.findChild<wbw::SettingsWorkspace*>() != nullptr, QStringLiteral("settingsWorkspace"));
+                    require(window.findChild<QListWidget*>(QStringLiteral("cloudBackups")) != nullptr, QStringLiteral("cloudSettings"));
+                    break;
+            }
+
             const QPixmap shot = window.grab();
             require(!shot.isNull(), QStringLiteral("screenshot-%1").arg(slugs.at(row)));
             if (!shot.isNull()) shot.save(dir.filePath(QStringLiteral("%1.png").arg(slugs.at(row))));
@@ -143,8 +156,7 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
 
     QFile report(dir.filePath(QStringLiteral("rc-smoke.txt")));
     if (report.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&report);
-        out << (failures.isEmpty() ? QStringLiteral("PASS\n") : QStringLiteral("FAIL\n"));
+        QTextStream out(&report); out << (failures.isEmpty() ? QStringLiteral("PASS\n") : QStringLiteral("FAIL\n"));
         for (const QString& failure : failures) out << failure << '\n';
     }
     return failures.isEmpty() ? 0 : 2;
@@ -158,22 +170,19 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setOrganizationName(QStringLiteral("Worldbuilder Writer"));
     app.setStyle(QStringLiteral("Fusion"));
     wbw::ThemeManager::applySaved();
-
     wbw::MainWindow window;
     window.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     window.setMenuBar(nullptr);
     if (auto* root = qobject_cast<QVBoxLayout*>(window.centralWidget()->layout())) root->insertWidget(0, new AppTitleBar(window.centralWidget()));
-
     applyProductUi(window);
     window.resize(1600, 1000);
     window.show();
     QTimer::singleShot(0, [&window]() { applyProductUi(window); });
-
     const QStringList args = QApplication::arguments();
     if (args.contains(QStringLiteral("--rc-smoke"))) {
         QString qaDir = QStringLiteral("rc-qa");
         for (const QString& arg : args) if (arg.startsWith(QStringLiteral("--qa-dir="))) qaDir = arg.mid(QStringLiteral("--qa-dir=").size());
-        QTimer::singleShot(450, &app, [&app, &window, qaDir]() { app.exit(runRcSmoke(window, qaDir)); });
+        QTimer::singleShot(650, &app, [&app, &window, qaDir]() { app.exit(runRcSmoke(window, qaDir)); });
     }
     return app.exec();
 }
