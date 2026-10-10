@@ -1,4 +1,5 @@
 #include "ui/MainWindow.h"
+#include "ui/ProductReorganizer.h"
 #include "ui/ThemeManager.h"
 
 #include <QApplication>
@@ -88,8 +89,12 @@ int main(int argc, char* argv[]) {
         root->insertWidget(0, new AppTitleBar(window.centralWidget()));
     }
 
+    wbw::applyProductReorganization(&window);
     wbw::ThemeManager::applySaved();
     window.show();
-    QTimer::singleShot(0, []() { wbw::ThemeManager::applySaved(); });
+    QTimer::singleShot(0, [&window]() {
+        wbw::applyProductReorganization(&window);
+        wbw::ThemeManager::applySaved();
+    });
     return app.exec();
 }
