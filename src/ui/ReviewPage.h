@@ -10,6 +10,7 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QMediaPlayer;
+class QShowEvent;
 class QSpinBox;
 class QTabWidget;
 class QTextEdit;
@@ -33,11 +34,16 @@ signals:
     void requestExportWbw();
     void requestBackup();
 
+protected:
+    void showEvent(QShowEvent* event) override;
+
 private:
     QWidget* buildProjectTab();
     QWidget* buildAnalysisTab();
     QWidget* buildLayoutTab();
     QWidget* buildMediaTab();
+    void applyApprovedReviewChrome();
+    void refreshReviewDashboard();
 
     void applyProfile();
     void chooseProfileImage(const QString& key);
@@ -55,7 +61,13 @@ private:
 
     ArchiveDocument* document_ = nullptr;
     bool refreshing_ = false;
+    bool reviewChromeApplied_ = false;
     QTabWidget* tabs_ = nullptr;
+
+    QLabel* dashboardWords_ = nullptr;
+    QLabel* dashboardChapters_ = nullptr;
+    QLabel* dashboardScenes_ = nullptr;
+    QLabel* dashboardIssues_ = nullptr;
 
     QLineEdit* archiveTitle_ = nullptr;
     QLineEdit* storyTitle_ = nullptr;
