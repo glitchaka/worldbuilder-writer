@@ -43,8 +43,9 @@ jobs:
           $qa = Join-Path $env:GITHUB_WORKSPACE "rc-qa"
           Remove-Item -Recurse -Force $qa -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $qa | Out-Null
-          & "$env:GITHUB_WORKSPACE\build\Release\WorldbuilderWriter.exe" --rc-smoke "--qa-dir=$qa"
-          $code = $LASTEXITCODE
+          $exe = Join-Path $env:GITHUB_WORKSPACE "build\Release\WorldbuilderWriter.exe"
+          $process = Start-Process -FilePath $exe -ArgumentList @("--rc-smoke", "--qa-dir=$qa") -WorkingDirectory $env:GITHUB_WORKSPACE -PassThru -Wait
+          $code = $process.ExitCode
           if ($code -ne 0) {
             Get-Content "$qa\rc-smoke.txt" -ErrorAction SilentlyContinue
             exit $code
