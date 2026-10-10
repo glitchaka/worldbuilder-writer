@@ -36,7 +36,7 @@ public:
     explicit ReviewWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest))
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
@@ -84,6 +84,10 @@ public:
 #reviewAnalysisTab QListWidget::item:hover{background:#171a1d;}
 #reviewAnalysisTab QListWidget::item:selected{background:#28251f;color:#e7c28a;}
 #reviewAnalysisTab QTextEdit,#reviewAnalysisTab QSpinBox{background:#0d1013;color:#d9d4ca;border:1px solid #30312c;border-radius:7px;padding:8px;}
+#reviewAnalysisTab QPushButton{background:#151819;color:#c9c5bd;border:1px solid #34352f;border-radius:7px;padding:7px 11px;min-height:30px;}
+#reviewAnalysisTab QPushButton:hover{background:#20211f;color:#fff9ee;border-color:#5a4a37;}
+#reviewAnalysisTab QPushButton:pressed{background:#29261f;color:#e8c48d;}
+#reviewAnalysisTab QPushButton:default{background:#b88a52;color:#11120f;border:1px solid #b88a52;font-weight:700;}
 #reviewDashboardTitle{font-family:'Georgia';font-size:17pt;color:#f2eee5;font-weight:700;}
 #reviewDashboardCopy{color:#7d7f79;}
 #reviewMetric{background:#151817;border:1px solid #2b2b27;border-radius:9px;}
@@ -125,8 +129,8 @@ private:
 } // namespace
 
 void installReviewMockupController(QMainWindow* window) {
-    if (!window || window->property("wbwReviewMockupControllerV3").toBool()) return;
-    window->setProperty("wbwReviewMockupControllerV3", true);
+    if (!window || window->property("wbwReviewMockupControllerV4").toBool()) return;
+    window->setProperty("wbwReviewMockupControllerV4", true);
     auto* filter = new ReviewWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
