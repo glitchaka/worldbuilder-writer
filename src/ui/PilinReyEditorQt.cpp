@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontMetrics>
 #include <QGridLayout>
@@ -21,6 +22,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLineF>
 #include <QListView>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -32,7 +34,9 @@
 #include <QRandomGenerator>
 #include <QResizeEvent>
 #include <QShortcut>
+#include <QShowEvent>
 #include <QSlider>
+#include <QTimer>
 #include <QToolButton>
 #include <QUuid>
 #include <QVBoxLayout>
@@ -411,7 +415,6 @@ protected:
         const QColor sea = themeColor(pilin, QStringLiteral("sea"), QColor(QStringLiteral("#b7c5c2")));
         painter.fillRect(page, sea);
 
-        // Subtle paper/cartographic texture without external or generated assets.
         painter.save();
         painter.setClipRect(page);
         painter.setPen(QPen(QColor(72, 61, 48, 15), 1));
@@ -434,11 +437,9 @@ protected:
         }
 
         drawPreview(painter, pilin);
-
         painter.setPen(QPen(themeColor(pilin, QStringLiteral("coast"), QColor(QStringLiteral("#4a4135"))), 1.2));
         painter.setBrush(Qt::NoBrush);
         painter.drawRect(page);
-
         painter.save();
         painter.setPen(QPen(QColor(80, 69, 54, 90), 1));
         const qreal inset = 7.0;
@@ -747,7 +748,6 @@ private:
             painter.drawLine(QPointF(-size * .48, size * .31), QPointF(size * .48, size * .31));
             return;
         }
-        // castle/tower/mill fallback: strong traditional silhouette.
         painter.drawRect(QRectF(-size * .32, -size * .18, size * .64, size * .5));
         painter.drawRect(QRectF(-size * .46, -size * .34, size * .22, size * .66));
         painter.drawRect(QRectF(size * .24, -size * .34, size * .22, size * .66));
@@ -914,7 +914,14 @@ void PilinReyEditor::buildUi() {
     auto* exportButton = toolButton(QStringLiteral("Exportar"), tr("Exportar"), topCommands_, QStringLiteral("pilinCommand"));
     snapCheck_ = new QCheckBox(tr("Ajustar"), topCommands_);
     gridCheck_ = new QCheckBox(tr("Cuadrícula"), topCommands_);
-    for (QWidget* widget : {static_cast<QWidget*>(layersButton_), assetsButton_, templateButton_, appearanceButton_, fitButton, undoButton_, redoButton_, exportButton}) commands->addWidget(widget);
+    commands->addWidget(layersButton_);
+    commands->addWidget(assetsButton_);
+    commands->addWidget(templateButton_);
+    commands->addWidget(appearanceButton_);
+    commands->addWidget(fitButton);
+    commands->addWidget(undoButton_);
+    commands->addWidget(redoButton_);
+    commands->addWidget(exportButton);
     commands->addWidget(snapCheck_);
     commands->addWidget(gridCheck_);
 
