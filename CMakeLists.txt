@@ -37,6 +37,8 @@ qt_add_executable(WorldbuilderWriter
     src/ui/LibraryMockupController.cpp
     src/ui/MapMockupController.cpp
     src/ui/WritingMockupController.cpp
+    src/ui/WritingShortcutBridge.cpp
+    src/ui/WritingShortcutBridge.h
     src/ui/PlanningMockupController.cpp
     src/ui/ReviewMockupController.cpp
     src/ui/SettingsMockupController.cpp
