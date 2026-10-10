@@ -4,6 +4,7 @@
 #include "ui/PlanningMockupController.h"
 #include "ui/ProductReorganizer.h"
 #include "ui/ReviewMockupController.h"
+#include "ui/SettingsMockupController.h"
 #include "ui/SettingsWorkspace.h"
 #include "ui/ThemeManager.h"
 #include "ui/WritingMockupController.h"
@@ -86,6 +87,7 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::installWritingMockupController(&window);
     wbw::installPlanningMockupController(&window);
     wbw::installReviewMockupController(&window);
+    wbw::installSettingsMockupController(&window);
     wbw::ThemeManager::applySaved();
 }
 
