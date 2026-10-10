@@ -17,8 +17,6 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-#include <functional>
-
 namespace wbw {
 namespace {
 
@@ -137,8 +135,9 @@ public:
                 auto* rotateRight = command(panel, QStringLiteral("↻"), QObject::tr("Rotar trazado +15°"));
                 auto* shrink = command(panel, QStringLiteral("↙"), QObject::tr("Reducir geometría de trazados"));
                 auto* grow = command(panel, QStringLiteral("↗"), QObject::tr("Aumentar geometría de trazados"));
+                auto* labelStyle = command(panel, QStringLiteral("Aa"), QObject::tr("Tamaño y peso de la etiqueta"));
                 movement->addWidget(left); movement->addWidget(up); movement->addWidget(down); movement->addWidget(right);
-                movement->addSpacing(5); movement->addWidget(rotateLeft); movement->addWidget(rotateRight); movement->addWidget(shrink); movement->addWidget(grow);
+                movement->addSpacing(5); movement->addWidget(rotateLeft); movement->addWidget(rotateRight); movement->addWidget(shrink); movement->addWidget(grow); movement->addWidget(labelStyle);
                 layout->addWidget(label);
                 layout->addLayout(movement);
                 QObject::connect(left, &QToolButton::clicked, editor, [editor]() { editor->nudgeSelection(-25.0, 0.0); });
@@ -149,6 +148,7 @@ public:
                 QObject::connect(rotateRight, &QToolButton::clicked, editor, [editor]() { editor->transformSelectedPathGeometry(1.0, 15.0); });
                 QObject::connect(shrink, &QToolButton::clicked, editor, [editor]() { editor->transformSelectedPathGeometry(0.9, 0.0); });
                 QObject::connect(grow, &QToolButton::clicked, editor, [editor]() { editor->transformSelectedPathGeometry(1.1, 0.0); });
+                QObject::connect(labelStyle, &QToolButton::clicked, editor, &PilinReyEditor::editSelectedLabelStyle);
                 panel->setProperty("wbwSelectionGeometryControls", true);
                 panel->adjustSize();
             }
@@ -194,8 +194,8 @@ private:
 } // namespace
 
 void installMapSelectionController(QMainWindow* window) {
-    if (!window || window->property("wbwMapSelectionControllerV2").toBool()) return;
-    window->setProperty("wbwMapSelectionControllerV2", true);
+    if (!window || window->property("wbwMapSelectionControllerV3").toBool()) return;
+    window->setProperty("wbwMapSelectionControllerV3", true);
     auto* filter = new MapSelectionFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
