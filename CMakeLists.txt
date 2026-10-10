@@ -24,24 +24,6 @@ qt_standard_project_setup()
 
 enable_testing()
 
-set(WBW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
-file(MAKE_DIRECTORY "${WBW_GENERATED_DIR}")
-
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/MapExporterV2.cpp" WBW_MAP_EXPORTER_V2)
-string(REPLACE
-    "const int count=std::max(24,pts.size()*density/2);"
-    "const int count=std::max(24,static_cast<int>(pts.size())*density/2);"
-    WBW_MAP_EXPORTER_V2 "${WBW_MAP_EXPORTER_V2}")
-string(REPLACE
-    "const int count=std::max(18,pts.size()*density/3);"
-    "const int count=std::max(18,static_cast<int>(pts.size())*density/3);"
-    WBW_MAP_EXPORTER_V2 "${WBW_MAP_EXPORTER_V2}")
-string(REPLACE
-    "const double t=static_cast<double>(i)/std::max(1,poly.size()-1);"
-    "const double t=static_cast<double>(i)/std::max(1,static_cast<int>(poly.size())-1);"
-    WBW_MAP_EXPORTER_V2 "${WBW_MAP_EXPORTER_V2}")
-file(WRITE "${WBW_GENERATED_DIR}/MapExporterV2.cpp" "${WBW_MAP_EXPORTER_V2}")
-
 qt_add_executable(WorldbuilderWriter
     src/main.cpp
     src/core/ArchiveDocument.cpp
@@ -64,7 +46,7 @@ qt_add_executable(WorldbuilderWriter
     src/ui/RcVisualFixture.h
     src/ui/RcVisualFixtureStartup.cpp
     src/ui/RelationshipBoard.cpp
-    "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
+    src/ui/MapExporterV2.cpp
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.h
     src/ui/PilinReyEditorQt.cpp
@@ -103,7 +85,7 @@ add_test(NAME core-smoke COMMAND WorldbuilderWriterCoreSmoke)
 
 add_executable(WorldbuilderWriterMapExporterSmoke
     tests/MapExporterSmoke.cpp
-    "${WBW_GENERATED_DIR}/MapExporterV2.cpp"
+    src/ui/MapExporterV2.cpp
 )
 target_include_directories(WorldbuilderWriterMapExporterSmoke PRIVATE src)
 target_link_libraries(WorldbuilderWriterMapExporterSmoke PRIVATE Qt6::Widgets Qt6::PrintSupport Qt6::Svg)
