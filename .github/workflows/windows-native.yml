@@ -40,39 +40,37 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "C:\Qt\6.8.3\msvc2022_64\bin;$env:PATH"
-          Remove-Item -Recurse -Force "$pwd\rc-qa" -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path "$pwd\rc-qa" | Out-Null
-          Push-Location "$pwd"
-          & "$pwd\build\Release\WorldbuilderWriter.exe" --rc-smoke --qa-dir=rc-qa
+          $qa = Join-Path $env:GITHUB_WORKSPACE "rc-qa"
+          Remove-Item -Recurse -Force $qa -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $qa | Out-Null
+          & "$env:GITHUB_WORKSPACE\build\Release\WorldbuilderWriter.exe" --rc-smoke "--qa-dir=$qa"
           $code = $LASTEXITCODE
-          Pop-Location
           if ($code -ne 0) {
-            Get-Content "$pwd\rc-qa\rc-smoke.txt" -ErrorAction SilentlyContinue
+            Get-Content "$qa\rc-smoke.txt" -ErrorAction SilentlyContinue
             exit $code
           }
-          if (!(Test-Path "$pwd\rc-qa\rc-smoke.txt")) { Write-Error "RC smoke did not create rc-smoke.txt"; exit 91 }
+          if (!(Test-Path "$qa\rc-smoke.txt")) { Write-Error "RC smoke did not create rc-smoke.txt"; exit 91 }
           $captures = @("library.png","writing.png","scenes.png","atlas.png","maps.png","review.png","settings.png")
           foreach ($capture in $captures) {
-            if (!(Test-Path "$pwd\rc-qa\$capture")) { Write-Error "RC smoke missing $capture"; exit 92 }
+            if (!(Test-Path "$qa\$capture")) { Write-Error "RC smoke missing $capture"; exit 92 }
           }
-          Get-Content "$pwd\rc-qa\rc-smoke.txt"
-          Get-ChildItem "$pwd\rc-qa" | Format-Table Name,Length
+          Get-Content "$qa\rc-smoke.txt"
+          Get-ChildItem $qa | Format-Table Name,Length
 
       - name: Upload RC visual captures
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: WorldbuilderWriter-rc-qa
-          path: rc-qa/
+          path: ${{ github.workspace }}/rc-qa
           if-no-files-found: error
 
       - name: Install standalone bundle
         shell: pwsh
-        run: cmake --install build --config Release --prefix "$pwd\dist"
+        run: cmake --install build --config Release --prefix "$env:GITHUB_WORKSPACE\dist"
 
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v4
         with:
           name: WorldbuilderWriter-win64
-          path: dist/
+          path: ${{ github.workspace }}/dist
           if-no-files-found: error
