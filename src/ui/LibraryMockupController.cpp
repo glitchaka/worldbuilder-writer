@@ -16,7 +16,7 @@ public:
         : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
@@ -88,7 +88,6 @@ void installLibraryMockupController(QMainWindow* window) {
     window->setProperty("wbwLibraryMockupController", true);
     auto* filter = new LibraryWorkspaceFilter(window);
     window->installEventFilter(filter);
-    for (QWidget* widget : window->findChildren<QWidget*>()) widget->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
 }
 
