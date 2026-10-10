@@ -15,6 +15,7 @@
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
+#include <QToolButton>
 #include <QWidget>
 
 namespace wbw {
@@ -55,6 +56,7 @@ private:
         normalizeNavigation();
         connect(nav_, &QListWidget::currentRowChanged, this, [this](int) {
             QTimer::singleShot(0, this, [this]() { enforceCurrentRoute(); });
+            QTimer::singleShot(80, this, [this]() { enforceCurrentRoute(); });
         });
         connect(pages_, &QStackedWidget::currentChanged, this, [this](int) {
             QTimer::singleShot(0, this, [this]() { enforceCurrentRoute(); });
@@ -107,22 +109,27 @@ private:
         nav_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         nav_->setMinimumHeight(expected.size() * 44 + 12);
         nav_->setMaximumHeight(expected.size() * 44 + 12);
+        const int itemWidth = window_ && window_->width() < 1120 ? 150 : 196;
         for (int i = 0; i < nav_->count(); ++i) {
             nav_->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-            nav_->item(i)->setSizeHint(QSize(196, 42));
+            nav_->item(i)->setSizeHint(QSize(itemWidth, 42));
         }
     }
 
     void enforceReadableRail() {
         if (!window_ || !rail_) return;
-        constexpr int railWidth = 220;
+        const int width = window_->width();
+        const int railWidth = width < 1120 ? 174 : (width < 1360 ? 194 : 220);
+        const int itemWidth = railWidth - 24;
         rail_->setMinimumWidth(railWidth);
         rail_->setMaximumWidth(railWidth);
+        if (QWidget* identity = window_->findChild<QWidget*>(QStringLiteral("appIdentity")))
+            identity->setVisible(width >= 960);
         if (nav_) {
             nav_->setMinimumHeight(nav_->count() * 44 + 12);
             nav_->setMaximumHeight(nav_->count() * 44 + 12);
             for (int i = 0; i < nav_->count(); ++i)
-                if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(196, 42));
+                if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(itemWidth, 42));
         }
     }
 
@@ -136,19 +143,27 @@ private:
         if (!window_) return;
         QWidget* index = window_->findChild<QWidget*>(QStringLiteral("indexPanel"));
         QWidget* metadata = window_->findChild<QWidget*>(QStringLiteral("metadataPanel"));
+        QWidget* commandBar = window_->findChild<QWidget*>(QStringLiteral("writingCommandBar"));
         if (!index || !metadata) return;
         QSplitter* split = qobject_cast<QSplitter*>(index->parentWidget());
         if (!split || split->count() < 3) return;
-        const bool wide = window_->width() >= 1240;
-        metadata->setVisible(wide);
-        metadata->setMinimumWidth(wide ? 240 : 0);
-        metadata->setMaximumWidth(wide ? 310 : 0);
-        index->setMinimumWidth(wide ? 220 : 190);
-        index->setMaximumWidth(wide ? 285 : 220);
+        const bool showContext = window_->width() >= 900;
+        metadata->setVisible(showContext);
+        metadata->setMinimumWidth(showContext ? 210 : 0);
+        metadata->setMaximumWidth(showContext ? 280 : 0);
+        index->setMinimumWidth(window_->width() < 1120 ? 175 : 210);
+        index->setMaximumWidth(window_->width() < 1120 ? 205 : 270);
         split->setStretchFactor(0, 0);
         split->setStretchFactor(1, 1);
         split->setStretchFactor(2, 0);
-        split->setSizes(wide ? QList<int>{240, 920, 285} : QList<int>{200, 820, 0});
+        split->setSizes(showContext ? QList<int>{190, 560, 235} : QList<int>{190, 800, 0});
+        if (commandBar) {
+            for (QToolButton* button : commandBar->findChildren<QToolButton*>()) {
+                if (button->text() != QObject::tr("Detalles")) continue;
+                button->setChecked(showContext);
+                break;
+            }
+        }
         metadata->raise();
     }
 
@@ -172,20 +187,21 @@ private:
             else if (title == QStringLiteral("layers")) layers = frame;
         }
 
-        const int margin = 14;
-        int y = 66;
-        if (layers && canvas->width() >= 1220) {
-            layers->setMinimumWidth(268);
-            layers->setMaximumWidth(310);
+        const int margin = 12;
+        const int panelWidth = canvas->width() < 1000 ? 220 : 268;
+        int y = 60;
+        if (layers && canvas->width() >= 780) {
+            layers->setMinimumWidth(panelWidth);
+            layers->setMaximumWidth(panelWidth + 20);
             layers->adjustSize();
             layers->show();
             layers->move(qMax(margin, canvas->width() - layers->width() - margin), y);
             layers->raise();
-            y = layers->geometry().bottom() + 10;
+            y = layers->geometry().bottom() + 8;
         }
-        if (assets && canvas->width() >= 980) {
-            assets->setMinimumWidth(268);
-            assets->setMaximumWidth(310);
+        if (assets && canvas->width() >= 780) {
+            assets->setMinimumWidth(panelWidth);
+            assets->setMaximumWidth(panelWidth + 20);
             assets->adjustSize();
             assets->show();
             assets->move(qMax(margin, canvas->width() - assets->width() - margin), y);
@@ -211,6 +227,7 @@ private:
                 if (writingTabs_) { writingTabs_->setCurrentIndex(0); if (writingTabs_->tabBar()) writingTabs_->tabBar()->hide(); }
                 setHeader(QObject::tr("Escritura"), QObject::tr("Manuscrito"));
                 QTimer::singleShot(0, this, [this]() { enforceWritingColumns(); });
+                QTimer::singleShot(80, this, [this]() { enforceWritingColumns(); });
                 break;
             case 2:
                 if (writing_ && pages_->currentWidget() != writing_) pages_->setCurrentWidget(writing_);
@@ -237,6 +254,7 @@ private:
                 }
                 setHeader(QObject::tr("Mapas"), QObject::tr("Pilín Rey"));
                 QTimer::singleShot(0, this, [this]() { enforceMapPanels(); });
+                QTimer::singleShot(80, this, [this]() { enforceMapPanels(); });
                 break;
             case 5:
                 if (review_ && pages_->currentWidget() != review_) pages_->setCurrentWidget(review_);
