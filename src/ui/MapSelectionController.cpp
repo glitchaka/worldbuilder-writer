@@ -68,6 +68,8 @@ public:
         auto* up = command(panel, QStringLiteral("↑"), QObject::tr("Mover selección arriba"));
         auto* down = command(panel, QStringLiteral("↓"), QObject::tr("Mover selección abajo"));
         auto* right = command(panel, QStringLiteral("→"), QObject::tr("Mover selección a la derecha"));
+        auto* rotateLeft = command(panel, QStringLiteral("↺"), QObject::tr("Rotar trazado −15°"));
+        auto* rotateRight = command(panel, QStringLiteral("↻"), QObject::tr("Rotar trazado +15°"));
         auto* shrink = command(panel, QStringLiteral("↙"), QObject::tr("Reducir geometría de trazados"));
         auto* grow = command(panel, QStringLiteral("↗"), QObject::tr("Aumentar geometría de trazados"));
         movement->addWidget(left);
@@ -75,6 +77,8 @@ public:
         movement->addWidget(down);
         movement->addWidget(right);
         movement->addSpacing(5);
+        movement->addWidget(rotateLeft);
+        movement->addWidget(rotateRight);
         movement->addWidget(shrink);
         movement->addWidget(grow);
         layout->addWidget(label);
@@ -84,6 +88,8 @@ public:
         QObject::connect(right, &QToolButton::clicked, editor, [editor]() { editor->nudgeSelection(25.0, 0.0); });
         QObject::connect(up, &QToolButton::clicked, editor, [editor]() { editor->nudgeSelection(0.0, -25.0); });
         QObject::connect(down, &QToolButton::clicked, editor, [editor]() { editor->nudgeSelection(0.0, 25.0); });
+        QObject::connect(rotateLeft, &QToolButton::clicked, editor, [editor]() { editor->transformSelectedPathGeometry(1.0, -15.0); });
+        QObject::connect(rotateRight, &QToolButton::clicked, editor, [editor]() { editor->transformSelectedPathGeometry(1.0, 15.0); });
         QObject::connect(shrink, &QToolButton::clicked, editor, [editor]() { editor->transformSelectedPathGeometry(0.9, 0.0); });
         QObject::connect(grow, &QToolButton::clicked, editor, [editor]() { editor->transformSelectedPathGeometry(1.1, 0.0); });
 
