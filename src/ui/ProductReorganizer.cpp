@@ -2,6 +2,7 @@
 
 #include <QListWidget>
 #include <QMainWindow>
+#include <QObject>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTabWidget>
@@ -27,8 +28,10 @@ void applyProductReorganization(QMainWindow* window) {
 
     if (!navigation || !pages || !hub || !writing || !world || !review || !worldTabs) return;
 
-    // Planning becomes a documentation sub-workspace. This is a structural move only:
-    // no widgets are painted over, hidden as a visual patch, or duplicated.
+    // MainWindow's original five-page route is intentionally detached before the product
+    // tree is reorganized. NavigationConsistencyController becomes the only route owner.
+    QObject::disconnect(navigation, &QListWidget::currentRowChanged, nullptr, nullptr);
+
     if (planning && planning->parentWidget() == pages) {
         pages->removeWidget(planning);
         worldTabs->insertTab(0, planning, QObject::tr("Personajes y tramas"));
@@ -44,8 +47,6 @@ void applyProductReorganization(QMainWindow* window) {
 
     if (writingTabs && writingTabs->tabBar()) writingTabs->tabBar()->hide();
 
-    // The stacked widget contains real product workspaces only. Navigation routing is owned
-    // by NavigationConsistencyController so there is a single source of truth.
     while (pages->count()) pages->removeWidget(pages->widget(0));
     pages->addWidget(hub);
     pages->addWidget(writing);
@@ -68,8 +69,6 @@ void applyProductReorganization(QMainWindow* window) {
     }
     navigation->setCurrentRow(0);
 
-    // Atlas route exposes all documentation tabs except maps; the dedicated Maps route
-    // switches to the map tab and hides its tab bar in NavigationConsistencyController.
     const int mapIndex = mapsTab ? worldTabs->indexOf(mapsTab) : -1;
     for (int i = 0; i < worldTabs->count(); ++i) worldTabs->setTabVisible(i, i != mapIndex);
     if (worldTabs->tabBar()) worldTabs->tabBar()->show();
