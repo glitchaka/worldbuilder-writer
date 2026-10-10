@@ -14,6 +14,7 @@
 #include <QFrame>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
+#include <QGraphicsSceneMouseEvent>
 #include <QGraphicsSimpleTextItem>
 #include <QGraphicsView>
 #include <QGridLayout>
@@ -36,11 +37,14 @@
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QTextFragment>
+#include <QTimer>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QUuid>
 #include <QVBoxLayout>
+
+#include <functional>
 
 namespace wbw {
 namespace {
@@ -78,6 +82,12 @@ QString scenePlainText(const QJsonObject& scene) {
     return doc.toPlainText();
 }
 
+QString sceneSummary(const QJsonObject& scene, int maxLength = 150) {
+    QString text = scenePlainText(scene).simplified();
+    if (text.size() > maxLength) text = text.left(maxLength - 1).trimmed() + QStringLiteral("…");
+    return text;
+}
+
 QLabel* sectionLabel(const QString& text) {
     auto* label = new QLabel(text);
     label->setObjectName(QStringLiteral("sectionLabel"));
@@ -94,10 +104,34 @@ QString sceneCardMeta(const QJsonObject& scene) {
 }
 
 QColor sceneAccent(const QString& status, bool dark) {
-    if (status.compare(QObject::tr("Final"), Qt::CaseInsensitive) == 0) return dark ? QColor(QStringLiteral("#54b47a")) : QColor(QStringLiteral("#2f855a"));
-    if (status.compare(QObject::tr("Revisión"), Qt::CaseInsensitive) == 0) return dark ? QColor(QStringLiteral("#72aef0")) : QColor(QStringLiteral("#2f6fb3"));
-    return dark ? QColor(QStringLiteral("#d2aa69")) : QColor(QStringLiteral("#b37a32"));
+    if (status.compare(QObject::tr("Final"), Qt::CaseInsensitive) == 0) return dark ? QColor(QStringLiteral("#56c18b")) : QColor(QStringLiteral("#2f855a"));
+    if (status.compare(QObject::tr("Revisión"), Qt::CaseInsensitive) == 0) return dark ? QColor(QStringLiteral("#6eb7ff")) : QColor(QStringLiteral("#2f6fb3"));
+    return dark ? QColor(QStringLiteral("#d7ae68")) : QColor(QStringLiteral("#b37a32"));
 }
+
+class SceneCardItem final : public QGraphicsRectItem {
+public:
+    explicit SceneCardItem(const QRectF& rect) : QGraphicsRectItem(rect) {
+        setCursor(Qt::OpenHandCursor);
+        setFlag(QGraphicsItem::ItemIsSelectable, true);
+    }
+
+    std::function<void(const QPointF&)> dropped;
+
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override {
+        setCursor(Qt::ClosedHandCursor);
+        setZValue(50.0);
+        QGraphicsRectItem::mousePressEvent(event);
+    }
+
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override {
+        QGraphicsRectItem::mouseReleaseEvent(event);
+        setCursor(Qt::OpenHandCursor);
+        setZValue(2.0);
+        if (dropped) dropped(sceneBoundingRect().center());
+    }
+};
 
 } // namespace
 
@@ -114,12 +148,12 @@ WritingPage::WritingPage(QWidget* parent) : QWidget(parent) {
     setStyleSheet(QStringLiteral(
         "#writingPage{background:#edf1f5;}"
         "#writingTabs::pane{border:0;background:#edf1f5;}"
-        "#writingTabs QTabBar::tab{padding:11px 16px;}"
+        "#writingTabs QTabBar::tab{padding:9px 14px;}"
         "#writingEditorTab,#sceneBoardTab{background:#edf1f5;}"
         "#writingHero{background:#f5f8fc;border:1px solid #d7dee8;}"
         "#writingKicker,#sectionLabel{color:#8a6a52;font-size:8pt;font-weight:700;letter-spacing:1px;}"
-        "#writingTitle{color:#d2aa69;font-family:'Georgia';font-size:28pt;}"
-        "#writingDescription{color:#667085;font-family:'Georgia';font-size:10pt;}"
+        "#writingTitle{color:#344054;font-family:'Georgia';font-size:18pt;}"
+        "#writingDescription{color:#667085;font-size:9pt;}"
         "#indexPanel,#editorPanel,#metadataPanel{background:#ffffff;border:1px solid #d5dce5;}"
         "#indexTitle,#editorPanelTitle{color:#344054;font-size:8pt;font-weight:700;letter-spacing:1px;}"
         "#sceneEditor{background:#ffffff;border:0;padding:30px 42px;font-family:'Georgia';font-size:12pt;selection-background-color:#dceafe;}"
@@ -130,13 +164,10 @@ WritingPage::WritingPage(QWidget* parent) : QWidget(parent) {
         "#focusBar{background:#ffffff;border-bottom:1px solid #d8dee7;}"
         "#focusSceneName{color:#667085;font-size:9pt;}"
         "#focusExit{background:transparent;border:0;color:#667085;padding:7px 10px;}"
-        "#focusExit:hover{background:#f3f6fa;color:#175cd3;}"
         "#sceneBoardToolbar,#sceneBoardOutlinePanel{background:#ffffff;border:1px solid #d5dce5;}"
         "#sceneBoardHeading{font-size:15pt;font-weight:700;color:#344054;}"
         "#sceneBoardSubheading,#sceneBoardSelection{color:#667085;font-size:8.5pt;}"
         "#sceneBoardOutline{border:0;background:#ffffff;padding:4px;}"
-        "#sceneBoardOutline::item{padding:5px 6px;}"
-        "#sceneBoardOutline::item:selected{background:#e8f1ff;color:#175cd3;}"
         "#sceneBoardCanvas{background:#eef2f6;border:1px solid #d5dce5;}"
     ));
 }
@@ -151,32 +182,29 @@ QWidget* WritingPage::buildEditorTab() {
     editorTab_ = new QWidget;
     editorTab_->setObjectName(QStringLiteral("writingEditorTab"));
     editorOuterLayout_ = new QVBoxLayout(editorTab_);
-    editorOuterLayout_->setContentsMargins(30, 22, 30, 30);
-    editorOuterLayout_->setSpacing(14);
+    editorOuterLayout_->setContentsMargins(16, 12, 16, 16);
+    editorOuterLayout_->setSpacing(8);
 
     auto* hero = new QFrame;
     heroPanel_ = hero;
     hero->setObjectName(QStringLiteral("writingHero"));
+    hero->setMaximumHeight(66);
     auto* heroLayout = new QHBoxLayout(hero);
-    heroLayout->setContentsMargins(20, 14, 18, 14);
-    heroLayout->setSpacing(18);
+    heroLayout->setContentsMargins(14, 8, 12, 8);
+    heroLayout->setSpacing(8);
     auto* heroCopy = new QVBoxLayout;
-    heroCopy->setSpacing(2);
-    auto* kicker = new QLabel(tr("CAPÍTULOS / ESCENAS / CAPAS NARRATIVAS"));
-    kicker->setObjectName(QStringLiteral("writingKicker"));
+    heroCopy->setSpacing(0);
     auto* title = new QLabel(tr("Manuscrito"));
     title->setObjectName(QStringLiteral("writingTitle"));
-    auto* description = new QLabel(tr("El texto es la superficie principal. Índice y detalles se abren solo cuando los necesitas."));
+    auto* description = new QLabel(tr("Capítulos, escenas y referencias dentro del texto."));
     description->setObjectName(QStringLiteral("writingDescription"));
-    description->setWordWrap(true);
-    heroCopy->addWidget(kicker);
     heroCopy->addWidget(title);
     heroCopy->addWidget(description);
     heroLayout->addLayout(heroCopy, 1);
 
-    auto* importButton = makeButton(tr("Importar manuscrito"));
+    auto* importButton = makeButton(tr("Importar"));
     importButton->setObjectName(QStringLiteral("writingSubtle"));
-    auto* focusButton = makeButton(tr("Sin distracciones"));
+    auto* focusButton = makeButton(tr("Enfoque"));
     focusButton->setObjectName(QStringLiteral("writingSubtle"));
     auto* addSceneButton = makeButton(tr("+ Escena"));
     addSceneButton->setObjectName(QStringLiteral("writingSubtle"));
@@ -189,9 +217,10 @@ QWidget* WritingPage::buildEditorTab() {
     editorOuterLayout_->addWidget(hero);
 
     commandBarPanel_ = new QWidget(editorTab_);
+    commandBarPanel_->setObjectName(QStringLiteral("writingCommandBar"));
     auto* commandBar = new QHBoxLayout(commandBarPanel_);
-    commandBar->setContentsMargins(0, 0, 0, 0);
-    commandBar->setSpacing(6);
+    commandBar->setContentsMargins(4, 0, 4, 0);
+    commandBar->setSpacing(3);
     toggleIndex_ = new QToolButton;
     toggleIndex_->setText(tr("Índice"));
     toggleIndex_->setCheckable(true);
@@ -223,22 +252,22 @@ QWidget* WritingPage::buildEditorTab() {
     redo->setText(tr("↷"));
     redo->setToolTip(tr("Rehacer"));
     redo->setShortcut(QKeySequence::Redo);
-    auto* proof = makeButton(tr("Revisar texto"));
+    auto* proof = makeButton(tr("Revisar"));
     proof->setObjectName(QStringLiteral("writingSubtle"));
     proofState_ = new QLabel;
     proofState_->setObjectName(QStringLiteral("proofState"));
     wordCount_ = new QLabel;
-    wordCount_->setStyleSheet(QStringLiteral("color:#667085;"));
+    wordCount_->setObjectName(QStringLiteral("wordCount"));
 
     commandBar->addWidget(toggleIndex_);
     commandBar->addWidget(toggleDetails_);
-    commandBar->addSpacing(10);
+    commandBar->addSpacing(8);
     commandBar->addWidget(bold_);
     commandBar->addWidget(italic_);
     commandBar->addWidget(underline_);
     commandBar->addWidget(undo);
     commandBar->addWidget(redo);
-    commandBar->addSpacing(10);
+    commandBar->addSpacing(8);
     commandBar->addWidget(proof);
     commandBar->addWidget(proofState_);
     commandBar->addStretch();
@@ -251,24 +280,27 @@ QWidget* WritingPage::buildEditorTab() {
     focusLayout->setContentsMargins(18, 7, 18, 7);
     focusSceneName_ = new QLabel;
     focusSceneName_->setObjectName(QStringLiteral("focusSceneName"));
-    auto* focusExit = makeButton(tr("Salir de enfoque  Esc"));
+    auto* focusExit = makeButton(tr("Esc · salir"));
     focusExit->setObjectName(QStringLiteral("focusExit"));
     focusLayout->addWidget(focusSceneName_);
     focusLayout->addStretch();
+    focusLayout->addWidget(wordCount_);
+    focusLayout->addSpacing(12);
     focusLayout->addWidget(focusExit);
     focusBar_->hide();
     editorOuterLayout_->addWidget(focusBar_);
 
     editorSplit_ = new QSplitter;
     editorSplit_->setChildrenCollapsible(false);
-    editorSplit_->setHandleWidth(6);
+    editorSplit_->setHandleWidth(5);
 
     indexPanel_ = new QWidget;
     indexPanel_->setObjectName(QStringLiteral("indexPanel"));
     auto* indexLayout = new QVBoxLayout(indexPanel_);
-    indexLayout->setContentsMargins(10, 10, 10, 10);
+    indexLayout->setContentsMargins(8, 8, 8, 8);
+    indexLayout->setSpacing(5);
     auto* indexHeader = new QHBoxLayout;
-    auto* indexTitle = new QLabel(tr("ÍNDICE"));
+    auto* indexTitle = new QLabel(tr("CAPÍTULOS Y ESCENAS"));
     indexTitle->setObjectName(QStringLiteral("indexTitle"));
     auto* removeButton = makeButton(tr("Eliminar"));
     indexHeader->addWidget(indexTitle);
@@ -276,12 +308,14 @@ QWidget* WritingPage::buildEditorTab() {
     indexHeader->addWidget(removeButton);
     indexLayout->addLayout(indexHeader);
     tree_ = new QTreeWidget;
+    tree_->setObjectName(QStringLiteral("manuscriptTree"));
     tree_->setHeaderHidden(true);
-    tree_->setMinimumWidth(220);
-    tree_->setMaximumWidth(330);
-    tree_->setIndentation(16);
+    tree_->setMinimumWidth(230);
+    tree_->setMaximumWidth(310);
+    tree_->setIndentation(14);
     indexLayout->addWidget(tree_, 1);
     auto* indexActions = new QHBoxLayout;
+    indexActions->setSpacing(3);
     auto* renameButton = makeButton(tr("Renombrar"));
     auto* upButton = makeButton(tr("↑"));
     auto* downButton = makeButton(tr("↓"));
@@ -300,29 +334,24 @@ QWidget* WritingPage::buildEditorTab() {
     metadataPanel_ = new QWidget;
     metadataPanel_->setObjectName(QStringLiteral("metadataPanel"));
     auto* metadata = new QGridLayout(metadataPanel_);
-    metadata->setContentsMargins(12, 10, 12, 10);
-    metadata->setHorizontalSpacing(8);
-    metadata->setVerticalSpacing(6);
+    metadata->setContentsMargins(10, 8, 10, 8);
+    metadata->setHorizontalSpacing(7);
+    metadata->setVerticalSpacing(5);
     sceneTitle_ = new QLineEdit;
     sceneTitle_->setPlaceholderText(tr("Título de escena"));
     scenePov_ = new QLineEdit;
-    scenePov_->setPlaceholderText(tr("Personaje focal"));
+    scenePov_->setPlaceholderText(tr("POV"));
     sceneLocation_ = new QLineEdit;
-    sceneLocation_->setPlaceholderText(tr("Lugar de la escena"));
+    sceneLocation_->setPlaceholderText(tr("Ubicación"));
     sceneLayer_ = new QLineEdit;
     sceneLayer_->setPlaceholderText(tr("Capa narrativa"));
     sceneStatus_ = new QComboBox;
     sceneStatus_->addItems({tr("Borrador"), tr("Revisión"), tr("Final")});
-    metadata->addWidget(sectionLabel(tr("Título")), 0, 0);
-    metadata->addWidget(sectionLabel(tr("Estado")), 0, 2);
-    metadata->addWidget(sceneTitle_, 1, 0, 1, 2);
-    metadata->addWidget(sceneStatus_, 1, 2);
-    metadata->addWidget(sectionLabel(tr("POV")), 2, 0);
-    metadata->addWidget(sectionLabel(tr("Ubicación")), 2, 1);
-    metadata->addWidget(sectionLabel(tr("Capa narrativa")), 2, 2);
-    metadata->addWidget(scenePov_, 3, 0);
-    metadata->addWidget(sceneLocation_, 3, 1);
-    metadata->addWidget(sceneLayer_, 3, 2);
+    metadata->addWidget(sceneTitle_, 0, 0, 1, 3);
+    metadata->addWidget(sceneStatus_, 0, 3);
+    metadata->addWidget(scenePov_, 1, 0);
+    metadata->addWidget(sceneLocation_, 1, 1);
+    metadata->addWidget(sceneLayer_, 1, 2, 1, 2);
     metadataPanel_->hide();
     centerLayout->addWidget(metadataPanel_);
 
@@ -336,7 +365,7 @@ QWidget* WritingPage::buildEditorTab() {
     editorSplit_->addWidget(center);
     editorSplit_->setStretchFactor(0, 0);
     editorSplit_->setStretchFactor(1, 1);
-    editorSplit_->setSizes({260, 1100});
+    editorSplit_->setSizes({255, 1120});
     editorOuterLayout_->addWidget(editorSplit_, 1);
 
     focusEscape_ = new QShortcut(QKeySequence(Qt::Key_Escape), this);
@@ -380,20 +409,20 @@ QWidget* WritingPage::buildSceneBoardTab() {
     auto* tab = new QWidget;
     tab->setObjectName(QStringLiteral("sceneBoardTab"));
     auto* layout = new QVBoxLayout(tab);
-    layout->setContentsMargins(18, 16, 18, 18);
-    layout->setSpacing(10);
+    layout->setContentsMargins(14, 12, 14, 14);
+    layout->setSpacing(8);
 
     auto* toolbar = new QFrame;
     toolbar->setObjectName(QStringLiteral("sceneBoardToolbar"));
     auto* toolbarLayout = new QHBoxLayout(toolbar);
-    toolbarLayout->setContentsMargins(14, 10, 14, 10);
-    toolbarLayout->setSpacing(8);
+    toolbarLayout->setContentsMargins(12, 8, 12, 8);
+    toolbarLayout->setSpacing(6);
 
     auto* headingColumn = new QVBoxLayout;
     headingColumn->setSpacing(0);
     auto* heading = new QLabel(tr("Tablero de escenas"));
     heading->setObjectName(QStringLiteral("sceneBoardHeading"));
-    auto* subheading = new QLabel(tr("Selecciona una tarjeta para trabajar con la escena; doble clic en el índice para abrirla en el manuscrito."));
+    auto* subheading = new QLabel(tr("Arrastra las tarjetas para reorganizar escenas y moverlas entre capítulos."));
     subheading->setObjectName(QStringLiteral("sceneBoardSubheading"));
     headingColumn->addWidget(heading);
     headingColumn->addWidget(subheading);
@@ -402,16 +431,16 @@ QWidget* WritingPage::buildSceneBoardTab() {
 
     auto* search = new QLineEdit;
     search->setObjectName(QStringLiteral("sceneBoardSearch"));
-    search->setPlaceholderText(tr("Buscar escenas…"));
+    search->setPlaceholderText(tr("Buscar…"));
     search->setClearButtonEnabled(true);
-    search->setFixedWidth(220);
+    search->setFixedWidth(180);
     auto* statusFilter = new QComboBox;
     statusFilter->setObjectName(QStringLiteral("sceneBoardStatus"));
-    statusFilter->addItems({tr("Todos los estados"), tr("Borrador"), tr("Revisión"), tr("Final")});
-    statusFilter->setFixedWidth(145);
-    sceneBoardCompact_ = new QCheckBox(tr("Compacta"));
+    statusFilter->addItems({tr("Todos"), tr("Borrador"), tr("Revisión"), tr("Final")});
+    statusFilter->setFixedWidth(112);
+    sceneBoardCompact_ = new QCheckBox(tr("Compacto"));
     auto* reset = makeButton(tr("Encajar"));
-    auto* open = makeButton(tr("Abrir escena"));
+    auto* open = makeButton(tr("Abrir"));
     open->setObjectName(QStringLiteral("writingSubtle"));
     open->setEnabled(false);
     auto* add = makeButton(tr("+ Escena"));
@@ -426,21 +455,21 @@ QWidget* WritingPage::buildSceneBoardTab() {
 
     auto* workspace = new QSplitter(Qt::Horizontal);
     workspace->setChildrenCollapsible(false);
-    workspace->setHandleWidth(6);
+    workspace->setHandleWidth(5);
 
     auto* outlinePanel = new QFrame;
     outlinePanel->setObjectName(QStringLiteral("sceneBoardOutlinePanel"));
-    outlinePanel->setMinimumWidth(230);
-    outlinePanel->setMaximumWidth(320);
+    outlinePanel->setMinimumWidth(210);
+    outlinePanel->setMaximumWidth(280);
     auto* outlineLayout = new QVBoxLayout(outlinePanel);
-    outlineLayout->setContentsMargins(8, 8, 8, 8);
-    outlineLayout->setSpacing(6);
-    auto* outlineTitle = new QLabel(tr("CAPÍTULOS Y ESCENAS"));
+    outlineLayout->setContentsMargins(7, 7, 7, 7);
+    outlineLayout->setSpacing(5);
+    auto* outlineTitle = new QLabel(tr("NAVEGACIÓN"));
     outlineTitle->setObjectName(QStringLiteral("sectionLabel"));
     auto* outline = new QTreeWidget;
     outline->setObjectName(QStringLiteral("sceneBoardOutline"));
     outline->setHeaderHidden(true);
-    outline->setIndentation(14);
+    outline->setIndentation(13);
     auto* selection = new QLabel(tr("Ninguna escena seleccionada"));
     selection->setObjectName(QStringLiteral("sceneBoardSelection"));
     selection->setWordWrap(true);
@@ -460,7 +489,7 @@ QWidget* WritingPage::buildSceneBoardTab() {
     workspace->addWidget(sceneBoard_);
     workspace->setStretchFactor(0, 0);
     workspace->setStretchFactor(1, 1);
-    workspace->setSizes({270, 1100});
+    workspace->setSizes({235, 1140});
     layout->addWidget(workspace, 1);
 
     const auto openScene = [this](int chapterIndex, int sceneIndex) {
@@ -507,11 +536,16 @@ QWidget* WritingPage::buildSceneBoardTab() {
             const QJsonArray scenes = chapters.at(c).toObject().value(QStringLiteral("scenes")).toArray();
             if (s < scenes.size()) selection->setText(scenes.at(s).toObject().value(QStringLiteral("title")).toString(tr("Escena")));
         }
-        if (c < outline->topLevelItemCount()) {
-            QTreeWidgetItem* chapter = outline->topLevelItem(c);
-            if (chapter && s < chapter->childCount()) {
-                QSignalBlocker blocker(outline);
-                outline->setCurrentItem(chapter->child(s));
+        for (int i = 0; i < outline->topLevelItemCount(); ++i) {
+            QTreeWidgetItem* chapter = outline->topLevelItem(i);
+            if (!chapter || chapter->data(0, Qt::UserRole + 1).toInt() != c) continue;
+            for (int j = 0; j < chapter->childCount(); ++j) {
+                QTreeWidgetItem* child = chapter->child(j);
+                if (child && child->data(0, Qt::UserRole + 2).toInt() == s) {
+                    QSignalBlocker blocker(outline);
+                    outline->setCurrentItem(child);
+                    return;
+                }
             }
         }
     });
@@ -901,31 +935,32 @@ void WritingPage::refreshSceneBoard() {
     QGraphicsScene* scene = sceneBoard_->scene();
     scene->clear();
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
-    const QColor canvas = dark ? QColor(QStringLiteral("#12161d")) : QColor(QStringLiteral("#eef2f6"));
-    const QColor laneFill = dark ? QColor(QStringLiteral("#171c24")) : QColor(QStringLiteral("#f7f9fc"));
-    const QColor laneBorder = dark ? QColor(QStringLiteral("#303a48")) : QColor(QStringLiteral("#d7dee8"));
-    const QColor cardFill = dark ? QColor(QStringLiteral("#1d2430")) : QColor(QStringLiteral("#ffffff"));
-    const QColor cardBorder = dark ? QColor(QStringLiteral("#394454")) : QColor(QStringLiteral("#cfd7e2"));
-    const QColor titleColor = dark ? QColor(QStringLiteral("#f2f4f7")) : QColor(QStringLiteral("#1f2937"));
-    const QColor muted = dark ? QColor(QStringLiteral("#9aa7b8")) : QColor(QStringLiteral("#667085"));
-    const QColor quiet = dark ? QColor(QStringLiteral("#778397")) : QColor(QStringLiteral("#8a94a3"));
+    const QColor canvas = dark ? QColor(QStringLiteral("#0f141b")) : QColor(QStringLiteral("#eef2f6"));
+    const QColor laneFill = dark ? QColor(QStringLiteral("#141a23")) : QColor(QStringLiteral("#f7f9fc"));
+    const QColor laneBorder = dark ? QColor(QStringLiteral("#293441")) : QColor(QStringLiteral("#d7dee8"));
+    const QColor cardFill = dark ? QColor(QStringLiteral("#1a222d")) : QColor(QStringLiteral("#ffffff"));
+    const QColor cardBorder = dark ? QColor(QStringLiteral("#334152")) : QColor(QStringLiteral("#cfd7e2"));
+    const QColor titleColor = dark ? QColor(QStringLiteral("#f2f5f9")) : QColor(QStringLiteral("#1f2937"));
+    const QColor muted = dark ? QColor(QStringLiteral("#9aa8b8")) : QColor(QStringLiteral("#667085"));
+    const QColor quiet = dark ? QColor(QStringLiteral("#708095")) : QColor(QStringLiteral("#8a94a3"));
     scene->setBackgroundBrush(canvas);
 
     const bool compact = sceneBoardCompact_->isChecked();
-    const qreal laneWidth = compact ? 230.0 : 290.0;
+    const qreal laneWidth = compact ? 236.0 : 306.0;
     const qreal cardWidth = laneWidth - 24.0;
-    const qreal cardHeight = compact ? 72.0 : 112.0;
-    const qreal cardGap = compact ? 10.0 : 12.0;
-    const qreal laneGap = 16.0;
-    const qreal laneTop = 48.0;
+    const qreal cardHeight = compact ? 76.0 : 142.0;
+    const qreal cardGap = compact ? 9.0 : 11.0;
+    const qreal laneGap = 14.0;
+    const qreal laneTop = 54.0;
     const QString query = search ? search->text().trimmed() : QString();
     const QString wantedStatus = statusFilter && statusFilter->currentIndex() > 0 ? statusFilter->currentText() : QString();
+    const bool dragEnabled = query.isEmpty() && wantedStatus.isEmpty();
     const int selectedChapter = sceneBoard_->property("selectedChapter").toInt();
     const int selectedScene = sceneBoard_->property("selectedScene").toInt();
 
     const QJsonArray chapters = document_->array(QStringLiteral("writingChapters"));
     qreal x = 0.0;
-    qreal maxHeight = 520.0;
+    qreal maxHeight = 540.0;
     int visibleColumns = 0;
 
     for (int c = 0; c < chapters.size(); ++c) {
@@ -947,13 +982,14 @@ void WritingPage::refreshSceneBoard() {
             const QString chapterTitle = chapter.value(QStringLiteral("title")).toString();
             auto* chapterItem = new QTreeWidgetItem({chapterTitle.isEmpty() ? chapterLabel : chapterLabel + QStringLiteral(" — ") + chapterTitle});
             chapterItem->setData(0, Qt::UserRole, QStringLiteral("chapter"));
+            chapterItem->setData(0, Qt::UserRole + 1, c);
             QFont chapterFont = chapterItem->font(0);
             chapterFont.setBold(true);
             chapterItem->setFont(0, chapterFont);
             for (const int s : visibleScenes) {
                 const QJsonObject sceneObject = scenes.at(s).toObject();
                 const int words = scenePlainText(sceneObject).split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
-                auto* item = new QTreeWidgetItem({QStringLiteral("%1   ·   %2").arg(sceneObject.value(QStringLiteral("title")).toString(tr("Escena"))).arg(tr("%1 palabras").arg(words))});
+                auto* item = new QTreeWidgetItem({QStringLiteral("%1 · %2").arg(sceneObject.value(QStringLiteral("title")).toString(tr("Escena")), tr("%1 p.").arg(words))});
                 item->setData(0, Qt::UserRole, QStringLiteral("scene"));
                 item->setData(0, Qt::UserRole + 1, c);
                 item->setData(0, Qt::UserRole + 2, s);
@@ -967,26 +1003,31 @@ void WritingPage::refreshSceneBoard() {
 
         if (visibleScenes.isEmpty()) continue;
 
-        const qreal laneHeight = qMax<qreal>(500.0, laneTop + 18.0 + visibleScenes.size() * (cardHeight + cardGap));
+        const qreal laneHeight = qMax<qreal>(520.0, laneTop + 18.0 + visibleScenes.size() * (cardHeight + cardGap));
         maxHeight = qMax(maxHeight, laneHeight);
         auto* lane = scene->addRect(QRectF(x, 0.0, laneWidth, laneHeight), QPen(laneBorder), QBrush(laneFill));
         lane->setZValue(-10.0);
+        lane->setData(0, QStringLiteral("chapter-lane"));
+        lane->setData(1, c);
+        lane->setAcceptedMouseButtons(Qt::NoButton);
 
         const QString chapterLabel = chapter.value(QStringLiteral("label")).toString(tr("Capítulo %1").arg(c + 1));
         const QString chapterTitle = chapter.value(QStringLiteral("title")).toString();
-        auto* heading = scene->addSimpleText(chapterTitle.isEmpty() ? chapterLabel : chapterLabel + QStringLiteral(" — ") + chapterTitle);
+        auto* heading = scene->addSimpleText(chapterTitle.isEmpty() ? chapterLabel : chapterLabel + QStringLiteral(" · ") + chapterTitle);
         heading->setBrush(titleColor);
+        heading->setAcceptedMouseButtons(Qt::NoButton);
         QFont headingFont = heading->font();
         headingFont.setBold(true);
         headingFont.setPointSizeF(10.0);
         heading->setFont(headingFont);
-        heading->setPos(x + 12.0, 12.0);
+        heading->setPos(x + 12.0, 11.0);
         auto* count = scene->addSimpleText(tr("%1 escenas").arg(visibleScenes.size()));
         count->setBrush(quiet);
+        count->setAcceptedMouseButtons(Qt::NoButton);
         QFont countFont = count->font();
         countFont.setPointSizeF(8.0);
         count->setFont(countFont);
-        count->setPos(x + 12.0, 30.0);
+        count->setPos(x + 12.0, 31.0);
 
         qreal y = laneTop;
         for (const int s : visibleScenes) {
@@ -995,23 +1036,76 @@ void WritingPage::refreshSceneBoard() {
             const QString status = sceneObject.value(QStringLiteral("status")).toString(tr("Borrador"));
             const int words = scenePlainText(sceneObject).split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts).size();
 
-            auto* card = scene->addRect(QRectF(0, 0, cardWidth, cardHeight), QPen(cardBorder), QBrush(cardFill));
+            auto* card = new SceneCardItem(QRectF(0, 0, cardWidth, cardHeight));
+            scene->addItem(card);
+            card->setPen(QPen(cardBorder));
+            card->setBrush(cardFill);
             card->setPos(x + 12.0, y);
-            card->setFlag(QGraphicsItem::ItemIsSelectable, true);
+            card->setFlag(QGraphicsItem::ItemIsMovable, dragEnabled);
             card->setData(0, QStringLiteral("scene-card"));
             card->setData(1, c);
             card->setData(2, s);
             card->setData(3, title);
             card->setZValue(2.0);
+            if (!dragEnabled) card->setCursor(Qt::ArrowCursor);
             if (c == selectedChapter && s == selectedScene) card->setSelected(true);
+
+            if (dragEnabled) {
+                card->dropped = [this, c, s, laneTop, cardHeight, cardGap](const QPointF& center) {
+                    QTimer::singleShot(0, this, [this, c, s, center, laneTop, cardHeight, cardGap]() {
+                        if (!document_ || !sceneBoard_ || !sceneBoard_->scene()) return;
+                        int targetChapter = -1;
+                        for (QGraphicsItem* item : sceneBoard_->scene()->items()) {
+                            if (item->data(0).toString() != QStringLiteral("chapter-lane")) continue;
+                            if (item->sceneBoundingRect().contains(center)) {
+                                targetChapter = item->data(1).toInt();
+                                break;
+                            }
+                        }
+                        QJsonArray chapters = document_->array(QStringLiteral("writingChapters"));
+                        if (targetChapter < 0 || targetChapter >= chapters.size() || c < 0 || c >= chapters.size()) {
+                            refreshSceneBoard();
+                            return;
+                        }
+                        QJsonObject sourceChapter = chapters.at(c).toObject();
+                        QJsonArray sourceScenes = sourceChapter.value(QStringLiteral("scenes")).toArray();
+                        if (s < 0 || s >= sourceScenes.size()) {
+                            refreshSceneBoard();
+                            return;
+                        }
+                        const QJsonValue moved = sourceScenes.takeAt(s);
+                        sourceChapter.insert(QStringLiteral("scenes"), sourceScenes);
+                        chapters.replace(c, sourceChapter);
+
+                        QJsonObject target = chapters.at(targetChapter).toObject();
+                        QJsonArray targetScenes = target.value(QStringLiteral("scenes")).toArray();
+                        int slot = static_cast<int>((center.y() - laneTop + (cardHeight + cardGap) * 0.45) / (cardHeight + cardGap));
+                        slot = qBound(0, slot, targetScenes.size());
+                        QJsonObject movedObject = moved.toObject();
+                        movedObject.insert(QStringLiteral("chapterId"), target.value(QStringLiteral("id")));
+                        targetScenes.insert(slot, movedObject);
+                        target.insert(QStringLiteral("scenes"), targetScenes);
+                        chapters.replace(targetChapter, target);
+                        normalizeOrders(chapters);
+                        document_->setArray(QStringLiteral("writingChapters"), chapters);
+                        sceneBoard_->setProperty("selectedChapter", targetChapter);
+                        sceneBoard_->setProperty("selectedScene", slot);
+                        refreshTree();
+                        refreshSceneBoard();
+                        emit changed();
+                    });
+                };
+            }
 
             auto* accent = new QGraphicsRectItem(QRectF(0, 0, 4.0, cardHeight), card);
             accent->setPen(Qt::NoPen);
             accent->setBrush(sceneAccent(status, dark));
+            accent->setAcceptedMouseButtons(Qt::NoButton);
 
-            const QString code = QStringLiteral("%1-%2").arg(c + 1, 2, 10, QLatin1Char('0')).arg(s + 1, 2, 10, QLatin1Char('0'));
+            const QString code = QStringLiteral("%1.%2").arg(c + 1).arg(s + 1);
             auto* codeText = new QGraphicsSimpleTextItem(code, card);
             codeText->setBrush(quiet);
+            codeText->setAcceptedMouseButtons(Qt::NoButton);
             QFont codeFont = codeText->font();
             codeFont.setPointSizeF(7.5);
             codeFont.setBold(true);
@@ -1022,11 +1116,11 @@ void WritingPage::refreshSceneBoard() {
             titleFont.setFamily(QStringLiteral("Segoe UI"));
             titleFont.setPointSizeF(compact ? 9.5 : 10.5);
             titleFont.setBold(true);
-            const QString elidedTitle = QFontMetrics(titleFont).elidedText(title, Qt::ElideRight, static_cast<int>(cardWidth - 26.0));
-            auto* cardTitle = new QGraphicsSimpleTextItem(elidedTitle, card);
+            auto* cardTitle = new QGraphicsSimpleTextItem(QFontMetrics(titleFont).elidedText(title, Qt::ElideRight, static_cast<int>(cardWidth - 26.0)), card);
             cardTitle->setBrush(titleColor);
             cardTitle->setFont(titleFont);
-            cardTitle->setPos(12.0, compact ? 28.0 : 30.0);
+            cardTitle->setAcceptedMouseButtons(Qt::NoButton);
+            cardTitle->setPos(12.0, compact ? 28.0 : 29.0);
 
             if (!compact) {
                 const QString metaText = sceneCardMeta(sceneObject);
@@ -1037,16 +1131,29 @@ void WritingPage::refreshSceneBoard() {
                     auto* meta = new QGraphicsSimpleTextItem(QFontMetrics(metaFont).elidedText(metaText, Qt::ElideRight, static_cast<int>(cardWidth - 26.0)), card);
                     meta->setBrush(muted);
                     meta->setFont(metaFont);
-                    meta->setPos(12.0, 56.0);
+                    meta->setAcceptedMouseButtons(Qt::NoButton);
+                    meta->setPos(12.0, 53.0);
+                }
+                QFont summaryFont;
+                summaryFont.setFamily(QStringLiteral("Segoe UI"));
+                summaryFont.setPointSizeF(8.0);
+                const QString summaryText = QFontMetrics(summaryFont).elidedText(sceneSummary(sceneObject), Qt::ElideRight, static_cast<int>((cardWidth - 26.0) * 2.1));
+                if (!summaryText.isEmpty()) {
+                    auto* summary = new QGraphicsSimpleTextItem(summaryText, card);
+                    summary->setBrush(quiet);
+                    summary->setFont(summaryFont);
+                    summary->setAcceptedMouseButtons(Qt::NoButton);
+                    summary->setPos(12.0, 76.0);
                 }
             }
 
-            auto* stats = new QGraphicsSimpleTextItem(QStringLiteral("%1  ·  %2").arg(tr("%1 palabras").arg(words), status), card);
+            auto* stats = new QGraphicsSimpleTextItem(QStringLiteral("%1 · %2").arg(tr("%1 palabras").arg(words), status), card);
             stats->setBrush(quiet);
+            stats->setAcceptedMouseButtons(Qt::NoButton);
             QFont statsFont = stats->font();
             statsFont.setPointSizeF(7.5);
             stats->setFont(statsFont);
-            stats->setPos(12.0, compact ? 50.0 : 84.0);
+            stats->setPos(12.0, compact ? 51.0 : 116.0);
             y += cardHeight + cardGap;
         }
         x += laneWidth + laneGap;
@@ -1077,8 +1184,11 @@ void WritingPage::openFocusMode() {
     previousWindowState_ = window()->windowState();
 
     QWidget* topShell = window()->findChild<QWidget*>(QStringLiteral("topShell"));
+    QWidget* sideRail = window()->findChild<QWidget*>(QStringLiteral("sideRail"));
     topShellWasVisible_ = topShell && topShell->isVisible();
+    sideRailWasVisible_ = sideRail && sideRail->isVisible();
     if (topShell) topShell->hide();
+    if (sideRail) sideRail->hide();
     if (QWidget* titleBar = window()->findChild<QWidget*>(QStringLiteral("appTitleBar"))) titleBar->hide();
 
     tabs_->tabBar()->hide();
@@ -1104,9 +1214,9 @@ void WritingPage::closeFocusMode() {
     focusActive_ = false;
     focusEscape_->setEnabled(false);
     focusBar_->hide();
-    editorOuterLayout_->setContentsMargins(30, 22, 30, 30);
-    editorOuterLayout_->setSpacing(14);
-    editorSplit_->setHandleWidth(6);
+    editorOuterLayout_->setContentsMargins(16, 12, 16, 16);
+    editorOuterLayout_->setSpacing(8);
+    editorSplit_->setHandleWidth(5);
     heroPanel_->show();
     commandBarPanel_->show();
     tabs_->tabBar()->setVisible(tabBarWasVisible_);
@@ -1114,6 +1224,7 @@ void WritingPage::closeFocusMode() {
     metadataPanel_->setVisible(detailsWereVisible_);
 
     if (QWidget* topShell = window()->findChild<QWidget*>(QStringLiteral("topShell")); topShell && topShellWasVisible_) topShell->show();
+    if (QWidget* sideRail = window()->findChild<QWidget*>(QStringLiteral("sideRail")); sideRail && sideRailWasVisible_) sideRail->show();
     if (QWidget* titleBar = window()->findChild<QWidget*>(QStringLiteral("appTitleBar"))) titleBar->show();
 
     if (previousWindowState_.testFlag(Qt::WindowMaximized)) window()->showMaximized();
