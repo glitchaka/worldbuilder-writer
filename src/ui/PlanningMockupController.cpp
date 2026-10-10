@@ -79,7 +79,6 @@ public:
         return QObject::eventFilter(watched, event);
     }
 
-private:
     void apply() {
         if (!window_) return;
         QWidget* tab = window_->findChild<QWidget*>(QStringLiteral("planningCharacters"));
@@ -146,6 +145,7 @@ private:
         if (QWidget* world = window_->findChild<QWidget*>(QStringLiteral("worldPage"))) styleAtlasWorkspace(world);
     }
 
+private:
     QPointer<QMainWindow> window_;
     QPointer<QFrame> context_;
     bool applied_ = false;
