@@ -25,7 +25,7 @@ class MainWindow final : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
-    void refreshRuntimePreferences();
+    QTimer* autosaveTimer() const { return autosaveTimer_; }
 
 protected:
     void closeEvent(QCloseEvent* event) override;
