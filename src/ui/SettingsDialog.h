@@ -8,6 +8,8 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
+class QSpinBox;
+class QStackedWidget;
 
 namespace wbw {
 
@@ -21,9 +23,17 @@ public:
 private:
     void refreshState();
     void populateBackups(const QJsonArray& backups);
+    void persistEditorPreferences();
 
     GoogleDriveService* drive_ = nullptr;
+    QListWidget* sectionList_ = nullptr;
+    QStackedWidget* sectionStack_ = nullptr;
     QComboBox* theme_ = nullptr;
+    QComboBox* editorFont_ = nullptr;
+    QSpinBox* editorFontSize_ = nullptr;
+    QSpinBox* autosaveSeconds_ = nullptr;
+    QComboBox* proofLanguage_ = nullptr;
+    QLineEdit* backupDirectory_ = nullptr;
     QLineEdit* clientId_ = nullptr;
     QLineEdit* clientSecret_ = nullptr;
     QLabel* status_ = nullptr;
