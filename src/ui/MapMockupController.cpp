@@ -120,8 +120,19 @@ void applyPersistentDefaults(QWidget* editor) {
     const bool snap = settings.value(QStringLiteral("map/defaultSnap"), true).toBool();
     const bool grid = settings.value(QStringLiteral("map/defaultGrid"), false).toBool();
     for (QCheckBox* check : editor->findChildren<QCheckBox*>()) {
-        if (check->text() == QObject::tr("Ajustar")) check->setChecked(snap);
-        else if (check->text() == QObject::tr("Cuadrícula")) check->setChecked(grid);
+        if (check->text() == QObject::tr("Ajustar")) {
+            check->setChecked(snap);
+            QObject::connect(check, &QCheckBox::toggled, editor, [](bool value) {
+                QSettings s(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+                s.setValue(QStringLiteral("map/defaultSnap"), value);
+            });
+        } else if (check->text() == QObject::tr("Cuadrícula")) {
+            check->setChecked(grid);
+            QObject::connect(check, &QCheckBox::toggled, editor, [](bool value) {
+                QSettings s(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+                s.setValue(QStringLiteral("map/defaultGrid"), value);
+            });
+        }
     }
 }
 
@@ -155,7 +166,7 @@ public:
             editor->setStyleSheet(QStringLiteral(
                 "#pilinReyEditor{background:#0f1114;}"
                 "#pilinCanvasHost{background:#0f1114;}"
-                "#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinToolOptions{background:#181b20;border:1px solid #313640;border-radius:10px;}"
+                "#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinSelectionPopover,#pilinToolOptions{background:#181b20;border:1px solid #313640;border-radius:10px;}"
                 "#pilinPaletteTitle{color:#f2f3f5;font-size:10pt;font-weight:700;}"
                 "#pilinMapTool,#pilinCommand{background:transparent;color:#d9dde4;border:0;border-radius:7px;text-align:left;padding:0 9px;}"
                 "#pilinCommand{padding:0 8px;text-align:center;}"
@@ -195,34 +206,49 @@ public:
             else if (title == QObject::tr("Capas")) layers = frame;
         }
 
+        const bool wideWorkspace = canvas->width() >= 1220;
+        const bool mediumWorkspace = canvas->width() >= 980;
+
         if (assets) {
             assets->setMinimumWidth(268);
             assets->setMaximumWidth(310);
             assets->adjustSize();
-            const bool enoughRoom = canvas->width() >= 980;
-            if (enoughRoom) assets->show();
-            if (!enoughRoom && !assets->underMouse()) assets->hide();
+            if (mediumWorkspace) assets->show();
+            else if (!assets->underMouse()) assets->hide();
             if (assets->isVisible()) {
                 assets->move(qMax(margin, canvas->width() - assets->width() - margin), 66);
                 assets->raise();
             }
         }
 
-        if (layers && layers->isVisible()) {
+        if (layers) {
             layers->setMinimumWidth(268);
             layers->setMaximumWidth(310);
             layers->adjustSize();
-            layers->move(qMax(margin, canvas->width() - layers->width() - margin), 66);
-            layers->raise();
+            if (wideWorkspace) layers->show();
+            if (!mediumWorkspace && !layers->underMouse()) layers->hide();
+            if (layers->isVisible()) {
+                const int y = assets && assets->isVisible() ? assets->geometry().bottom() + 10 : 66;
+                layers->move(qMax(margin, canvas->width() - layers->width() - margin), y);
+                layers->raise();
+            }
         }
 
-        int contextualY = assets && assets->isVisible() ? assets->geometry().bottom() + 10 : 66;
+        int contextualY = 66;
+        if (assets && assets->isVisible()) contextualY = assets->geometry().bottom() + 10;
+        if (layers && layers->isVisible()) contextualY = layers->geometry().bottom() + 10;
         for (QFrame* frame : frames) {
             if (frame == assets || frame == layers || !frame->isVisible()) continue;
             frame->adjustSize();
             frame->move(qMax(margin, canvas->width() - frame->width() - margin), contextualY);
             frame->raise();
             contextualY = frame->geometry().bottom() + 10;
+        }
+
+        if (QWidget* selection = editor->findChild<QWidget*>(QStringLiteral("pilinSelectionPopover")); selection && selection->isVisible()) {
+            selection->adjustSize();
+            selection->move(qMax(margin, canvas->width() - selection->width() - margin), qMax(66, canvas->height() - selection->height() - 50));
+            selection->raise();
         }
 
         if (QWidget* options = editor->findChild<QWidget*>(QStringLiteral("pilinToolOptions")); options && options->isVisible()) {
