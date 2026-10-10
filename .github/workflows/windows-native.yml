@@ -36,6 +36,23 @@ jobs:
           $env:PATH = "C:\Qt\6.8.3\msvc2022_64\bin;$env:PATH"
           ctest --test-dir build -C Release --output-on-failure
 
+      - name: RC workspace smoke
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\Qt\6.8.3\msvc2022_64\bin;$env:PATH"
+          New-Item -ItemType Directory -Force -Path "$pwd\rc-qa" | Out-Null
+          & "$pwd\build\Release\WorldbuilderWriter.exe" --rc-smoke --qa-dir="$pwd\rc-qa"
+          if ($LASTEXITCODE -ne 0) { Get-Content "$pwd\rc-qa\rc-smoke.txt" -ErrorAction SilentlyContinue; exit $LASTEXITCODE }
+          Get-Content "$pwd\rc-qa\rc-smoke.txt"
+
+      - name: Upload RC visual captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WorldbuilderWriter-rc-qa
+          path: rc-qa/
+          if-no-files-found: warn
+
       - name: Install standalone bundle
         shell: pwsh
         run: cmake --install build --config Release --prefix "$pwd\dist"
