@@ -37,10 +37,9 @@ public:
     explicit PlanningWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        Q_UNUSED(watched);
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
             QTimer::singleShot(0, this, [this]() { apply(); });
-        return false;
+        return QObject::eventFilter(watched, event);
     }
 
     void apply() {
@@ -115,8 +114,6 @@ void installPlanningMockupController(QMainWindow* window) {
     window->setProperty("wbwPlanningMockupController", true);
     auto* filter = new PlanningWorkspaceFilter(window);
     window->installEventFilter(filter);
-    const auto widgets = window->findChildren<QWidget*>();
-    for (QWidget* widget : widgets) widget->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
 }
 
