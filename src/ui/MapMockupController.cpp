@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QPointer>
+#include <QSettings>
 #include <QTimer>
 #include <QToolButton>
 #include <QWidget>
@@ -49,18 +50,15 @@ void configureToolRail(QWidget* rail) {
     rail->setProperty("wbwMapRailConfigured", true);
     rail->setMinimumWidth(188);
     rail->setMaximumWidth(188);
-
     if (auto* grid = qobject_cast<QGridLayout*>(rail->layout())) {
         grid->setContentsMargins(8, 42, 8, 8);
         grid->setHorizontalSpacing(4);
         grid->setVerticalSpacing(3);
     }
-
     auto* title = new QLabel(QObject::tr("Pinceles y terreno"), rail);
     title->setObjectName(QStringLiteral("pilinPaletteTitle"));
     title->setGeometry(12, 10, 164, 24);
     title->show();
-
     const auto tools = rail->findChildren<QToolButton*>(QStringLiteral("pilinMapTool"));
     for (QToolButton* button : tools) {
         const QString caption = toolCaption(button->toolTip());
@@ -75,26 +73,31 @@ void normalizePopoverTitles(QWidget* editor) {
     if (!editor) return;
     const auto frames = editor->findChildren<QFrame*>(QStringLiteral("pilinPopover"));
     for (QFrame* frame : frames) {
-        const auto labels = frame->findChildren<QLabel*>();
-        for (QLabel* label : labels) {
-            if (label->text().trimmed() == QObject::tr("Assets")) {
-                label->setText(QObject::tr("Assets y sellos"));
-                break;
-            }
+        for (QLabel* label : frame->findChildren<QLabel*>()) {
+            if (label->text().trimmed() == QObject::tr("Assets")) { label->setText(QObject::tr("Assets y sellos")); break; }
         }
+    }
+}
+
+void applyPersistentDefaults(QWidget* editor) {
+    if (!editor || editor->property("wbwMapDefaultsApplied").toBool()) return;
+    editor->setProperty("wbwMapDefaultsApplied", true);
+    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+    const bool snap = settings.value(QStringLiteral("map/defaultSnap"), true).toBool();
+    const bool grid = settings.value(QStringLiteral("map/defaultGrid"), false).toBool();
+    for (QCheckBox* check : editor->findChildren<QCheckBox*>()) {
+        if (check->text() == QObject::tr("Ajustar")) check->setChecked(snap);
+        else if (check->text() == QObject::tr("Cuadrícula")) check->setChecked(grid);
     }
 }
 
 class MapWorkspaceFilter final : public QObject {
 public:
-    explicit MapWorkspaceFilter(QMainWindow* window)
-        : QObject(window), window_(window) {}
+    explicit MapWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize ||
-            event->type() == QEvent::LayoutRequest) {
+        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
             QTimer::singleShot(0, this, [this]() { apply(); });
-        }
         return QObject::eventFilter(watched, event);
     }
 
@@ -109,12 +112,12 @@ public:
 
         configureToolRail(rail);
         normalizePopoverTitles(editor);
+        applyPersistentDefaults(editor);
 
         editor->setStyleSheet(QStringLiteral(
             "#pilinReyEditor{background:#0f1114;}"
             "#pilinCanvasHost{background:#0f1114;}"
-            "#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinToolOptions{"
-            "background:#181b20;border:1px solid #313640;border-radius:10px;}"
+            "#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinToolOptions{background:#181b20;border:1px solid #313640;border-radius:10px;}"
             "#pilinPaletteTitle{color:#f2f3f5;font-size:10pt;font-weight:700;}"
             "#pilinMapTool,#pilinCommand{background:transparent;color:#d9dde4;border:0;border-radius:7px;text-align:left;padding:0 9px;}"
             "#pilinCommand{padding:0 7px;}"
@@ -140,8 +143,7 @@ public:
         }
         if (commands) {
             commands->adjustSize();
-            commands->move(qMax(margin + (rail ? rail->width() + 10 : 0),
-                                (canvas->width() - commands->width()) / 2), margin);
+            commands->move(qMax(margin + (rail ? rail->width() + 10 : 0), (canvas->width() - commands->width()) / 2), margin);
             commands->raise();
         }
 
@@ -154,7 +156,6 @@ public:
             else if (title == QObject::tr("Capas")) layers = frame;
         }
 
-        // Approved layout: asset library is a real persistent workspace panel on desktop widths.
         if (assets) {
             assets->setMinimumWidth(260);
             assets->setMaximumWidth(300);
@@ -163,13 +164,11 @@ public:
             if (enoughRoom && editor->isVisible()) assets->show();
             if (!enoughRoom && !assets->underMouse()) assets->hide();
             if (assets->isVisible()) {
-                const int x = qMax(margin, canvas->width() - assets->width() - margin);
-                assets->move(x, 66);
+                assets->move(qMax(margin, canvas->width() - assets->width() - margin), 66);
                 assets->raise();
             }
         }
 
-        // Layers is contextual, opened from the command strip and anchored like the mockup.
         if (layers && layers->isVisible()) {
             layers->setMinimumWidth(260);
             layers->setMaximumWidth(300);
@@ -187,8 +186,7 @@ public:
             contextualY = frame->geometry().bottom() + 10;
         }
 
-        if (QWidget* options = editor->findChild<QWidget*>(QStringLiteral("pilinToolOptions"));
-            options && options->isVisible()) {
+        if (QWidget* options = editor->findChild<QWidget*>(QStringLiteral("pilinToolOptions")); options && options->isVisible()) {
             options->adjustSize();
             const int left = margin + (rail ? rail->width() : 0) + 10;
             options->move(left, qMax(66, (canvas->height() - options->height()) / 2));
