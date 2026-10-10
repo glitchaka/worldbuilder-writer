@@ -51,7 +51,8 @@ public:
     explicit WritingWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
+        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest ||
+            event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange)
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
@@ -89,23 +90,23 @@ public:
         ensureWritingShortcuts(page, settings);
 
         page->setStyleSheet(QStringLiteral(
-            "#writingPage,#writingEditorTab,#sceneBoardTab{background:#111318;}"
-            "#writingTabs::pane{border:0;background:#111318;}"
+            "#writingPage,#writingEditorTab,#sceneBoardTab{background:palette(window);color:palette(window-text);}"
+            "#writingTabs::pane{border:0;background:palette(window);}"
             "#writingHero{border:0;background:transparent;}"
-            "#writingCommandBar,#focusBar,#sceneBoardToolbar,#sceneBoardOutlinePanel{background:#171a20;border:1px solid #2b3038;border-radius:9px;}"
-            "#indexPanel,#editorPanel,#metadataPanel{background:#15181d;border:1px solid #2a2f37;border-radius:8px;}"
-            "#indexTitle,#editorPanelTitle,#sectionLabel{color:#c59a5d;font-size:8pt;font-weight:700;letter-spacing:1px;}"
-            "#manuscriptTree,#sceneBoardOutline{background:#15181d;color:#d8dde5;border:0;padding:5px;}"
+            "#writingCommandBar,#focusBar,#sceneBoardToolbar,#sceneBoardOutlinePanel{background:palette(base);border:1px solid palette(mid);border-radius:9px;}"
+            "#indexPanel,#editorPanel,#metadataPanel{background:palette(base);border:1px solid palette(mid);border-radius:8px;}"
+            "#indexTitle,#editorPanelTitle,#sectionLabel{color:#b98a53;font-size:8pt;font-weight:700;letter-spacing:1px;}"
+            "#manuscriptTree,#sceneBoardOutline{background:palette(base);color:palette(text);border:0;padding:5px;}"
             "#manuscriptTree::item,#sceneBoardOutline::item{padding:6px;border-radius:5px;}"
-            "#manuscriptTree::item:selected,#sceneBoardOutline::item:selected{background:#292f38;color:#ffffff;}"
-            "#sceneEditor{background:#121419;color:#e6e8ec;border:0;padding:42px 72px;selection-background-color:#5a4935;}"
-            "#metadataPanel QLineEdit,#metadataPanel QComboBox{background:#111318;color:#e4e7ec;border:1px solid #333943;border-radius:6px;padding:7px;}"
+            "#manuscriptTree::item:selected,#sceneBoardOutline::item:selected{background:palette(highlight);color:palette(highlighted-text);}"
+            "#sceneEditor{background:palette(base);color:palette(text);border:0;padding:42px 72px;selection-background-color:palette(highlight);selection-color:palette(highlighted-text);}"
+            "#metadataPanel QLineEdit,#metadataPanel QComboBox{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:6px;padding:7px;}"
             "#writingPrimary{background:#c59a5d;color:#121418;border:1px solid #c59a5d;border-radius:6px;font-weight:700;padding:7px 11px;}"
-            "#writingSubtle,QToolButton{background:#1b1f25;color:#d9dde4;border:1px solid #303640;border-radius:6px;padding:6px 9px;}"
-            "#writingSubtle:hover,QToolButton:hover{background:#252a32;}"
-            "#proofState,#wordCount,#focusSceneName,#sceneBoardSubheading,#sceneBoardSelection{color:#979faa;font-size:8.5pt;}"
-            "#sceneBoardHeading{font-size:15pt;font-weight:700;color:#eef0f3;}"
-            "#sceneBoardCanvas{background:#101217;border:1px solid #2b3038;border-radius:8px;}"
+            "#writingSubtle,QToolButton{background:palette(alternate-base);color:palette(button-text);border:1px solid palette(mid);border-radius:6px;padding:6px 9px;}"
+            "#writingSubtle:hover,QToolButton:hover{background:palette(highlight);color:palette(highlighted-text);}"
+            "#proofState,#wordCount,#focusSceneName,#sceneBoardSubheading,#sceneBoardSelection{color:palette(window-text);font-size:8.5pt;}"
+            "#sceneBoardHeading{font-size:15pt;font-weight:700;color:palette(text);}"
+            "#sceneBoardCanvas{background:palette(window);border:1px solid palette(mid);border-radius:8px;}"
         ));
     }
 
