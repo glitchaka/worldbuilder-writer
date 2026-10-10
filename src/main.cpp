@@ -103,12 +103,12 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     require(!nativeMenu || !nativeMenu->isVisible(), QStringLiteral("nativeMenuHidden"));
 
     const QStringList expectedNavigation{QObject::tr("Biblioteca"), QObject::tr("Escritura"), QObject::tr("Tablero de escenas"), QObject::tr("Atlas / documentación"), QObject::tr("Mapas"), QObject::tr("Revisión"), QObject::tr("Configuración / salida")};
-    require(nav && nav->count() == expectedNavigation.size(), QStringLiteral("sevenProductModules"));
-    if (nav) for (int i = 0; i < qMin(nav->count(), expectedNavigation.size()); ++i) require(nav->item(i)->text() == expectedNavigation.at(i), QStringLiteral("navigation[%1]").arg(i));
+    require(nav && nav->count() == static_cast<int>(expectedNavigation.size()), QStringLiteral("sevenProductModules"));
+    if (nav) for (int i = 0; i < qMin(nav->count(), static_cast<int>(expectedNavigation.size())); ++i) require(nav->item(i)->text() == expectedNavigation.at(i), QStringLiteral("navigation[%1]").arg(i));
 
     const QStringList slugs{QStringLiteral("library"), QStringLiteral("writing"), QStringLiteral("scenes"), QStringLiteral("atlas"), QStringLiteral("maps"), QStringLiteral("review"), QStringLiteral("settings")};
     if (nav) {
-        for (int row = 0; row < qMin(nav->count(), slugs.size()); ++row) {
+        for (int row = 0; row < qMin(nav->count(), static_cast<int>(slugs.size())); ++row) {
             nav->setCurrentRow(row);
             QApplication::processEvents();
             applyProductUi(window);
