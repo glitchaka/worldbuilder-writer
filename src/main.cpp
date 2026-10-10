@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
+#include <QEvent>
 #include <QFile>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -19,6 +20,7 @@
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QSettings>
 #include <QShortcut>
 #include <QStackedWidget>
 #include <QTextStream>
@@ -58,6 +60,18 @@ private:
     }
 };
 
+void notifyPreferenceConsumers(wbw::MainWindow& window) {
+    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+    if (QTimer* timer = window.autosaveTimer()) {
+        const int seconds = qBound(5, settings.value(QStringLiteral("editor/autosaveSeconds"), 15).toInt(), 300);
+        timer->setInterval(seconds * 1000);
+    }
+    const QStringList targets{QStringLiteral("writingPage"), QStringLiteral("pilinReyEditor"), QStringLiteral("projectHubPage"), QStringLiteral("planningCharacters"), QStringLiteral("reviewPage")};
+    for (const QString& name : targets) {
+        if (QWidget* target = window.findChild<QWidget*>(name)) QCoreApplication::postEvent(target, new QEvent(QEvent::LayoutRequest));
+    }
+}
+
 void installSettingsWorkspace(wbw::MainWindow& window) {
     auto* navigation = window.findChild<QListWidget*>(QStringLiteral("sideNavigation"));
     auto* pages = window.findChild<QStackedWidget*>(QStringLiteral("pageStack"));
@@ -69,6 +83,7 @@ void installSettingsWorkspace(wbw::MainWindow& window) {
     QListWidgetItem* item = navigation->item(navigation->count() - 1);
     item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter); item->setSizeHint(QSize(136, 38));
     if (QWidget* oldAction = window.findChild<QWidget*>(QStringLiteral("settingsAction"))) oldAction->hide();
+    QObject::connect(settings, &wbw::SettingsWorkspace::preferencesChanged, &window, [&window]() { notifyPreferenceConsumers(window); });
     QObject::connect(navigation, &QListWidget::currentRowChanged, &window, [&window, pages, settings](int row) {
         if (row != 6) return;
         pages->setCurrentWidget(settings);
