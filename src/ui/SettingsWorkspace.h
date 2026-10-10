@@ -5,6 +5,7 @@
 
 class QComboBox;
 class QLabel;
+class QKeySequenceEdit;
 class QLayout;
 class QLineEdit;
 class QListWidget;
@@ -28,6 +29,7 @@ private:
     QWidget* makePage(const QString& title, const QString& description);
     QWidget* makeCard(const QString& title, const QString& description, QLayout* body);
     void persistEditor();
+    void persistShortcuts();
     void chooseBackupDirectory();
     void refreshCloudState();
     void populateCloudBackups(const QJsonArray& files);
@@ -39,6 +41,8 @@ private:
     QSpinBox* editorFontSize_ = nullptr;
     QSpinBox* autosaveSeconds_ = nullptr;
     QComboBox* proofLanguage_ = nullptr;
+    QKeySequenceEdit* focusShortcut_ = nullptr;
+    QKeySequenceEdit* proofShortcut_ = nullptr;
     QLineEdit* backupDirectory_ = nullptr;
 
     GoogleDriveService* drive_ = nullptr;
