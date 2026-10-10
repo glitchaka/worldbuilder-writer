@@ -45,6 +45,18 @@ QString toolCaption(const QString& tip) {
     return {};
 }
 
+QString commandCaption(const QString& tip, const QString& fallback) {
+    if (tip == QObject::tr("Capas")) return QObject::tr("Capas");
+    if (tip == QObject::tr("Assets")) return QObject::tr("Assets");
+    if (tip == QObject::tr("Plantilla")) return QObject::tr("Plantilla");
+    if (tip == QObject::tr("Apariencia")) return QObject::tr("Apariencia");
+    if (tip == QObject::tr("Encajar")) return QObject::tr("Encajar");
+    if (tip == QObject::tr("Exportar")) return QObject::tr("Exportar");
+    if (tip == QObject::tr("Deshacer")) return QStringLiteral("↶");
+    if (tip == QObject::tr("Rehacer")) return QStringLiteral("↷");
+    return fallback;
+}
+
 void configureToolRail(QWidget* rail) {
     if (!rail || rail->property("wbwMapRailConfigured").toBool()) return;
     rail->setProperty("wbwMapRailConfigured", true);
@@ -69,12 +81,28 @@ void configureToolRail(QWidget* rail) {
     }
 }
 
+void configureCommands(QWidget* commands) {
+    if (!commands || commands->property("wbwMapCommandsConfigured").toBool()) return;
+    commands->setProperty("wbwMapCommandsConfigured", true);
+    for (QToolButton* button : commands->findChildren<QToolButton*>(QStringLiteral("pilinCommand"))) {
+        button->setText(commandCaption(button->toolTip(), button->text()));
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        button->setMinimumHeight(30);
+        const bool compact = button->toolTip() == QObject::tr("Deshacer") || button->toolTip() == QObject::tr("Rehacer");
+        button->setMinimumWidth(compact ? 32 : 64);
+        button->setMaximumWidth(compact ? 36 : 96);
+    }
+}
+
 void normalizePopoverTitles(QWidget* editor) {
     if (!editor) return;
     const auto frames = editor->findChildren<QFrame*>(QStringLiteral("pilinPopover"));
     for (QFrame* frame : frames) {
         for (QLabel* label : frame->findChildren<QLabel*>()) {
-            if (label->text().trimmed() == QObject::tr("Assets")) { label->setText(QObject::tr("Assets y sellos")); break; }
+            if (label->text().trimmed() == QObject::tr("Assets")) {
+                label->setText(QObject::tr("Assets y sellos"));
+                break;
+            }
         }
     }
 }
@@ -112,6 +140,7 @@ public:
         if (!canvas || canvas->width() < 100 || canvas->height() < 100) return;
 
         configureToolRail(rail);
+        configureCommands(commands);
         normalizePopoverTitles(editor);
         applyPersistentDefaults(editor);
 
@@ -123,7 +152,7 @@ public:
                 "#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinToolOptions{background:#181b20;border:1px solid #313640;border-radius:10px;}"
                 "#pilinPaletteTitle{color:#f2f3f5;font-size:10pt;font-weight:700;}"
                 "#pilinMapTool,#pilinCommand{background:transparent;color:#d9dde4;border:0;border-radius:7px;text-align:left;padding:0 9px;}"
-                "#pilinCommand{padding:0 7px;}"
+                "#pilinCommand{padding:0 8px;text-align:center;}"
                 "#pilinMapTool:hover,#pilinCommand:hover{background:#262b33;}"
                 "#pilinMapTool:checked{background:#c59a5d;color:#111315;font-weight:700;}"
                 "#pilinPopoverTitle{color:#f0f2f5;font-size:11pt;font-weight:700;}"
@@ -134,7 +163,7 @@ public:
                 "QListWidget::item:selected{background:#2b313a;color:#ffffff;}"
                 "QSlider::groove:horizontal{height:4px;background:#303640;border-radius:2px;}"
                 "QSlider::handle:horizontal{width:12px;margin:-4px 0;background:#c59a5d;border-radius:6px;}"
-                "QCheckBox{color:#c9ced6;}"
+                "QCheckBox{color:#c9ced6;padding:0 2px;}"
             ));
         }
 
