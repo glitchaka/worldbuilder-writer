@@ -16,7 +16,7 @@ public:
 
     bool eventFilter(QObject* watched, QEvent* event) override {
         Q_UNUSED(watched);
-        if (event->type() == QEvent::Show || event->type() == QEvent::PaletteChange || event->type() == QEvent::LayoutRequest)
+        if (event->type() == QEvent::Show || event->type() == QEvent::LayoutRequest)
             QTimer::singleShot(0, this, [this]() { apply(); });
         return false;
     }
