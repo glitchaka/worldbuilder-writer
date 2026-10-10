@@ -3,6 +3,7 @@
 #include "ui/ProjectHubPage.h"
 #include "ui/WritingPage.h"
 
+#include <QAbstractItemView>
 #include <QEvent>
 #include <QLabel>
 #include <QListWidget>
@@ -27,7 +28,7 @@ public:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest))
             QTimer::singleShot(0, this, [this]() { polishShell(); enforceRoute(); });
         return QObject::eventFilter(watched, event);
     }
@@ -83,15 +84,17 @@ private:
         } else {
             for (int i = 0; i < items.size(); ++i) nav_->item(i)->setText(items.at(i));
         }
-        nav_->setSpacing(3);
+        nav_->setSpacing(1);
         nav_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         nav_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        nav_->setMinimumHeight(items.size() * 46 + 14);
-        nav_->setMaximumHeight(items.size() * 46 + 14);
+        nav_->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+        nav_->setMinimumHeight(items.size() * 37 + 10);
+        nav_->setMaximumHeight(items.size() * 37 + 10);
         for (int i = 0; i < nav_->count(); ++i) {
-            nav_->item(i)->setSizeHint(QSize(176, 43));
+            nav_->item(i)->setSizeHint(QSize(176, 35));
             nav_->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         }
+        if (nav_->count()) nav_->scrollToTop();
     }
 
     void polishShell() {
@@ -106,8 +109,8 @@ private:
 #appMark{background:#30261d;color:#e9c489;border:1px solid #6f5437;border-radius:8px;font-family:'Georgia';font-size:11pt;font-weight:700;}
 #appName{color:#f1ede4;font-weight:700;font-size:10pt;}
 #appMode{color:#756f65;font-size:7pt;font-weight:700;letter-spacing:1.3px;}
-QListWidget#sideNavigation{background:transparent;border:0;outline:0;padding:8px 0;}
-QListWidget#sideNavigation::item{background:transparent;color:#8f918d;border:0;border-left:2px solid transparent;border-radius:6px;padding:9px 11px;margin:1px 0;}
+QListWidget#sideNavigation{background:transparent;border:0;outline:0;padding:5px 0;}
+QListWidget#sideNavigation::item{background:transparent;color:#8f918d;border:0;border-left:2px solid transparent;border-radius:6px;padding:6px 11px;margin:0;}
 QListWidget#sideNavigation::item:hover{background:#151719;color:#d8d5ce;}
 QListWidget#sideNavigation::item:selected{background:#24211c;color:#e7c28a;border-left:2px solid #b88a52;font-weight:600;}
 )QSS"));
@@ -120,6 +123,7 @@ QListWidget#sideNavigation::item:selected{background:#24211c;color:#e7c28a;borde
 #projectTitle{color:#f0ece4;font-family:'Georgia';font-size:11pt;font-weight:600;}
 #saveState{color:#777b76;font-size:8pt;}
 #primarySave{background:#b98a52;color:#11120f;border:0;border-radius:7px;padding:8px 14px;font-weight:700;}
+#primarySave:hover{background:#c79a61;}
 #secondaryAction{background:transparent;color:#b7b2aa;border:1px solid #373730;border-radius:7px;padding:7px 12px;}
 #secondaryAction:hover{background:#1b1c1b;color:#fff8ec;}
 )QSS"));
@@ -192,6 +196,7 @@ QListWidget#sideNavigation::item:selected{background:#24211c;color:#e7c28a;borde
                 nav_->setCurrentRow(0);
                 break;
         }
+        if (nav_->count()) nav_->scrollToTop();
     }
 
     QPointer<QMainWindow> window_;
@@ -213,8 +218,8 @@ QListWidget#sideNavigation::item:selected{background:#24211c;color:#e7c28a;borde
 } // namespace
 
 void installNavigationConsistencyController(QMainWindow* window) {
-    if (!window || window->property("wbwNavigationConsistencyV3").toBool()) return;
-    window->setProperty("wbwNavigationConsistencyV3", true);
+    if (!window || window->property("wbwNavigationConsistencyV4").toBool()) return;
+    window->setProperty("wbwNavigationConsistencyV4", true);
     new NavigationConsistency(window);
 }
 
