@@ -9,6 +9,7 @@
 #include "ui/SettingsWorkspace.h"
 #include "ui/ThemeManager.h"
 #include "ui/WritingMockupController.h"
+#include "ui/WritingShortcutBridge.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -103,6 +104,7 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::installLibraryMockupController(&window);
     wbw::installMapMockupController(&window);
     wbw::installWritingMockupController(&window);
+    wbw::installWritingShortcutBridge(&window);
     wbw::installPlanningMockupController(&window);
     wbw::installReviewMockupController(&window);
     wbw::installSettingsMockupController(&window);
