@@ -2,6 +2,7 @@
 #include "ui/AtlasWorkspaceController.h"
 #include "ui/LibraryMockupController.h"
 #include "ui/MapMockupController.h"
+#include "ui/MapSelectionController.h"
 #include "ui/NavigationConsistencyController.h"
 #include "ui/PlanningMockupController.h"
 #include "ui/ProductReorganizer.h"
@@ -104,6 +105,7 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::installNavigationConsistencyController(&window);
     wbw::installLibraryMockupController(&window);
     wbw::installMapMockupController(&window);
+    wbw::installMapSelectionController(&window);
     wbw::installWritingMockupController(&window);
     wbw::installWritingShortcutBridge(&window);
     wbw::installPlanningMockupController(&window);
