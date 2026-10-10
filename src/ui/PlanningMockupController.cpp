@@ -18,26 +18,26 @@ namespace {
 void applyPlanningStyle(QWidget* tab) {
     if (!tab) return;
     tab->setStyleSheet(QStringLiteral(R"QSS(
-#planningCharacters{background:#0e1116;color:#d8dde5;}
-#planningIndex{background:#11161d;border:0;border-right:1px solid #252d38;}
-#planningEditor{background:#0e1116;border:0;}
-#planningContextRail{background:#11161d;border:0;border-left:1px solid #252d38;}
+#planningCharacters{background:palette(window);color:palette(window-text);}
+#planningIndex{background:palette(base);border:0;border-right:1px solid palette(mid);}
+#planningEditor{background:palette(window);border:0;}
+#planningContextRail{background:palette(base);border:0;border-left:1px solid palette(mid);}
 #planningContextKicker{color:#c49a62;font-size:8pt;font-weight:700;letter-spacing:1px;}
-#planningEditorialTitle{color:#f0f2f4;font-family:'Georgia';font-size:23pt;font-weight:600;padding:6px 0 10px 0;}
-#planningContextCard,#planningCard{background:#151b22;border:1px solid #2a333f;border-radius:10px;padding:10px;}
-#planningContextCard #planningField,#planningCard #planningField{color:#8e99a7;font-size:8pt;font-weight:700;letter-spacing:.7px;}
-#planningIndex QListWidget{background:transparent;color:#cbd2dc;border:0;outline:0;padding:6px;}
+#planningEditorialTitle{color:palette(text);font-family:'Georgia';font-size:23pt;font-weight:600;padding:6px 0 10px 0;}
+#planningContextCard,#planningCard{background:palette(base);border:1px solid palette(mid);border-radius:10px;padding:10px;}
+#planningContextCard #planningField,#planningCard #planningField{color:palette(window-text);font-size:8pt;font-weight:700;letter-spacing:.7px;}
+#planningIndex QListWidget{background:transparent;color:palette(text);border:0;outline:0;padding:6px;}
 #planningIndex QListWidget::item{padding:9px 8px;border-radius:7px;margin:1px 0;}
-#planningIndex QListWidget::item:hover{background:#18202a;color:#f0f3f6;}
-#planningIndex QListWidget::item:selected{background:#222c38;color:#ffffff;border-left:2px solid #c49a62;}
-#characterImage{background:#12171d;border:1px solid #2b3440;border-radius:10px;color:#7f8a97;}
-#planningCharacters QLineEdit,#planningCharacters QTextEdit,#planningCharacters QComboBox,#planningCharacters QSpinBox{background:#10151b;color:#dbe0e7;border:1px solid #2c3541;border-radius:8px;padding:8px 9px;}
+#planningIndex QListWidget::item:hover{background:palette(alternate-base);color:palette(text);}
+#planningIndex QListWidget::item:selected{background:palette(highlight);color:palette(highlighted-text);border-left:2px solid #c49a62;}
+#characterImage{background:palette(alternate-base);border:1px solid palette(mid);border-radius:10px;color:palette(window-text);}
+#planningCharacters QLineEdit,#planningCharacters QTextEdit,#planningCharacters QComboBox,#planningCharacters QSpinBox{background:palette(base);color:palette(text);border:1px solid palette(mid);border-radius:8px;padding:8px 9px;}
 #planningCharacters QLineEdit:focus,#planningCharacters QTextEdit:focus,#planningCharacters QComboBox:focus,#planningCharacters QSpinBox:focus{border-color:#8b6843;}
-#planningCharacters QPushButton{background:#171e27;color:#cfd6df;border:1px solid #303a46;border-radius:7px;padding:7px 10px;}
-#planningCharacters QPushButton:hover{background:#202a35;color:#ffffff;}
-#planningCharacters QScrollBar:vertical{background:#0e1116;width:9px;}
-#planningCharacters QScrollBar::handle:vertical{background:#343c47;border-radius:4px;min-height:34px;}
-QSplitter::handle{background:#252d38;}
+#planningCharacters QPushButton{background:palette(alternate-base);color:palette(button-text);border:1px solid palette(mid);border-radius:7px;padding:7px 10px;}
+#planningCharacters QPushButton:hover{background:palette(highlight);color:palette(highlighted-text);}
+#planningCharacters QScrollBar:vertical{background:transparent;width:9px;}
+#planningCharacters QScrollBar::handle:vertical{background:palette(mid);border-radius:4px;min-height:34px;}
+QSplitter::handle{background:palette(mid);}
 )QSS"));
 }
 
@@ -46,7 +46,7 @@ public:
     explicit PlanningWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::PaletteChange))
             QTimer::singleShot(0, this, [this]() { apply(); });
         return QObject::eventFilter(watched, event);
     }
