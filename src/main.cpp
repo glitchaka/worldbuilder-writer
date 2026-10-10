@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 #include "ui/LibraryMockupController.h"
 #include "ui/MapMockupController.h"
+#include "ui/PlanningMockupController.h"
 #include "ui/ProductReorganizer.h"
 #include "ui/SettingsWorkspace.h"
 #include "ui/ThemeManager.h"
@@ -128,6 +129,7 @@ int main(int argc, char* argv[]) {
     wbw::installLibraryMockupController(&window);
     wbw::installMapMockupController(&window);
     wbw::installWritingMockupController(&window);
+    wbw::installPlanningMockupController(&window);
     wbw::ThemeManager::applySaved();
     window.show();
     QTimer::singleShot(0, [&window]() {
@@ -136,6 +138,7 @@ int main(int argc, char* argv[]) {
         wbw::installLibraryMockupController(&window);
         wbw::installMapMockupController(&window);
         wbw::installWritingMockupController(&window);
+        wbw::installPlanningMockupController(&window);
         wbw::ThemeManager::applySaved();
     });
     return app.exec();
