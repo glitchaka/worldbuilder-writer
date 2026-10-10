@@ -3,6 +3,7 @@
 #include "ui/ProjectHubPage.h"
 #include "ui/WritingPage.h"
 
+#include <QEvent>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QPointer>
@@ -20,6 +21,14 @@ public:
     explicit NavigationConsistency(QMainWindow* window)
         : QObject(window), window_(window) {
         bind();
+        if (window_) window_->installEventFilter(this);
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (watched == window_ && (event->type() == QEvent::Resize || event->type() == QEvent::Show))
+            QTimer::singleShot(0, this, [this]() { enforceReadableRail(); });
+        return QObject::eventFilter(watched, event);
     }
 
 private:
@@ -35,6 +44,7 @@ private:
         worldTabs_ = window_->findChild<QTabWidget*>(QStringLiteral("worldTabs"));
         mapsTab_ = window_->findChild<QWidget*>(QStringLiteral("mapsTab"));
         settings_ = window_->findChild<QWidget*>(QStringLiteral("settingsWorkspace"));
+        rail_ = window_->findChild<QWidget*>(QStringLiteral("sideRail"));
         if (!nav_ || !pages_) return;
 
         connect(pages_, &QStackedWidget::currentChanged, this, [this](int) {
@@ -64,11 +74,24 @@ private:
             connect(hub, &ProjectHubPage::importProjectRequested, this, goWriting);
         }
 
-        QTimer::singleShot(0, this, [this]() { enforceCurrentRoute(); });
+        QTimer::singleShot(0, this, [this]() { enforceCurrentRoute(); enforceReadableRail(); });
+    }
+
+    void enforceReadableRail() {
+        if (!window_ || !rail_) return;
+        const int width = window_->width();
+        const int railWidth = width < 1040 ? 142 : (width < 1320 ? 158 : 178);
+        rail_->setMinimumWidth(railWidth);
+        rail_->setMaximumWidth(railWidth);
+        if (nav_) {
+            for (int i = 0; i < nav_->count(); ++i)
+                if (nav_->item(i)) nav_->item(i)->setSizeHint(QSize(railWidth - 18, 38));
+        }
     }
 
     void enforceCurrentRoute() {
         if (!window_ || !nav_ || !pages_) return;
+        enforceReadableRail();
         const int row = nav_->currentRow();
         switch (row) {
             case 0:
@@ -86,8 +109,8 @@ private:
                 if (world_ && pages_->currentWidget() != world_) pages_->setCurrentWidget(world_);
                 if (worldTabs_) {
                     for (int i = 0; i < worldTabs_->count(); ++i) worldTabs_->setTabVisible(i, worldTabs_->widget(i) != mapsTab_);
-                    if (worldTabs_->currentWidget() == mapsTab_ || worldTabs_->currentIndex() < 0) worldTabs_->setCurrentIndex(0);
                     if (worldTabs_->tabBar()) worldTabs_->tabBar()->show();
+                    worldTabs_->setCurrentIndex(0);
                 }
                 break;
             case 4:
@@ -120,6 +143,7 @@ private:
     QPointer<QWidget> review_;
     QPointer<QWidget> settings_;
     QPointer<QWidget> mapsTab_;
+    QPointer<QWidget> rail_;
     QPointer<QTabWidget> writingTabs_;
     QPointer<QTabWidget> worldTabs_;
 };
