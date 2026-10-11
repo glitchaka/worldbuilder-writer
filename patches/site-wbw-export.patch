@@ -1,5 +1,5 @@
 diff --git a/app/archive-client.tsx b/app/archive-client.tsx
-index be2480e..039d0a3 100644
+index be2480e..5383aac 100644
 --- a/app/archive-client.tsx
 +++ b/app/archive-client.tsx
 @@ -40,6 +40,7 @@ import { chaptersFromImportedManuscript, structuredTextFromMammothHtml } from ".
@@ -69,6 +69,15 @@ index be2480e..039d0a3 100644
        {dossierId && dossierCharacter && (
          <DossierDrawer
            character={dossierCharacter}
+@@ -1803,7 +1808,7 @@ export default function ArchiveClient({
+       {worldEditor && <WorldEditor projectId={projectId} record={worldEditor} onCancel={() => setWorldEditor(null)} onSave={saveWorldRecord} onDelete={archive.world.some((item) => item.id === worldEditor.id) ? () => removeWorldRecord(worldEditor.id) : undefined} />}
+       {magicEditor && <MagicEditor projectId={projectId} system={magicEditor} onCancel={() => setMagicEditor(null)} onSave={saveMagicSystem} onDelete={archive.magicSystems.some((item) => item.id === magicEditor.id) ? () => removeMagicSystem(magicEditor.id) : undefined} />}
+       {mapEditor && <MapEditor map={mapEditor} onCancel={() => setMapEditor(null)} onSave={saveWorldMap} onDelete={archive.maps.some((item) => item.id === mapEditor.id) ? () => removeWorldMap(mapEditor.id) : undefined} />}
+-      {attachmentTarget && <AttachmentLibraryModal target={attachmentTarget} attachments={targetAttachments} onChange={updateTargetAttachments} onClose={() => setAttachmentTarget(null)} />}
++      {attachmentTarget && <AttachmentLibraryModal projectId={projectId} target={attachmentTarget} attachments={targetAttachments} onChange={updateTargetAttachments} onClose={() => setAttachmentTarget(null)} />}
+       {textEditor && <ImportedTextEditor scope={textEditor.scope} text={textEditor.text} onCancel={() => setTextEditor(null)} onSave={(text) => saveImportedText(textEditor.scope, text)} />}
+       {ambienceEditor && <AmbienceEditor spotifyUrl={archive.profile.spotifyPlaylistUrl ?? ""} youtubeUrl={archive.profile.youtubeAmbientUrl ?? ""} onCancel={() => setAmbienceEditor(false)} onSave={saveAmbienceSources} />}
+       {projectEditor && <ProjectEditor archive={archive} onCancel={() => setProjectEditor(false)} onSave={saveProject} />}
 @@ -3192,7 +3197,7 @@ function AttachmentStrip({ projectId, scope, recordId, attachments }: { projectI
    );
  }
@@ -78,6 +87,24 @@ index be2480e..039d0a3 100644
    const [uploading, setUploading] = useState(false);
    const [error, setError] = useState("");
  
+@@ -3249,7 +3254,7 @@ function AttachmentManager({ attachments, onChange }: { attachments: ArchiveAtta
+   );
+ }
+ 
+-function AttachmentLibraryModal({ target, attachments, onChange, onClose }: { target: AttachmentTarget; attachments: ArchiveAttachment[]; onChange: (attachments: ArchiveAttachment[]) => void; onClose: () => void }) {
++function AttachmentLibraryModal({ projectId, target, attachments, onChange, onClose }: { projectId: string; target: AttachmentTarget; attachments: ArchiveAttachment[]; onChange: (attachments: ArchiveAttachment[]) => void; onClose: () => void }) {
+   useEscape(onClose);
+   return (
+     <div className="editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+@@ -3257,7 +3262,7 @@ function AttachmentLibraryModal({ target, attachments, onChange, onClose }: { ta
+         <div className="editor-head"><div><span>GALERÍA DEL WORLDBUILDING</span><h2>Imágenes · {target.name}</h2></div><button type="button" onClick={onClose} aria-label="Cerrar imágenes">×</button></div>
+         <div className="editor-body">
+           <p className="attachment-library-intro">Aquí solo se guardan imágenes. Los documentos de texto se importan desde el botón independiente del apartado y se convierten en contenido editable.</p>
+-          <AttachmentManager attachments={attachments} onChange={onChange} />
++          <AttachmentManager projectId={projectId} scope={target.scope} recordId={target.recordId} attachments={attachments} onChange={onChange} />
+         </div>
+         <div className="editor-actions"><span className="action-spacer" /><button type="button" onClick={onClose}>Cerrar</button></div>
+       </section>
 diff --git a/app/globals.css b/app/globals.css
 index 0819496..63c659c 100644
 --- a/app/globals.css
