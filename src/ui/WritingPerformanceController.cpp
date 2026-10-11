@@ -7,6 +7,8 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QTextDocument>
+#include <QTextFrame>
+#include <QTextFrameFormat>
 #include <QTimer>
 
 namespace wbw {
@@ -49,15 +51,23 @@ protected:
 
 private:
     void applyMargins() {
-        if (!editor_) return;
+        if (!editor_ || !editor_->document() || !editor_->document()->rootFrame()) return;
 
-        // Keep the manuscript as a centered reading column. CSS percentage padding previously
-        // made the text width depend on panel geometry and could collapse margins on resize.
+        // Keep the manuscript as a centered reading column. Percentage CSS padding was causing
+        // the effective line width to drift as side panels changed size. Frame margins are part of
+        // QTextDocument layout itself, so paragraphs now keep a stable readable measure.
         const int viewportWidth = editor_->viewport() ? editor_->viewport()->width() : editor_->width();
         const int targetTextWidth = qBound(620, viewportWidth - 96, 820);
-        const int side = qMax(28, (viewportWidth - targetTextWidth) / 2);
-        editor_->setViewportMargins(side, 22, side, 34);
+        const int side = qMax(30, (viewportWidth - targetTextWidth) / 2);
+
         editor_->document()->setDocumentMargin(0.0);
+        QTextFrameFormat format = editor_->document()->rootFrame()->frameFormat();
+        format.setLeftMargin(side);
+        format.setRightMargin(side);
+        format.setTopMargin(28);
+        format.setBottomMargin(40);
+        editor_->document()->rootFrame()->setFrameFormat(format);
+
         editor_->setStyleSheet(QStringLiteral(
             "QTextEdit#sceneEditor{background:#0b1016;color:#e2ddd3;border:0;padding:0;"
             "selection-background-color:#3b6579;selection-color:#ffffff;}"));
@@ -72,8 +82,8 @@ private:
 } // namespace
 
 void installWritingPerformanceController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingPerformanceV1").toBool()) return;
-    window->setProperty("wbwWritingPerformanceV1", true);
+    if (!window || window->property("wbwWritingPerformanceV2").toBool()) return;
+    window->setProperty("wbwWritingPerformanceV2", true);
     new ManuscriptGuard(window);
 }
 
