@@ -1,12 +1,10 @@
 #include "ui/WritingMockupController.h"
 
-#include <QAbstractButton>
 #include <QComboBox>
 #include <QEvent>
 #include <QFont>
 #include <QFrame>
 #include <QGraphicsItem>
-#include <QGraphicsRectItem>
 #include <QGraphicsSimpleTextItem>
 #include <QGraphicsView>
 #include <QHBoxLayout>
@@ -58,7 +56,7 @@ void addMetaRow(QVBoxLayout* layout, QWidget* owner, const QString& title, QWidg
 }
 
 void buildMetadata(QWidget* metadata) {
-    if (!metadata || metadata->property("wbwEditorialMetadataV2").toBool()) return;
+    if (!metadata || metadata->property("wbwEditorialMetadataV3").toBool()) return;
     auto* title = fieldByPlaceholder(metadata, QObject::tr("Título de escena"));
     auto* pov = fieldByPlaceholder(metadata, QObject::tr("POV"));
     auto* location = fieldByPlaceholder(metadata, QObject::tr("Ubicación"));
@@ -112,16 +110,15 @@ void buildMetadata(QWidget* metadata) {
     auto* statsLayout = new QHBoxLayout(stats);
     statsLayout->setContentsMargins(10, 12, 10, 12);
     statsLayout->setSpacing(6);
-    const QStringList values{QStringLiteral("—"), QStringLiteral("—"), QStringLiteral("—")};
     const QStringList names{QObject::tr("palabras"), QObject::tr("referencias"), QObject::tr("notas")};
-    for (int i = 0; i < names.size(); ++i) {
+    for (const QString& nameText : names) {
         auto* cell = new QWidget(stats);
         auto* cellLayout = new QVBoxLayout(cell);
         cellLayout->setContentsMargins(0, 0, 0, 0);
         cellLayout->setSpacing(0);
-        auto* value = makeLabel(values.at(i), QStringLiteral("writingContextStatValue"), cell);
+        auto* value = makeLabel(QStringLiteral("—"), QStringLiteral("writingContextStatValue"), cell);
         value->setAlignment(Qt::AlignCenter);
-        auto* name = makeLabel(names.at(i), QStringLiteral("writingContextStatName"), cell);
+        auto* name = makeLabel(nameText, QStringLiteral("writingContextStatName"), cell);
         name->setAlignment(Qt::AlignCenter);
         cellLayout->addWidget(value);
         cellLayout->addWidget(name);
@@ -135,15 +132,15 @@ void buildMetadata(QWidget* metadata) {
     refHeader->addStretch(1);
     refHeader->addWidget(makeLabel(QStringLiteral("+"), QStringLiteral("writingContextAdd"), metadata));
     layout->addLayout(refHeader);
-    auto* refHint = makeLabel(QObject::tr("Las menciones semánticas aparecen dentro del manuscrito. Selecciona una para abrir su ficha contextual."), QStringLiteral("writingContextHint"), metadata);
+    auto* refHint = makeLabel(QObject::tr("Las referencias se muestran dentro del manuscrito y abren su tarjeta contextual al interactuar con ellas."), QStringLiteral("writingContextHint"), metadata);
     refHint->setWordWrap(true);
     layout->addWidget(refHint);
     layout->addStretch(1);
-    metadata->setProperty("wbwEditorialMetadataV2", true);
+    metadata->setProperty("wbwEditorialMetadataV3", true);
 }
 
 void buildIndexHeader(QWidget* index) {
-    if (!index || index->property("wbwEditorialIndexV2").toBool()) return;
+    if (!index || index->property("wbwEditorialIndexV3").toBool()) return;
     auto* layout = qobject_cast<QVBoxLayout*>(index->layout());
     if (!layout) return;
     if (QLabel* legacy = index->findChild<QLabel*>(QStringLiteral("indexTitle"))) legacy->hide();
@@ -168,7 +165,7 @@ void buildIndexHeader(QWidget* index) {
             const QString needle = text.trimmed();
             for (int i = 0; i < tree->topLevelItemCount(); ++i) {
                 QTreeWidgetItem* chapter = tree->topLevelItem(i);
-                bool chapterMatch = needle.isEmpty() || chapter->text(0).contains(needle, Qt::CaseInsensitive);
+                const bool chapterMatch = needle.isEmpty() || chapter->text(0).contains(needle, Qt::CaseInsensitive);
                 bool childMatch = false;
                 for (int j = 0; j < chapter->childCount(); ++j) {
                     QTreeWidgetItem* scene = chapter->child(j);
@@ -181,11 +178,11 @@ void buildIndexHeader(QWidget* index) {
             }
         });
     }
-    index->setProperty("wbwEditorialIndexV2", true);
+    index->setProperty("wbwEditorialIndexV3", true);
 }
 
 void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
-    if (!editorPanel || !editor || editorPanel->property("wbwEditorialStageV2").toBool()) return;
+    if (!editorPanel || !editor || editorPanel->property("wbwEditorialStageV3").toBool()) return;
     auto* layout = qobject_cast<QVBoxLayout*>(editorPanel->layout());
     if (!layout) return;
     const int index = layout->indexOf(editor);
@@ -197,10 +194,11 @@ void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
     auto* stageLayout = new QVBoxLayout(stage);
     stageLayout->setContentsMargins(0, 0, 0, 0);
     stageLayout->setSpacing(0);
+
     auto* header = new QFrame(stage);
     header->setObjectName(QStringLiteral("writingDocumentHeader"));
     auto* headerLayout = new QVBoxLayout(header);
-    headerLayout->setContentsMargins(28, 16, 28, 12);
+    headerLayout->setContentsMargins(30, 16, 30, 12);
     headerLayout->setSpacing(8);
 
     auto* breadcrumb = new QHBoxLayout;
@@ -210,7 +208,7 @@ void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
     breadcrumb->addWidget(makeLabel(QStringLiteral("›"), QStringLiteral("writingBreadcrumbDim"), header));
     breadcrumb->addWidget(makeLabel(QObject::tr("Escena actual"), QStringLiteral("writingBreadcrumb"), header));
     breadcrumb->addStretch(1);
-    breadcrumb->addWidget(makeLabel(QObject::tr("Guardado automáticamente"), QStringLiteral("writingSavedState"), header));
+    breadcrumb->addWidget(makeLabel(QObject::tr("●  Guardado automáticamente"), QStringLiteral("writingSavedState"), header));
     headerLayout->addLayout(breadcrumb);
 
     auto* titleLine = new QHBoxLayout;
@@ -231,7 +229,7 @@ void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
         });
         if (!source->text().trimmed().isEmpty()) sceneTitle->setText(source->text().trimmed());
     }
-    editorPanel->setProperty("wbwEditorialStageV2", true);
+    editorPanel->setProperty("wbwEditorialStageV3", true);
 }
 
 void populateSceneBoardFacets(QWidget* board) {
@@ -282,12 +280,18 @@ void populateSceneBoardFacets(QWidget* board) {
 
         layout->insertWidget(0, filters);
         QObject::connect(pov, &QComboBox::currentTextChanged, sourceSearch, [sourceSearch, location](const QString& text) {
-            if (text == QObject::tr("Todos los POV")) { if (location->currentIndex() == 0) sourceSearch->clear(); return; }
+            if (text == QObject::tr("Todos los POV")) {
+                if (location->currentIndex() == 0) sourceSearch->clear();
+                return;
+            }
             { QSignalBlocker blocker(location); location->setCurrentIndex(0); }
             sourceSearch->setText(text);
         });
         QObject::connect(location, &QComboBox::currentTextChanged, sourceSearch, [sourceSearch, pov](const QString& text) {
-            if (text == QObject::tr("Todas las ubicaciones")) { if (pov->currentIndex() == 0) sourceSearch->clear(); return; }
+            if (text == QObject::tr("Todas las ubicaciones")) {
+                if (pov->currentIndex() == 0) sourceSearch->clear();
+                return;
+            }
             { QSignalBlocker blocker(pov); pov->setCurrentIndex(0); }
             sourceSearch->setText(text);
         });
@@ -314,17 +318,22 @@ void populateSceneBoardFacets(QWidget* board) {
     povs.sort(Qt::CaseInsensitive);
     locations.sort(Qt::CaseInsensitive);
     const QString currentPov = pov->currentText(), currentLocation = location->currentText();
-    { QSignalBlocker blocker(pov); pov->clear(); pov->addItem(QObject::tr("Todos los POV")); pov->addItems(povs); const int i=pov->findText(currentPov); if(i>=0)pov->setCurrentIndex(i); }
-    { QSignalBlocker blocker(location); location->clear(); location->addItem(QObject::tr("Todas las ubicaciones")); location->addItems(locations); const int i=location->findText(currentLocation); if(i>=0)location->setCurrentIndex(i); }
+    { QSignalBlocker blocker(pov); pov->clear(); pov->addItem(QObject::tr("Todos los POV")); pov->addItems(povs); const int i = pov->findText(currentPov); if (i >= 0) pov->setCurrentIndex(i); }
+    { QSignalBlocker blocker(location); location->clear(); location->addItem(QObject::tr("Todas las ubicaciones")); location->addItems(locations); const int i = location->findText(currentLocation); if (i >= 0) location->setCurrentIndex(i); }
 }
 
 class WritingWorkspaceFilter final : public QObject {
 public:
-    explicit WritingWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
+    explicit WritingWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {
+        resizeTimer_.setSingleShot(true);
+        resizeTimer_.setInterval(60);
+        connect(&resizeTimer_, &QTimer::timeout, this, [this]() { apply(); });
+    }
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest))
-            schedule();
+        if (watched != window_) return QObject::eventFilter(watched, event);
+        if (event->type() == QEvent::Show) schedule(0);
+        else if (event->type() == QEvent::Resize) schedule(60);
         return QObject::eventFilter(watched, event);
     }
 
@@ -343,20 +352,35 @@ public:
         auto* editor = page->findChild<QTextEdit*>(QStringLiteral("sceneEditor"));
         auto* split = index ? qobject_cast<QSplitter*>(index->parentWidget()) : nullptr;
 
-        if (split && metadata && metadata->parentWidget() != split) { metadata->setParent(split); split->addWidget(metadata); }
+        if (split && metadata && metadata->parentWidget() != split) {
+            metadata->setParent(split);
+            split->addWidget(metadata);
+        }
         buildIndexHeader(index);
         buildMetadata(metadata);
         buildDocumentStage(editorPanel, editor);
 
         const bool wide = window_->width() >= 1240;
-        if (index) { index->setMinimumWidth(wide ? 286 : 220); index->setMaximumWidth(wide ? 336 : 250); }
-        if (metadata) { metadata->setVisible(wide); metadata->setMinimumWidth(wide ? 292 : 0); metadata->setMaximumWidth(wide ? 340 : 0); }
+        if (index) {
+            index->setMinimumWidth(wide ? 286 : 220);
+            index->setMaximumWidth(wide ? 336 : 250);
+        }
+        if (metadata) {
+            metadata->setVisible(wide);
+            metadata->setMinimumWidth(wide ? 292 : 0);
+            metadata->setMaximumWidth(wide ? 340 : 0);
+        }
         if (split) {
             split->setHandleWidth(1);
-            split->setStretchFactor(0, 0); split->setStretchFactor(1, 1); split->setStretchFactor(2, 0);
+            split->setStretchFactor(0, 0);
+            split->setStretchFactor(1, 1);
+            split->setStretchFactor(2, 0);
             split->setSizes(wide ? QList<int>{310, 950, 316} : QList<int>{235, 900, 0});
         }
-        if (command) { command->setMinimumHeight(46); command->setMaximumHeight(46); }
+        if (command) {
+            command->setMinimumHeight(46);
+            command->setMaximumHeight(46);
+        }
         if (editor) {
             QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
             QFont font(settings.value(QStringLiteral("editor/fontFamily"), QStringLiteral("Georgia")).toString());
@@ -366,14 +390,23 @@ public:
             editor->setLineWrapMode(QTextEdit::WidgetWidth);
             editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         }
+
         if (QWidget* board = page->findChild<QWidget*>(QStringLiteral("sceneBoardTab"))) {
-            if (QWidget* toolbar = board->findChild<QWidget*>(QStringLiteral("sceneBoardToolbar"))) { toolbar->setMinimumHeight(72); toolbar->setMaximumHeight(78); }
-            if (QWidget* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) { outline->setMinimumWidth(272); outline->setMaximumWidth(318); }
+            if (QWidget* toolbar = board->findChild<QWidget*>(QStringLiteral("sceneBoardToolbar"))) {
+                toolbar->setMinimumHeight(72);
+                toolbar->setMaximumHeight(78);
+            }
+            if (QWidget* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) {
+                outline->setMinimumWidth(272);
+                outline->setMaximumWidth(318);
+            }
             if (auto* view = board->findChild<QGraphicsView*>(QStringLiteral("sceneBoardCanvas"))) view->setFrameShape(QFrame::NoFrame);
             populateSceneBoardFacets(board);
         }
 
-        page->setStyleSheet(QStringLiteral(R"QSS(
+        if (!page->property("wbwWritingStyleV6").toBool()) {
+            page->setProperty("wbwWritingStyleV6", true);
+            page->setStyleSheet(QStringLiteral(R"QSS(
 #writingPage,#writingEditorTab,#sceneBoardTab{background:#0b1016;color:#d8dee7;}
 #writingTabs::pane{border:0;background:#0b1016;}
 #writingCommandBar{background:#0d141c;border:0;border-bottom:1px solid #28313c;padding:4px 22px;}
@@ -393,10 +426,10 @@ public:
 #editorPanel,#writingDocumentStage{background:#0b1016;border:0;}
 #writingDocumentHeader{background:#0b1016;border:0;border-bottom:1px solid #202a34;}
 #writingBreadcrumb,#writingBreadcrumbDim,#writingBreadcrumbIcon{color:#7c8996;font-size:8.5pt;}
-#writingSavedState{color:#75967f;font-size:8pt;}
+#writingSavedState{color:#6aaa80;font-size:8pt;}
 #writingDocumentTitle{color:#f0ece4;font-family:'Georgia';font-size:22pt;font-weight:500;}
 #writingHeaderMeta{color:#8c98a4;font-size:8pt;}
-#sceneEditor{background:#0b1016;color:#e2ddd3;border:0;padding:34px 9%;selection-background-color:#3b6579;selection-color:#ffffff;font-family:'Georgia';}
+#sceneEditor{background:#0b1016;color:#e2ddd3;border:0;padding:0;selection-background-color:#3b6579;selection-color:#ffffff;font-family:'Georgia';}
 #metadataPanel{background:#0c1219;border:0;border-left:1px solid #25303b;}
 #writingContextTabs{background:transparent;border:0;}
 #writingContextTab,#writingContextTabActive{padding:12px 0 10px 0;font-size:8.5pt;}
@@ -428,23 +461,31 @@ public:
 #sceneBoardOutline::item:selected{background:#172b3d;color:#90cfff;}
 QSplitter::handle{background:#25303b;}
 )QSS"));
+        }
     }
 
 private:
-    void schedule() {
-        if (pending_) return;
+    void schedule(int delay) {
+        if (delay <= 0) {
+            if (pending_) return;
+            pending_ = true;
+            QTimer::singleShot(0, this, [this]() { apply(); });
+            return;
+        }
         pending_ = true;
-        QTimer::singleShot(0, this, [this]() { apply(); });
+        resizeTimer_.start(delay);
     }
+
     QPointer<QMainWindow> window_;
+    QTimer resizeTimer_;
     bool pending_ = false;
 };
 
 } // namespace
 
 void installWritingMockupController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingMockupControllerV5").toBool()) return;
-    window->setProperty("wbwWritingMockupControllerV5", true);
+    if (!window || window->property("wbwWritingMockupControllerV6").toBool()) return;
+    window->setProperty("wbwWritingMockupControllerV6", true);
     auto* filter = new WritingWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
