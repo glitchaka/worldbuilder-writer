@@ -3,6 +3,7 @@
 #include "ui/LibraryMockupController.h"
 #include "ui/MapMockupController.h"
 #include "ui/MapSelectionController.h"
+#include "ui/MapWorkflowController.h"
 #include "ui/NavigationConsistencyController.h"
 #include "ui/PlanningMockupController.h"
 #include "ui/ProductReorganizer.h"
@@ -106,6 +107,7 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::installLibraryMockupController(&window);
     wbw::installMapMockupController(&window);
     wbw::installMapSelectionController(&window);
+    wbw::installMapWorkflowController(&window);
     wbw::installWritingMockupController(&window);
     wbw::installWritingShortcutBridge(&window);
     wbw::installPlanningMockupController(&window);
@@ -180,6 +182,7 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
                     require(window.findChild<QWidget*>(QStringLiteral("pilinReyEditor")) != nullptr, QStringLiteral("mapEditor"));
                     require(window.findChild<QWidget*>(QStringLiteral("pilinToolPalette")) != nullptr, QStringLiteral("mapToolPalette"));
                     require(window.findChild<QWidget*>(QStringLiteral("pilinTopCommands")) != nullptr, QStringLiteral("mapCommands"));
+                    require(window.findChild<QWidget*>(QStringLiteral("mapWorkflowStrip")) != nullptr, QStringLiteral("mapWorkflowStrip"));
                     break;
                 case 5:
                     require(window.findChild<QWidget*>(QStringLiteral("reviewAnalysisTab")) != nullptr, QStringLiteral("reviewAnalysis"));
