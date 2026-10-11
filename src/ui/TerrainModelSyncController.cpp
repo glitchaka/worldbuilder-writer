@@ -16,13 +16,15 @@ namespace wbw {
 void PilinReyEditor::applyBakedTerrainMap(const QJsonObject& updated) {
     if (updated.isEmpty()) return;
 
-    // Terrain baking changes the height field and consumes temporary brush objects, but it does
-    // not change the layer list, asset library or selection model. Rebuilding every panel here
-    // on every mouse move was one of the main sources of UI stalls and memory churn.
+    // Terrain baking changes only the document model and viewport. Do not rebuild every side
+    // panel or write the complete archive while a brush is still moving.
     map_ = updated;
     refreshViewport();
-    persistToArchive();
     emit mapEdited(map_);
+}
+
+void PilinReyEditor::flushBakedTerrainMap() {
+    persistToArchive();
 }
 
 void PilinReyEditor::trimUndoHistory(int maximumEntries) {
@@ -41,20 +43,25 @@ public:
 
         bakeTimer_.setSingleShot(true);
         bakeTimer_.setInterval(90);
+        persistTimer_.setSingleShot(true);
+        persistTimer_.setInterval(650);
+
         connect(&bakeTimer_, &QTimer::timeout, this, [this]() {
             if (!pending_.isEmpty()) synchronize(pending_);
             pending_ = QJsonObject();
+        });
+        connect(&persistTimer_, &QTimer::timeout, this, [this]() {
+            if (editor_) editor_->flushBakedTerrainMap();
         });
 
         connect(editor_, &PilinReyEditor::mapEdited, this, [this](const QJsonObject& map) {
             if (busy_ || !editor_) return;
             editor_->trimUndoHistory(10);
 
-            // Coalesce the stream generated while dragging a terrain brush. Only the newest
-            // state is baked, instead of rebuilding a 320x180 heightmap dozens of times/sec.
+            // Coalesce terrain input. The newest snapshot wins; intermediate mouse events are
+            // intentionally discarded to keep CPU/RAM stable on long strokes.
             pending_ = map;
-            if (!bakeTimer_.isActive()) bakeTimer_.start();
-            else bakeTimer_.start(90);
+            bakeTimer_.start(90);
         });
     }
 
@@ -142,7 +149,6 @@ private:
 
         if (!changed) return;
 
-        // One light post-process per coalesced stroke, rather than per input event.
         terrain.smooth(1);
 
         QJsonObject newTerrain = terrain.toJson();
@@ -159,11 +165,13 @@ private:
         busy_ = true;
         editor_->applyBakedTerrainMap(updated);
         busy_ = false;
+        persistTimer_.start();
     }
 
     QPointer<QMainWindow> window_;
     QPointer<PilinReyEditor> editor_;
     QTimer bakeTimer_;
+    QTimer persistTimer_;
     QJsonObject pending_;
     bool busy_ = false;
 };
@@ -171,8 +179,8 @@ private:
 } // namespace
 
 void installTerrainModelSyncController(QMainWindow* window) {
-    if (!window || window->property("wbwTerrainModelSyncV4").toBool()) return;
-    window->setProperty("wbwTerrainModelSyncV4", true);
+    if (!window || window->property("wbwTerrainModelSyncV5").toBool()) return;
+    window->setProperty("wbwTerrainModelSyncV5", true);
     new TerrainModelSync(window);
 }
 
