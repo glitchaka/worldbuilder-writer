@@ -31,8 +31,6 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/storage/GoogleDriveService.cpp
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
-    src/ui/ProductReorganizer.cpp
-    src/ui/NavigationConsistencyController.cpp
     src/ui/MapMockupController.cpp
     src/ui/MapWorkflowController.cpp
     src/ui/MapWorkflowController.h
@@ -40,8 +38,6 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/MapSelectionController.h
     src/ui/MapTerrainEngine.cpp
     src/ui/MapTerrainEngine.h
-    src/ui/CartographicCanvasV2.cpp
-    src/ui/CartographicCanvasV2.h
     src/ui/CartographicCanvasV3.cpp
     src/ui/CartographicCanvasV3.h
     src/ui/CartographicCanvasController.cpp
@@ -53,7 +49,6 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/AtlasWorkspaceController.cpp
     src/ui/AtlasWorkspaceController.h
     src/ui/ReviewMockupController.cpp
-    src/ui/SettingsMockupController.cpp
     src/ui/SettingsWorkspace.cpp
     src/ui/SettingsWorkspace.h
     src/ui/RcVisualFixture.cpp
