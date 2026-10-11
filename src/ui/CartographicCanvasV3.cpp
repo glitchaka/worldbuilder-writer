@@ -17,156 +17,55 @@
 
 namespace wbw {
 namespace {
-QPointF pointFromJson(const QJsonValue& value) {
-    const QJsonObject p = value.toObject();
-    return QPointF(p.value(QStringLiteral("x")).toDouble(), p.value(QStringLiteral("y")).toDouble());
-}
-QColor themeColor(const QJsonObject& pilin, const QString& key, const QColor& fallback) {
-    QColor c(pilin.value(QStringLiteral("theme")).toObject().value(key).toString());
-    return c.isValid() ? c : fallback;
-}
-QPainterPath smoothPath(const QJsonArray& points, double sx, double sy) {
-    QPainterPath path;
-    if (points.isEmpty()) return path;
-    QPointF prev = pointFromJson(points.first()); prev = QPointF(prev.x()*sx, prev.y()*sy); path.moveTo(prev);
-    for (int i=1;i<points.size();++i) { QPointF cur=pointFromJson(points.at(i)); cur=QPointF(cur.x()*sx,cur.y()*sy); const QPointF mid=(prev+cur)*.5; path.quadTo(prev,mid); prev=cur; }
-    path.lineTo(prev); return path;
-}
-QColor mix(const QColor& a,const QColor& b,double t) {
-    t=std::clamp(t,0.0,1.0);
-    return QColor(qRound(a.red()*(1-t)+b.red()*t),qRound(a.green()*(1-t)+b.green()*t),qRound(a.blue()*(1-t)+b.blue()*t));
-}
+QPointF pointFromJson(const QJsonValue& value){const QJsonObject p=value.toObject();return QPointF(p.value(QStringLiteral("x")).toDouble(),p.value(QStringLiteral("y")).toDouble());}
+QColor themeColor(const QJsonObject& pilin,const QString& key,const QColor& fallback){QColor c(pilin.value(QStringLiteral("theme")).toObject().value(key).toString());return c.isValid()?c:fallback;}
+QPainterPath smoothPath(const QJsonArray& points,double sx,double sy){QPainterPath path;if(points.isEmpty())return path;QPointF prev=pointFromJson(points.first());prev=QPointF(prev.x()*sx,prev.y()*sy);path.moveTo(prev);for(int i=1;i<points.size();++i){QPointF cur=pointFromJson(points.at(i));cur=QPointF(cur.x()*sx,cur.y()*sy);const QPointF mid=(prev+cur)*.5;path.quadTo(prev,mid);prev=cur;}path.lineTo(prev);return path;}
+QColor mix(const QColor& a,const QColor& b,double t){t=std::clamp(t,0.0,1.0);return QColor(qRound(a.red()*(1-t)+b.red()*t),qRound(a.green()*(1-t)+b.green()*t),qRound(a.blue()*(1-t)+b.blue()*t));}
+quint32 visualHash(int x,int y){quint32 h=static_cast<quint32>(x*374761393u)^static_cast<quint32>(y*668265263u)^0x9e3779b9u;h=(h^(h>>13u))*1274126177u;return h^(h>>16u);}
 }
 
-CartographicCanvasV3::CartographicCanvasV3(PilinReyEditor* editor, QWidget* inputViewport, QWidget* parent)
-    : QWidget(parent), editor_(editor), inputViewport_(inputViewport) {
-    setObjectName(QStringLiteral("cartographicCanvasV3"));
-    setMouseTracking(true); setFocusPolicy(Qt::StrongFocus); setAttribute(Qt::WA_OpaquePaintEvent,true);
-}
+CartographicCanvasV3::CartographicCanvasV3(PilinReyEditor* editor,QWidget* inputViewport,QWidget* parent):QWidget(parent),editor_(editor),inputViewport_(inputViewport){setObjectName(QStringLiteral("cartographicCanvasV3"));setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);setAttribute(Qt::WA_OpaquePaintEvent,true);}
+void CartographicCanvasV3::setMap(const QJsonObject& map){map_=map;scheduleRebuild();}
+void CartographicCanvasV3::scheduleRebuild(){if(rebuildPending_)return;rebuildPending_=true;QTimer::singleShot(55,this,[this](){rebuildPending_=false;rebuildCache();update();});}
+void CartographicCanvasV3::fitDocument(){const QJsonObject p=map_.value(QStringLiteral("pilinRey")).toObject();const double dw=std::max(1.0,p.value(QStringLiteral("width")).toDouble(4096));const double dh=std::max(1.0,p.value(QStringLiteral("height")).toDouble(2304));if(width()<80||height()<80)return;zoom_=std::clamp(std::min((width()-48.0)/dw,(height()-48.0)/dh),.02,10.0);pan_=QPointF((width()-dw*zoom_)*.5,(height()-dh*zoom_)*.5);update();}
 
-void CartographicCanvasV3::setMap(const QJsonObject& map) { map_=map; scheduleRebuild(); }
-void CartographicCanvasV3::scheduleRebuild() {
-    if (rebuildPending_) return;
-    rebuildPending_=true;
-    QTimer::singleShot(55,this,[this](){rebuildPending_=false; rebuildCache(); update();});
-}
-
-void CartographicCanvasV3::fitDocument() {
-    const QJsonObject p=map_.value(QStringLiteral("pilinRey")).toObject();
-    const double dw=std::max(1.0,p.value(QStringLiteral("width")).toDouble(4096));
-    const double dh=std::max(1.0,p.value(QStringLiteral("height")).toDouble(2304));
-    if(width()<80||height()<80)return;
-    zoom_=std::clamp(std::min((width()-48.0)/dw,(height()-48.0)/dh),.02,10.0);
-    pan_=QPointF((width()-dw*zoom_)*.5,(height()-dh*zoom_)*.5); update();
-}
-
-void CartographicCanvasV3::drawTerrainModel(QPainter& painter,const QJsonObject& pilin,int cw,int ch) {
-    const QJsonObject model=pilin.value(QStringLiteral("terrainModel")).toObject();
-    const int tw=model.value(QStringLiteral("width")).toInt();
-    const int th=model.value(QStringLiteral("height")).toInt();
-    const QJsonArray values=model.value(QStringLiteral("values")).toArray();
-    if(tw<4||th<4||values.size()<tw*th) return;
-    const double sea=std::clamp(model.value(QStringLiteral("seaLevel")).toDouble(.42),.05,.85);
-    QImage field(tw,th,QImage::Format_ARGB32_Premultiplied);
-    const QColor deep=themeColor(pilin,QStringLiteral("sea"),QColor("#52788a")).darker(128);
-    const QColor shallow=themeColor(pilin,QStringLiteral("sea"),QColor("#86aeb3")).lighter(112);
-    const QColor low=themeColor(pilin,QStringLiteral("land"),QColor("#c8b47f"));
-    const QColor green=QColor("#809563");
-    const QColor high=QColor("#9b7d59");
-    const QColor rock=QColor("#74685d");
-    const QColor snow=QColor("#d9d6cb");
+void CartographicCanvasV3::drawTerrainModel(QPainter& painter,const QJsonObject& pilin,int cw,int ch){
+    const QJsonObject model=pilin.value(QStringLiteral("terrainModel")).toObject();const int tw=model.value(QStringLiteral("width")).toInt();const int th=model.value(QStringLiteral("height")).toInt();const QJsonArray values=model.value(QStringLiteral("values")).toArray();const QJsonArray biomes=model.value(QStringLiteral("biomes")).toArray();if(tw<4||th<4||values.size()<tw*th)return;
+    const double sea=std::clamp(model.value(QStringLiteral("seaLevel")).toDouble(.42),.05,.85);QImage field(tw,th,QImage::Format_ARGB32_Premultiplied);
+    const QColor deep=themeColor(pilin,QStringLiteral("sea"),QColor("#456c82")).darker(125);const QColor shallow=themeColor(pilin,QStringLiteral("sea"),QColor("#8db4bd")).lighter(110);const QColor low=themeColor(pilin,QStringLiteral("land"),QColor("#c7b27e"));const QColor grass("#829764"),forest("#506d4b"),woodland("#6f8358"),desert("#c59b68"),high("#9a7c59"),rock("#71665c"),snow("#dad8cf"),tundra("#a7a992");
     auto h=[&](int x,int y){x=std::clamp(x,0,tw-1);y=std::clamp(y,0,th-1);return values.at(y*tw+x).toInt()/255.0;};
-    for(int y=0;y<th;++y){
-        QRgb* row=reinterpret_cast<QRgb*>(field.scanLine(y));
-        for(int x=0;x<tw;++x){
-            const double v=h(x,y);
-            QColor c;
-            if(v<sea){const double t=std::clamp(v/sea,0.0,1.0);c=mix(deep,shallow,t);}
-            else if(v<.56){const double t=(v-sea)/std::max(.01,.56-sea);c=mix(low,green,t*.62);}
-            else if(v<.70){c=mix(green,high,(v-.56)/.14);}
-            else if(v<.84){c=mix(high,rock,(v-.70)/.14);}
-            else c=mix(rock,snow,(v-.84)/.16);
-            const double dx=h(x+1,y)-h(x-1,y), dy=h(x,y+1)-h(x,y-1);
-            const double shade=std::clamp(.92-dx*.95-dy*.62,.72,1.16);
-            c.setRed(std::clamp(qRound(c.red()*shade),0,255)); c.setGreen(std::clamp(qRound(c.green()*shade),0,255)); c.setBlue(std::clamp(qRound(c.blue()*shade),0,255));
-            row[x]=c.rgba();
-        }
-    }
-    painter.save(); painter.setRenderHint(QPainter::SmoothPixmapTransform,true); painter.drawImage(QRect(0,0,cw,ch),field); painter.restore();
+    auto biomeAt=[&](int x,int y){if(biomes.size()<tw*th)return 1;return biomes.at(std::clamp(y,0,th-1)*tw+std::clamp(x,0,tw-1)).toInt(1);};
+    for(int y=0;y<th;++y){QRgb* row=reinterpret_cast<QRgb*>(field.scanLine(y));for(int x=0;x<tw;++x){const double v=h(x,y);QColor c;if(v<sea){const double t=std::clamp(v/sea,0.0,1.0);c=mix(deep,shallow,t);}else{const int biome=biomeAt(x,y);if(biome==2)c=forest;else if(biome==3)c=woodland;else if(biome==4)c=desert;else if(biome==7)c=tundra;else if(v<.56){const double t=(v-sea)/std::max(.01,.56-sea);c=mix(low,grass,t*.7);}else if(v<.70)c=mix(grass,high,(v-.56)/.14);else if(v<.84)c=mix(high,rock,(v-.70)/.14);else c=mix(rock,snow,(v-.84)/.16);}const double dx=h(x+1,y)-h(x-1,y),dy=h(x,y+1)-h(x,y-1);const double shade=std::clamp(.93-dx*.95-dy*.62,.72,1.17);c.setRed(std::clamp(qRound(c.red()*shade),0,255));c.setGreen(std::clamp(qRound(c.green()*shade),0,255));c.setBlue(std::clamp(qRound(c.blue()*shade),0,255));row[x]=c.rgba();}}
+    painter.save();painter.setRenderHint(QPainter::SmoothPixmapTransform,true);painter.drawImage(QRect(0,0,cw,ch),field);painter.restore();
+    const double sx=cw/(double)tw,sy=ch/(double)th;
+    painter.save();painter.setPen(QPen(QColor(48,42,34,168),std::max(1.0,cw/(double)tw*.42)));for(int y=0;y<th-1;++y)for(int x=0;x<tw-1;++x){const bool a=h(x,y)>=sea,b=h(x+1,y)>=sea,c=h(x,y+1)>=sea;if(a!=b)painter.drawLine(QPointF((x+1)*sx,y*sy),QPointF((x+1)*sx,(y+1)*sy));if(a!=c)painter.drawLine(QPointF(x*sx,(y+1)*sy),QPointF((x+1)*sx,(y+1)*sy));}painter.restore();
 
-    painter.save();
-    painter.setPen(QPen(QColor(48,42,34,175),std::max(1.0,cw/(double)tw*.42)));
-    const double sx=cw/(double)tw, sy=ch/(double)th;
-    for(int y=0;y<th-1;++y) for(int x=0;x<tw-1;++x){
-        const bool a=h(x,y)>=sea,b=h(x+1,y)>=sea,c=h(x,y+1)>=sea;
-        if(a!=b) painter.drawLine(QPointF((x+1)*sx,y*sy),QPointF((x+1)*sx,(y+1)*sy));
-        if(a!=c) painter.drawLine(QPointF(x*sx,(y+1)*sy),QPointF((x+1)*sx,(y+1)*sy));
-    }
-    painter.restore();
+    // Forest texture is sampled sparsely from the biome grid. It remains stable and bounded,
+    // unlike the old renderer that emitted hundreds of mountain/tree symbols every repaint.
+    if(biomes.size()>=tw*th){painter.save();painter.setPen(QPen(QColor(36,65,39,115),.7));for(int y=3;y<th-3;y+=4)for(int x=3;x<tw-3;x+=4){const int biome=biomeAt(x,y);if((biome!=2&&biome!=3)||(visualHash(x,y)%100>(biome==2?72:40)))continue;const double px=x*sx,py=y*sy;const double size=2.6+(visualHash(x+7,y+3)%30)/10.0;painter.drawLine(QPointF(px,py-size),QPointF(px-size*.75,py+size*.55));painter.drawLine(QPointF(px,py-size),QPointF(px+size*.75,py+size*.55));painter.drawLine(QPointF(px,py-size*.35),QPointF(px-size*.62,py+size*.8));painter.drawLine(QPointF(px,py-size*.35),QPointF(px+size*.62,py+size*.8));}}
+    painter.restore();}
 
-    // Sparse ridge hachures derived from elevation, not repeated mountain stamps.
-    painter.save(); painter.setPen(QPen(QColor(58,49,42,70),.8));
-    for(int y=3;y<th-3;y+=4) for(int x=3;x<tw-3;x+=4){
-        const double v=h(x,y); if(v<.72) continue;
-        const double dx=h(x+1,y)-h(x-1,y), dy=h(x,y+1)-h(x,y-1);
-        const QPointF p(x*sx,y*sy); const QPointF n(-dy,dx); const double len=std::hypot(n.x(),n.y());
-        if(len<.001) continue; const QPointF u=n/len; const double l=std::max(3.0,6.0+(v-.72)*28.0);
-        painter.drawLine(p-u*l,p+u*l);
-    }
-    painter.restore();
+    // Relief is derived from elevation and local slope; no repeated stamp carpet.
+    painter.save();painter.setPen(QPen(QColor(56,47,40,88),.85));for(int y=3;y<th-3;y+=4)for(int x=3;x<tw-3;x+=4){const double v=h(x,y);if(v<.71)continue;const double dx=h(x+1,y)-h(x-1,y),dy=h(x,y+1)-h(x,y-1);const QPointF p(x*sx,y*sy);const QPointF n(-dy,dx);const double len=std::hypot(n.x(),n.y());if(len<.001)continue;const QPointF u=n/len;const double l=std::max(3.0,5.0+(v-.71)*31.0);painter.drawLine(p-u*l,p+u*l);if(v>.79)painter.drawLine(p-u*l*.58+QPointF(0,2),p+u*l*.58+QPointF(0,2));}painter.restore();
 }
 
-void CartographicCanvasV3::rebuildCache() {
-    const QJsonObject p=map_.value(QStringLiteral("pilinRey")).toObject();
-    const double dw=std::max(1.0,p.value(QStringLiteral("width")).toDouble(4096));
-    const double dh=std::max(1.0,p.value(QStringLiteral("height")).toDouble(2304));
-    const double aspect=dw/dh;
-    int cw=aspect>=1.0?1600:static_cast<int>(1600*aspect);
-    int ch=aspect>=1.0?static_cast<int>(1600/aspect):1600;
-    cw=std::clamp(cw,720,1600); ch=std::clamp(ch,480,1600);
-    cache_=QImage(cw,ch,QImage::Format_ARGB32_Premultiplied); cache_.fill(themeColor(p,QStringLiteral("sea"),QColor("#7899a4")));
-    QPainter painter(&cache_); painter.setRenderHint(QPainter::Antialiasing,true);
-    if(p.contains(QStringLiteral("terrainModel"))) drawTerrainModel(painter,p,cw,ch);
-    else { painter.fillRect(cache_.rect(),themeColor(p,QStringLiteral("sea"),QColor("#7899a4"))); }
-    const double sx=cw/dw, sy=ch/dh;
-    for(const QJsonValue& lv:p.value(QStringLiteral("layers")).toArray()){
-        const QJsonObject layer=lv.toObject(); if(!layer.value(QStringLiteral("visible")).toBool(true))continue;
-        painter.save(); painter.setOpacity(std::clamp(layer.value(QStringLiteral("opacity")).toDouble(1.0),0.0,1.0));
-        for(const QJsonValue& ov:layer.value(QStringLiteral("objects")).toArray()) drawObject(painter,ov.toObject(),p,sx,sy);
-        painter.restore();
-    }
-    painter.setPen(QPen(QColor(48,42,34,150),1)); painter.setBrush(Qt::NoBrush); painter.drawRect(QRectF(.5,.5,cw-1,ch-1));
-}
+void CartographicCanvasV3::rebuildCache(){const QJsonObject p=map_.value(QStringLiteral("pilinRey")).toObject();const double dw=std::max(1.0,p.value(QStringLiteral("width")).toDouble(4096));const double dh=std::max(1.0,p.value(QStringLiteral("height")).toDouble(2304));const double aspect=dw/dh;int cw=aspect>=1.0?1600:static_cast<int>(1600*aspect);int ch=aspect>=1.0?static_cast<int>(1600/aspect):1600;cw=std::clamp(cw,720,1600);ch=std::clamp(ch,480,1600);cache_=QImage(cw,ch,QImage::Format_ARGB32_Premultiplied);cache_.fill(themeColor(p,QStringLiteral("sea"),QColor("#7899a4")));QPainter painter(&cache_);painter.setRenderHint(QPainter::Antialiasing,true);if(p.contains(QStringLiteral("terrainModel")))drawTerrainModel(painter,p,cw,ch);else painter.fillRect(cache_.rect(),themeColor(p,QStringLiteral("sea"),QColor("#7899a4")));const double sx=cw/dw,sy=ch/dh;for(const QJsonValue& lv:p.value(QStringLiteral("layers")).toArray()){const QJsonObject layer=lv.toObject();if(!layer.value(QStringLiteral("visible")).toBool(true))continue;painter.save();painter.setOpacity(std::clamp(layer.value(QStringLiteral("opacity")).toDouble(1.0),0.0,1.0));for(const QJsonValue& ov:layer.value(QStringLiteral("objects")).toArray())drawObject(painter,ov.toObject(),p,sx,sy);painter.restore();}painter.setPen(QPen(QColor(48,42,34,150),1));painter.setBrush(Qt::NoBrush);painter.drawRect(QRectF(.5,.5,cw-1,ch-1));}
 
-void CartographicCanvasV3::drawObject(QPainter& painter,const QJsonObject& o,const QJsonObject& p,double sx,double sy) {
-    const QString type=o.value(QStringLiteral("type")).toString(); const QJsonArray points=o.value(QStringLiteral("points")).toArray(); const double s=(sx+sy)*.5;
-    if(type==QStringLiteral("river")||type==QStringLiteral("road")||type==QStringLiteral("border")){
-        const QPainterPath path=smoothPath(points,sx,sy); if(path.isEmpty())return;
-        if(type==QStringLiteral("river")){painter.setPen(QPen(QColor(45,102,142,225),std::max(1.3,o.value(QStringLiteral("width")).toDouble(4.0)*s),Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);painter.setPen(QPen(QColor(170,220,234,100),std::max(.7,1.0*s)));painter.drawPath(path);} 
-        else if(type==QStringLiteral("road")){painter.setPen(QPen(QColor(127,86,51,220),std::max(1.2,3.0*s),Qt::DashLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);} 
-        else {painter.setPen(QPen(QColor(72,59,53,210),std::max(1.0,2.0*s),Qt::DashDotLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);} return;
-    }
-    if(type==QStringLiteral("region")&&points.size()>=3){QPainterPath path; QPointF first=pointFromJson(points.first()); path.moveTo(first.x()*sx,first.y()*sy); for(int i=1;i<points.size();++i){QPointF v=pointFromJson(points.at(i));path.lineTo(v.x()*sx,v.y()*sy);} path.closeSubpath(); painter.setPen(QPen(QColor(97,67,92,180),std::max(1.0,2*s))); painter.setBrush(QColor(133,81,154,28)); painter.drawPath(path); return;}
-    if(type==QStringLiteral("land")||type==QStringLiteral("sea")){if(points.isEmpty())return; const QPainterPath path=smoothPath(points,sx,sy); double r=0;for(const QJsonValue& v:points)r+=v.toObject().value(QStringLiteral("radius")).toDouble(220);r/=points.size();const double w=std::max(8.0,r*2*s);painter.setPen(QPen(type==QStringLiteral("land")?themeColor(p,QStringLiteral("land"),QColor("#c9b787")):themeColor(p,QStringLiteral("sea"),QColor("#7da2ad")),w,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin)); painter.drawPath(path);return;}
-    if(type==QStringLiteral("forestArea")||type==QStringLiteral("mountainArea")){if(points.isEmpty())return; const QPainterPath path=smoothPath(points,sx,sy); const QColor c=type==QStringLiteral("forestArea")?QColor(49,92,55,90):QColor(87,72,61,100); painter.setPen(QPen(c,std::max(12.0,54.0*s),Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path); painter.setPen(QPen(c.darker(140),std::max(1.0,1.4*s),Qt::DashLine)); painter.drawPath(path);return;}
-    const double x=o.value(QStringLiteral("x")).toDouble()*sx, y=o.value(QStringLiteral("y")).toDouble()*sy;
-    if(type==QStringLiteral("settlement")){const double r=std::max(4.0,o.value(QStringLiteral("size")).toDouble(64)*s*.28);painter.setPen(QPen(QColor(58,47,39),std::max(1.0,1.4*s)));painter.setBrush(QColor(239,221,174));painter.drawEllipse(QPointF(x,y),r,r);painter.drawEllipse(QPointF(x,y),r*.32,r*.32);return;}
-    if(type==QStringLiteral("stamp")){const double r=std::max(7.0,o.value(QStringLiteral("size")).toDouble(80)*s*.34);painter.save();painter.translate(x,y);painter.rotate(o.value(QStringLiteral("rotation")).toDouble());painter.setPen(QPen(QColor(55,45,37),std::max(1.0,1.3*s)));painter.setBrush(QColor(226,205,159,220));const QString kind=o.value(QStringLiteral("assetKind")).toString(); if(kind==QStringLiteral("ship")){painter.drawArc(QRectF(-r,-r*.15,r*2,r*.9),200*16,140*16);painter.drawLine(QPointF(0,-r),QPointF(0,r*.4));}else{painter.drawRect(QRectF(-r*.55,-r*.25,r*1.1,r*.7));painter.drawRect(QRectF(-r*.8,-r*.6,r*.32,r*1.05));painter.drawRect(QRectF(r*.48,-r*.6,r*.32,r*1.05));}painter.restore();return;}
+void CartographicCanvasV3::drawObject(QPainter& painter,const QJsonObject& o,const QJsonObject& p,double sx,double sy){const QString type=o.value(QStringLiteral("type")).toString();const QJsonArray points=o.value(QStringLiteral("points")).toArray();const double s=(sx+sy)*.5;
+    if(type==QStringLiteral("river")||type==QStringLiteral("road")||type==QStringLiteral("border")){const QPainterPath path=smoothPath(points,sx,sy);if(path.isEmpty())return;if(type==QStringLiteral("river")){painter.setPen(QPen(QColor(45,104,150,230),std::max(1.3,o.value(QStringLiteral("width")).toDouble(4.0)*s),Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);painter.setPen(QPen(QColor(187,229,237,115),std::max(.7,1.0*s)));painter.drawPath(path);}else if(type==QStringLiteral("road")){painter.setPen(QPen(QColor(130,87,48,220),std::max(1.2,3.0*s),Qt::DashLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);}else{painter.setPen(QPen(QColor(72,59,53,210),std::max(1.0,2.0*s),Qt::DashDotLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);}return;}
+    if(type==QStringLiteral("region")&&points.size()>=3){QPainterPath path;QPointF first=pointFromJson(points.first());path.moveTo(first.x()*sx,first.y()*sy);for(int i=1;i<points.size();++i){QPointF v=pointFromJson(points.at(i));path.lineTo(v.x()*sx,v.y()*sy);}path.closeSubpath();painter.setPen(QPen(QColor(97,67,92,180),std::max(1.0,2*s)));painter.setBrush(QColor(133,81,154,28));painter.drawPath(path);return;}
+    if(type==QStringLiteral("land")||type==QStringLiteral("sea")){if(points.isEmpty())return;const QPainterPath path=smoothPath(points,sx,sy);double r=0;for(const QJsonValue& v:points)r+=v.toObject().value(QStringLiteral("radius")).toDouble(220);r/=points.size();const double w=std::max(8.0,r*2*s);painter.setPen(QPen(type==QStringLiteral("land")?themeColor(p,QStringLiteral("land"),QColor("#c9b787")):themeColor(p,QStringLiteral("sea"),QColor("#7da2ad")),w,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);return;}
+    if(type==QStringLiteral("forestArea")||type==QStringLiteral("mountainArea")){if(points.isEmpty())return;const QPainterPath path=smoothPath(points,sx,sy);const QColor c=type==QStringLiteral("forestArea")?QColor(46,86,52,82):QColor(87,72,61,94);painter.setPen(QPen(c,std::max(12.0,54.0*s),Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.drawPath(path);painter.setPen(QPen(c.darker(140),std::max(1.0,1.4*s),Qt::DashLine));painter.drawPath(path);return;}
+    const double x=o.value(QStringLiteral("x")).toDouble()*sx,y=o.value(QStringLiteral("y")).toDouble()*sy;
+    if(type==QStringLiteral("settlement")){const double r=std::max(4.0,o.value(QStringLiteral("size")).toDouble(64)*s*.28);painter.setPen(QPen(QColor(57,47,39),std::max(1.0,1.4*s)));painter.setBrush(QColor(239,221,174));painter.drawEllipse(QPointF(x,y),r,r);painter.drawEllipse(QPointF(x,y),r*.32,r*.32);const QString label=o.value(QStringLiteral("label")).toString();if(!label.isEmpty()){QFont f(QStringLiteral("Georgia"));f.setPointSizeF(std::clamp(11.0*s,7.5,15.0));f.setBold(o.value(QStringLiteral("settlementType")).toString()==QObject::tr("Capital"));painter.setFont(f);const QPointF pos(x+r+4,y-r*.2);painter.setPen(QPen(QColor(246,236,211,205),2.5));painter.drawText(pos+QPointF(1,1),label);painter.setPen(QColor(48,39,31));painter.drawText(pos,label);}return;}
+    if(type==QStringLiteral("stamp")){const double r=std::max(7.0,o.value(QStringLiteral("size")).toDouble(80)*s*.34);painter.save();painter.translate(x,y);painter.rotate(o.value(QStringLiteral("rotation")).toDouble());painter.setPen(QPen(QColor(55,45,37),std::max(1.0,1.3*s)));painter.setBrush(QColor(226,205,159,220));const QString kind=o.value(QStringLiteral("assetKind")).toString();if(kind==QStringLiteral("ship")){painter.drawArc(QRectF(-r,-r*.15,r*2,r*.9),200*16,140*16);painter.drawLine(QPointF(0,-r),QPointF(0,r*.4));}else{painter.drawRect(QRectF(-r*.55,-r*.25,r*1.1,r*.7));painter.drawRect(QRectF(-r*.8,-r*.6,r*.32,r*1.05));painter.drawRect(QRectF(r*.48,-r*.6,r*.32,r*1.05));}painter.restore();return;}
     if(type==QStringLiteral("label")){const QString text=o.value(QStringLiteral("text")).toString();if(text.isEmpty())return;QFont f(QStringLiteral("Georgia"));f.setPointSizeF(std::clamp(o.value(QStringLiteral("fontSize")).toDouble(22)*s,8.0,32.0));f.setBold(o.value(QStringLiteral("bold")).toBool(false));painter.setFont(f);painter.setPen(QPen(QColor(245,236,210,190),std::max(2.0,3*s)));painter.drawText(QPointF(x+1,y+1),text);painter.setPen(QColor(48,40,34));painter.drawText(QPointF(x,y),text);}
 }
 
-void CartographicCanvasV3::paintEvent(QPaintEvent*) {
-    QPainter painter(this); painter.fillRect(rect(),QColor("#090d11")); if(cache_.isNull())return;
-    const QJsonObject p=map_.value(QStringLiteral("pilinRey")).toObject(); const double dw=std::max(1.0,p.value(QStringLiteral("width")).toDouble(4096)); const double dh=std::max(1.0,p.value(QStringLiteral("height")).toDouble(2304));
-    const QRectF page(worldToScreen(QPointF(0,0)),worldToScreen(QPointF(dw,dh)));
-    painter.save();painter.setPen(Qt::NoPen);painter.setBrush(QColor(0,0,0,115));painter.drawRoundedRect(page.translated(10,12),8,8);painter.restore();
-    painter.setRenderHint(QPainter::SmoothPixmapTransform,true); painter.drawImage(page,cache_);
-}
-
+void CartographicCanvasV3::paintEvent(QPaintEvent*){QPainter painter(this);painter.fillRect(rect(),QColor("#090d11"));if(cache_.isNull())return;const QJsonObject p=map_.value(QStringLiteral("pilinRey")).toObject();const double dw=std::max(1.0,p.value(QStringLiteral("width")).toDouble(4096));const double dh=std::max(1.0,p.value(QStringLiteral("height")).toDouble(2304));const QRectF page(worldToScreen(QPointF(0,0)),worldToScreen(QPointF(dw,dh)));painter.save();painter.setPen(Qt::NoPen);painter.setBrush(QColor(0,0,0,115));painter.drawRoundedRect(page.translated(10,12),8,8);painter.restore();painter.setRenderHint(QPainter::SmoothPixmapTransform,true);painter.drawImage(page,cache_);}
 void CartographicCanvasV3::resizeEvent(QResizeEvent* e){QWidget::resizeEvent(e);if(pan_.isNull())fitDocument();}
 void CartographicCanvasV3::wheelEvent(QWheelEvent* e){const QPointF cursor=e->position();const QPointF before=screenToWorld(cursor);zoom_=std::clamp(zoom_*(e->angleDelta().y()>0?1.12:1.0/1.12),.02,12.0);pan_=cursor-QPointF(before.x()*zoom_,before.y()*zoom_);update();e->accept();}
-QPointF CartographicCanvasV3::screenToWorld(const QPointF& p)const{return QPointF((p.x()-pan_.x())/zoom_,(p.y()-pan_.y())/zoom_);} 
-QPointF CartographicCanvasV3::worldToScreen(const QPointF& p)const{return QPointF(p.x()*zoom_+pan_.x(),p.y()*zoom_+pan_.y());}
+QPointF CartographicCanvasV3::screenToWorld(const QPointF& p)const{return QPointF((p.x()-pan_.x())/zoom_,(p.y()-pan_.y())/zoom_);}QPointF CartographicCanvasV3::worldToScreen(const QPointF& p)const{return QPointF(p.x()*zoom_+pan_.x(),p.y()*zoom_+pan_.y());}
 QPointF CartographicCanvasV3::worldToInputScreen(const QPointF& world)const{if(!inputViewport_)return world;const QJsonObject p=map_.value(QStringLiteral("pilinRey")).toObject();const double dw=std::max(1.0,p.value(QStringLiteral("width")).toDouble(4096));const double dh=std::max(1.0,p.value(QStringLiteral("height")).toDouble(2304));const double z=std::clamp(std::min((inputViewport_->width()-80.0)/dw,(inputViewport_->height()-80.0)/dh),.03,6.0);const QPointF base((inputViewport_->width()-dw*z)*.5,(inputViewport_->height()-dh*z)*.5);return QPointF(world.x()*z+base.x(),world.y()*z+base.y());}
 bool CartographicCanvasV3::panMode()const{if(!editor_)return false;for(QToolButton* b:editor_->findChildren<QToolButton*>(QStringLiteral("pilinMapTool")))if(b->isChecked()&&b->toolTip().contains(QObject::tr("Mover lienzo"),Qt::CaseInsensitive))return true;return false;}
 void CartographicCanvasV3::forwardMouse(QMouseEvent* e){if(!inputViewport_)return;const QPointF world=screenToWorld(e->position());const QPointF local=worldToInputScreen(world);QMouseEvent forwarded(e->type(),local,e->globalPosition(),e->button(),e->buttons(),e->modifiers(),e->pointingDevice());QApplication::sendEvent(inputViewport_,&forwarded);}
