@@ -19,7 +19,7 @@ public:
     explicit LibraryWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize)) schedule();
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)) schedule();
         return QObject::eventFilter(watched, event);
     }
 
@@ -31,67 +31,66 @@ public:
         QWidget* shell = window_->findChild<QWidget*>(QStringLiteral("hubShell"));
         QWidget* cardsHost = window_->findChild<QWidget*>(QStringLiteral("hubCardsHost"));
         auto* navigation = window_->findChild<QListWidget*>(QStringLiteral("sideNavigation"));
+        QWidget* topShell = window_->findChild<QWidget*>(QStringLiteral("topShell"));
         if (!hub || !shell || !cardsHost) return;
 
         if (QWidget* duplicateBar = hub->findChild<QWidget*>(QStringLiteral("hubDesktopBar"))) duplicateBar->hide();
         if (QWidget* storage = hub->findChild<QWidget*>(QStringLiteral("hubStorage"))) storage->hide();
 
-        // La biblioteca es una pantalla completa; el pequeño encabezado heredado de MainWindow
-        // sólo duplica "Biblioteca / Tus historias" y rompe la composición del mockup.
-        QLabel* chromeTitle = window_->findChild<QLabel*>(QStringLiteral("projectTitle"));
-        QWidget* chromeHeader = chromeTitle ? chromeTitle->parentWidget() : nullptr;
-        auto syncChrome = [navigation, chromeHeader]() {
-            if (!chromeHeader || !navigation) return;
-            chromeHeader->setVisible(navigation->currentRow() != 0);
+        auto syncChrome = [navigation, topShell]() {
+            if (!navigation || !topShell) return;
+            topShell->setVisible(navigation->currentRow() != 0);
         };
         syncChrome();
-        if (navigation && !navigation->property("wbwLibraryChromeSync").toBool()) {
-            navigation->setProperty("wbwLibraryChromeSync", true);
+        if (navigation && !navigation->property("wbwLibraryChromeSyncV2").toBool()) {
+            navigation->setProperty("wbwLibraryChromeSyncV2", true);
             QObject::connect(navigation, &QListWidget::currentRowChanged, this, [syncChrome](int) { syncChrome(); });
         }
 
         if (auto* root = qobject_cast<QVBoxLayout*>(shell->layout())) {
-            root->setContentsMargins(44, 34, 44, 44);
-            root->setSpacing(22);
+            root->setContentsMargins(38, 34, 38, 38);
+            root->setSpacing(18);
         }
-
         if (auto* scroll = hub->findChild<QScrollArea*>()) {
             scroll->setFrameShape(QFrame::NoFrame);
             scroll->viewport()->setAutoFillBackground(false);
         }
 
         hub->setStyleSheet(QStringLiteral(R"QSS(
-#projectHubPage,#hubShell,#hubCardsHost{background:#0b0e12;color:#d9d4ca;}
+#projectHubPage,#hubShell,#hubCardsHost{background:#0d1117;color:#d8dee9;}
 #projectHubPage QLabel{background:transparent;}
-#hubDesktopBar{background:transparent;border:0;}
-#hubKicker,#projectCardGenre,#newProjectMeta{color:#8b7760;font-size:7.5pt;font-weight:700;letter-spacing:1.4px;}
-#hubTitle{font-family:'Georgia';font-size:31pt;font-weight:500;color:#f3efe7;}
-#hubDescription{font-family:'Georgia';font-size:10.5pt;color:#7d817d;}
-#projectCard{background:#12161b;border:1px solid #292f35;border-radius:13px;}
-#projectCard:hover,#projectCard:focus{background:#151a20;border-color:#4f6578;}
-#projectCardCover{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #263443,stop:.48 #17202a,stop:1 #10151b);color:#b8c7d5;border:0;border-bottom:1px solid #2c343d;border-radius:11px;font-family:'Georgia';font-size:9pt;font-weight:700;letter-spacing:1.1px;}
-#projectCardState{background:#192634;color:#9fc4e5;border:1px solid #31516d;border-radius:10px;padding:3px 8px;font-size:7.5pt;}
-#projectCardTitle,#newProjectTitle{font-family:'Georgia';font-size:17pt;font-weight:700;color:#f2eee6;}
-#projectCardArchive,#newProjectCopy{color:#7f858b;font-size:9pt;}
-#projectStatValue{font-weight:700;color:#e4e8ec;font-size:10pt;}
-#projectStatLabel,#projectSaved{color:#6f7881;font-size:8pt;}
-#hubEmptyState{color:#858d94;padding:30px;}
-QFrame#projectCardNew{background:#0f1318;border:1px dashed #3d4a55;border-radius:13px;}
-QFrame#projectCardNew:hover,QFrame#projectCardNew:focus{background:#131a21;border-color:#5d88ad;}
-#newProjectMark{background:#14283b;color:#7fc4ff;border:1px solid #315e83;border-radius:25px;font-size:21pt;font-weight:300;}
-#hubSearch,#hubStatusFilter{background:#10151b;color:#dfe5ea;border:1px solid #303842;border-radius:8px;padding:9px 11px;selection-background-color:#284761;}
-#hubSearch:focus,#hubStatusFilter:focus{border-color:#527d9f;}
-#hubPrimary{background:#2b78b9;color:#f5f9fc;border:0;border-radius:8px;padding:9px 14px;font-weight:700;}
-#hubPrimary:hover{background:#3688ca;}
-#hubSecondary{background:#11161c;color:#c4ccd3;border:1px solid #333b44;border-radius:8px;padding:9px 13px;}
-#hubSecondary:hover{background:#192028;color:#f4f7fa;border-color:#4b5965;}
+#hubDesktopBar,#hubStorage{background:transparent;border:0;}
+#hubKicker{color:#70839a;font-size:7.5pt;font-weight:700;letter-spacing:1.4px;}
+#hubTitle{font-family:'Georgia';font-size:32pt;font-weight:600;color:#f2f5f8;}
+#hubDescription{font-size:10pt;color:#7f8b99;}
+#hubSearch,#hubStatusFilter{background:#10161f;color:#dfe7ef;border:1px solid #263242;border-radius:7px;padding:9px 11px;selection-background-color:#274e73;}
+#hubSearch:focus,#hubStatusFilter:focus{border-color:#4a83b6;}
+#hubPrimary{background:#2f7ed8;color:white;border:0;border-radius:7px;padding:9px 14px;font-weight:700;}
+#hubPrimary:hover{background:#3c8fe9;}
+#hubSecondary{background:#111821;color:#c8d2dc;border:1px solid #2b3745;border-radius:7px;padding:9px 13px;}
+#hubSecondary:hover{background:#17212c;color:white;border-color:#41546a;}
+#projectDelete{background:transparent;color:#8b96a2;border:0;padding:7px 8px;}
+#projectDelete:hover{color:#d7dde5;}
+#projectCard{background:#111821;border:1px solid #25303d;border-radius:12px;}
+#projectCard:hover,#projectCard:focus{background:#141d27;border-color:#456b8d;}
+#projectCardCover{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #263443,stop:.52 #18232f,stop:1 #111821);color:#9fb4c9;border:0;border-radius:9px;font-family:'Georgia';font-size:8.5pt;font-weight:700;letter-spacing:1.1px;}
+#projectCardGenre,#newProjectMeta{color:#71859a;font-size:7.2pt;font-weight:700;letter-spacing:1.15px;}
+#projectCardState{background:#1a2b3b;color:#9bc8ed;border:1px solid #315673;border-radius:10px;padding:3px 8px;font-size:7.5pt;}
+#projectCardTitle,#newProjectTitle{font-family:'Georgia';font-size:17pt;font-weight:700;color:#f3f5f7;}
+#projectCardArchive,#newProjectCopy{color:#7f8a96;font-size:9pt;}
+#projectStatValue{font-weight:700;color:#e5eaf0;font-size:10pt;}
+#projectStatLabel,#projectSaved{color:#697684;font-size:8pt;}
+QFrame#projectCardNew{background:#0f151d;border:1px dashed #354555;border-radius:12px;}
+QFrame#projectCardNew:hover,QFrame#projectCardNew:focus{background:#121b25;border-color:#4f7da6;}
+#newProjectMark{background:#14283b;color:#72baf7;border:1px solid #315d82;border-radius:23px;font-size:20pt;font-weight:300;}
+#hubEmptyState{color:#7b8793;padding:26px;}
 )QSS"));
 
         auto* grid = qobject_cast<QGridLayout*>(cardsHost->layout());
         if (!grid) return;
-        grid->setContentsMargins(0, 4, 0, 30);
-        grid->setHorizontalSpacing(20);
-        grid->setVerticalSpacing(20);
+        grid->setContentsMargins(0, 6, 0, 26);
+        grid->setHorizontalSpacing(18);
+        grid->setVerticalSpacing(18);
         grid->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
         QList<QWidget*> cards;
@@ -101,21 +100,21 @@ QFrame#projectCardNew:hover,QFrame#projectCardNew:focus{background:#131a21;borde
         }
 
         const int available = qMax(320, cardsHost->width());
-        const int cardWidth = 310;
-        const int columns = qBound(1, available / (cardWidth + 20), 4);
+        const int cardWidth = 300;
+        const int columns = qBound(1, available / (cardWidth + 18), 4);
 
         for (int i = 0; i < cards.size(); ++i) {
             QWidget* card = cards.at(i);
-            card->setMinimumSize(cardWidth, 382);
-            card->setMaximumSize(cardWidth, 382);
+            card->setMinimumSize(cardWidth, 338);
+            card->setMaximumSize(cardWidth, 338);
             if (QLabel* cover = card->findChild<QLabel*>(QStringLiteral("projectCardCover"))) {
-                cover->setMinimumHeight(176);
-                cover->setMaximumHeight(176);
+                cover->setMinimumHeight(148);
+                cover->setMaximumHeight(148);
             }
             grid->addWidget(card, i / columns, i % columns, Qt::AlignLeft | Qt::AlignTop);
         }
 
-        for (int column = 0; column < 4; ++column) grid->setColumnStretch(column, 0);
+        for (int column = 0; column < 5; ++column) grid->setColumnStretch(column, 0);
         grid->setColumnStretch(columns, 1);
     }
 
@@ -133,8 +132,8 @@ private:
 } // namespace
 
 void installLibraryMockupController(QMainWindow* window) {
-    if (!window || window->property("wbwLibraryMockupControllerV4").toBool()) return;
-    window->setProperty("wbwLibraryMockupControllerV4", true);
+    if (!window || window->property("wbwLibraryMockupControllerV5").toBool()) return;
+    window->setProperty("wbwLibraryMockupControllerV5", true);
     auto* filter = new LibraryWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
