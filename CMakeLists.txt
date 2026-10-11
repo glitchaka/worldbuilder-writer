@@ -42,6 +42,8 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/MapTerrainEngine.h
     src/ui/CartographicCanvasV2.cpp
     src/ui/CartographicCanvasV2.h
+    src/ui/CartographicCanvasV3.cpp
+    src/ui/CartographicCanvasV3.h
     src/ui/CartographicCanvasController.cpp
     src/ui/CartographicCanvasController.h
     src/ui/WritingMockupController.cpp
