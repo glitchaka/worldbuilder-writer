@@ -10,6 +10,7 @@
 #include <QTextFrame>
 #include <QTextFrameFormat>
 #include <QTimer>
+#include <QTreeWidget>
 
 namespace wbw {
 namespace {
@@ -19,10 +20,11 @@ public:
     explicit ManuscriptGuard(QMainWindow* window) : QObject(window), window_(window) {
         page_ = window ? window->findChild<WritingPage*>(QStringLiteral("writingPage")) : nullptr;
         editor_ = window ? window->findChild<SemanticTextEdit*>(QStringLiteral("sceneEditor")) : nullptr;
+        tree_ = window ? window->findChild<QTreeWidget*>(QStringLiteral("manuscriptTree")) : nullptr;
         if (!page_ || !editor_) return;
 
         commitTimer_.setSingleShot(true);
-        commitTimer_.setInterval(260);
+        commitTimer_.setInterval(320);
 
         // The legacy connection persisted the complete scene, rescanned semantic references and
         // rebuilt the entire scene board for every character typed. Replace it with one coalesced
@@ -32,30 +34,46 @@ public:
             if (!page_) return;
             commitTimer_.start();
         });
-        connect(&commitTimer_, &QTimer::timeout, this, [this]() {
-            if (page_) page_->applyScene();
-        });
+        connect(&commitTimer_, &QTimer::timeout, this, [this]() { flushPendingEdit(); });
 
         editor_->installEventFilter(this);
         if (editor_->viewport()) editor_->viewport()->installEventFilter(this);
+        if (tree_) {
+            tree_->installEventFilter(this);
+            if (tree_->viewport()) tree_->viewport()->installEventFilter(this);
+        }
         applyMargins();
     }
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
-        Q_UNUSED(watched);
         if (event->type() == QEvent::Resize || event->type() == QEvent::Show || event->type() == QEvent::LayoutRequest)
             QTimer::singleShot(0, this, [this]() { applyMargins(); });
+
+        // Mouse/keyboard scene navigation changes the current tree item. Flush while the old item
+        // is still current so pending text can never be written into the newly selected scene.
+        const bool onTree = tree_ && (watched == tree_ || watched == tree_->viewport());
+        if (onTree && commitTimer_.isActive() &&
+            (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::KeyPress || event->type() == QEvent::FocusOut)) {
+            flushPendingEdit();
+        }
+
         return QObject::eventFilter(watched, event);
     }
 
 private:
+    void flushPendingEdit() {
+        if (!page_) return;
+        if (commitTimer_.isActive()) commitTimer_.stop();
+        page_->applyScene();
+    }
+
     void applyMargins() {
         if (!editor_ || !editor_->document() || !editor_->document()->rootFrame()) return;
 
         // Keep the manuscript as a centered reading column. Percentage CSS padding was causing
         // the effective line width to drift as side panels changed size. Frame margins are part of
-        // QTextDocument layout itself, so paragraphs now keep a stable readable measure.
+        // QTextDocument layout itself, so paragraphs keep a stable readable measure.
         const int viewportWidth = editor_->viewport() ? editor_->viewport()->width() : editor_->width();
         const int targetTextWidth = qBound(620, viewportWidth - 96, 820);
         const int side = qMax(30, (viewportWidth - targetTextWidth) / 2);
@@ -76,14 +94,15 @@ private:
     QPointer<QMainWindow> window_;
     QPointer<WritingPage> page_;
     QPointer<SemanticTextEdit> editor_;
+    QPointer<QTreeWidget> tree_;
     QTimer commitTimer_;
 };
 
 } // namespace
 
 void installWritingPerformanceController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingPerformanceV2").toBool()) return;
-    window->setProperty("wbwWritingPerformanceV2", true);
+    if (!window || window->property("wbwWritingPerformanceV3").toBool()) return;
+    window->setProperty("wbwWritingPerformanceV3", true);
     new ManuscriptGuard(window);
 }
 
