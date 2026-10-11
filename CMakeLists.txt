@@ -34,7 +34,6 @@ qt_add_executable(WorldbuilderWriter
     src/ui/ThemeManager.cpp
     src/ui/ProductReorganizer.cpp
     src/ui/NavigationConsistencyController.cpp
-    src/ui/LibraryMockupController.cpp
     src/ui/MapMockupController.cpp
     src/ui/MapWorkflowController.cpp
     src/ui/MapWorkflowController.h
