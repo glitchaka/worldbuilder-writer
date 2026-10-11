@@ -51,6 +51,7 @@ public:
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
     void applyBakedTerrainMap(const QJsonObject& map);
+    void flushBakedTerrainMap();
     void trimUndoHistory(int maximumEntries = 16);
     void selectObjectIds(const QStringList& ids);
     void nudgeSelection(double dx, double dy);
