@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <queue>
 
 namespace wbw {
 namespace {
@@ -44,6 +46,11 @@ QString generatedPlaceName(int index, quint32 seed) {
     return starts.at(static_cast<int>(h % starts.size())) + ends.at(static_cast<int>((h >> 8u) % ends.size()));
 }
 
+QString regionNameForCapital(const QString& capital, int index) {
+    static const QStringList forms{QObject::tr("Reino de %1"), QObject::tr("Principado de %1"), QObject::tr("Marca de %1"), QObject::tr("Dominio de %1"), QObject::tr("Liga de %1")};
+    return forms.at(index % forms.size()).arg(capital);
+}
+
 int ensureLayer(QJsonArray& layers, const QString& name) {
     for (int i = 0; i < layers.size(); ++i)
         if (layers.at(i).toObject().value(QStringLiteral("name")).toString().compare(name, Qt::CaseInsensitive) == 0) return i;
@@ -63,17 +70,17 @@ QJsonArray buildBiomes(const MapTerrainEngine& terrain, quint32 seed, double sea
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             const double h = terrain.at(x, y);
-            int biome = 0; // water
+            int biome = 0;
             if (h >= seaLevel) {
                 const double latitude = std::abs((static_cast<double>(y) / std::max(1, height - 1)) * 2.0 - 1.0);
                 const double moisture = noise01(x / 4, y / 4, seed ^ 0x91e10da5u) * .68 + noise01(x / 11, y / 11, seed ^ 0x7f4a7c15u) * .32;
-                if (h > .84) biome = 6;              // snow / alpine
-                else if (h > .72) biome = 5;         // mountain scrub
-                else if (latitude > .78) biome = 7;  // tundra
-                else if (moisture > .68) biome = 2;  // dense forest
-                else if (moisture > .52) biome = 3;  // woodland
-                else if (moisture < .25 && latitude < .62) biome = 4; // arid
-                else biome = 1;                      // grassland / plains
+                if (h > .84) biome = 6;
+                else if (h > .72) biome = 5;
+                else if (latitude > .78) biome = 7;
+                else if (moisture > .68) biome = 2;
+                else if (moisture > .52) biome = 3;
+                else if (moisture < .25 && latitude < .62) biome = 4;
+                else biome = 1;
             }
             biomes.append(biome);
         }
@@ -109,19 +116,50 @@ QVector<QPointF> chooseSettlements(const MapTerrainEngine& terrain, quint32 seed
     return result;
 }
 
-QJsonArray roadPoints(const QPointF& a,const QPointF& b,double docW,double docH,int terrainW,int terrainH,quint32 seed,int salt) {
-    QJsonArray points;
-    const int steps = 8;
-    const QPointF delta=b-a;
-    const double length=std::hypot(delta.x(),delta.y());
-    const QPointF normal = length>0.001 ? QPointF(-delta.y()/length,delta.x()/length) : QPointF();
-    for(int i=0;i<=steps;++i){
-        const double t=i/(double)steps;
-        const double bend=(noise01(i,salt,seed^0x243f6a88u)-.5)*3.2*std::sin(t*3.14159265);
-        const QPointF p=a+delta*t+normal*bend;
-        points.append(QJsonObject{{QStringLiteral("x"),p.x()/std::max(1,terrainW-1)*docW},{QStringLiteral("y"),p.y()/std::max(1,terrainH-1)*docH}});
+QJsonArray buildPoliticalRegions(const MapTerrainEngine& terrain, const QVector<QPointF>& capitals, double seaLevel) {
+    QJsonArray regions;
+    const int w = terrain.width(), h = terrain.height();
+    if (capitals.isEmpty()) {
+        for (int i=0;i<w*h;++i) regions.append(-1);
+        return regions;
     }
-    return points;
+    for(int y=0;y<h;++y){
+        for(int x=0;x<w;++x){
+            const double elevation=terrain.at(x,y);
+            if(elevation<seaLevel){regions.append(-1);continue;}
+            int best=0;double bestScore=std::numeric_limits<double>::max();
+            for(int r=0;r<capitals.size();++r){
+                const double dx=x-capitals.at(r).x(),dy=y-capitals.at(r).y();
+                double score=dx*dx+dy*dy;
+                const double ridgePenalty=std::max(0.0,elevation-.68)*900.0;
+                score += ridgePenalty;
+                if(score<bestScore){bestScore=score;best=r;}
+            }
+            regions.append(best);
+        }
+    }
+    return regions;
+}
+
+QJsonArray terrainAwareRoad(const QPointF& start, const QPointF& goal, const MapTerrainEngine& terrain, double seaLevel, double docW, double docH) {
+    const int w=terrain.width(),h=terrain.height(),count=w*h;
+    auto idx=[w](int x,int y){return y*w+x;};
+    const int sx=std::clamp(static_cast<int>(std::round(start.x())),0,w-1),sy=std::clamp(static_cast<int>(std::round(start.y())),0,h-1);
+    const int gx=std::clamp(static_cast<int>(std::round(goal.x())),0,w-1),gy=std::clamp(static_cast<int>(std::round(goal.y())),0,h-1);
+    struct Node{double f;int index;bool operator<(const Node& other)const{return f>other.f;}};
+    std::priority_queue<Node> open;
+    QVector<double> g(count,std::numeric_limits<double>::infinity());
+    QVector<int> parent(count,-1);
+    const int startIndex=idx(sx,sy),goalIndex=idx(gx,gy);g[startIndex]=0;open.push({std::hypot(gx-sx,gy-sy),startIndex});
+    static const int dirs[8][2]={{1,0},{-1,0},{0,1},{0,-1},{1,1},{1,-1},{-1,1},{-1,-1}};
+    while(!open.empty()){
+        const int current=open.top().index;open.pop();if(current==goalIndex)break;const int cx=current%w,cy=current/w;
+        for(const auto& d:dirs){const int nx=cx+d[0],ny=cy+d[1];if(nx<1||ny<1||nx>=w-1||ny>=h-1)continue;const double nh=terrain.at(nx,ny);if(nh<seaLevel+.006)continue;const double ch=terrain.at(cx,cy);const double slope=std::abs(nh-ch);const double highland=std::max(0.0,nh-.62);const double step=(d[0]&&d[1])?1.414:1.0;const double cost=step*(1.0+slope*18.0+highland*5.0);const int ni=idx(nx,ny);const double tentative=g[current]+cost;if(tentative>=g[ni])continue;g[ni]=tentative;parent[ni]=current;const double heuristic=std::hypot(gx-nx,gy-ny);open.push({tentative+heuristic,ni});}
+    }
+    if(parent[goalIndex]<0)return {};
+    QVector<QPointF> reversed;for(int current=goalIndex;current>=0;current=parent[current]){reversed.append(QPointF(current%w,current/w));if(current==startIndex)break;}
+    std::reverse(reversed.begin(),reversed.end());QJsonArray points;
+    for(int i=0;i<reversed.size();i+=qMax(1,reversed.size()/18)){const QPointF p=reversed.at(i);points.append(QJsonObject{{QStringLiteral("x"),p.x()/std::max(1,w-1)*docW},{QStringLiteral("y"),p.y()/std::max(1,h-1)*docH}});}if(!reversed.isEmpty()){const QPointF p=reversed.last();const QJsonObject last=points.isEmpty()?QJsonObject():points.last().toObject();const double x=p.x()/std::max(1,w-1)*docW,y=p.y()/std::max(1,h-1)*docH;if(last.value(QStringLiteral("x")).toDouble()!=x||last.value(QStringLiteral("y")).toDouble()!=y)points.append(QJsonObject{{QStringLiteral("x"),x},{QStringLiteral("y"),y}});}return points;
 }
 }
 
@@ -134,7 +172,7 @@ void PilinReyEditor::generateProceduralWorld() {
     if (!ok) return;
     const int islands = QInputDialog::getInt(this, tr("Generar mundo"), tr("Islas secundarias"), 12, 0, 40, 1, &ok);
     if (!ok) return;
-    if (QMessageBox::question(this, tr("Generar mundo"), tr("Se reemplazarán terreno, ríos, caminos y asentamientos procedurales. Los objetos creados manualmente se conservarán. ¿Continuar?")) != QMessageBox::Yes) return;
+    if (QMessageBox::question(this, tr("Generar mundo"), tr("Se reemplazarán terreno, ríos, regiones, caminos y asentamientos procedurales. Los objetos creados manualmente se conservarán. ¿Continuar?")) != QMessageBox::Yes) return;
 
     pushUndo();
     QJsonObject pilin = map_.value(QStringLiteral("pilinRey")).toObject();
@@ -145,11 +183,19 @@ void PilinReyEditor::generateProceduralWorld() {
     MapTerrainEngine terrain(320, 180, static_cast<quint32>(seed));
     terrain.generateWorld(continents, islands, 0.62f);
     terrain.erode(2, 0.18f);
+    const QVector<QPointF> settlements = chooseSettlements(terrain, static_cast<quint32>(seed), seaLevel, qBound(6, continents * 5 + islands / 4, 24));
+    QVector<QPointF> capitals;
+    for(int i=0;i<qMin(continents,settlements.size());++i)capitals.append(settlements.at(i));
+
     QJsonObject terrainJson = terrain.toJson();
     terrainJson.insert(QStringLiteral("seaLevel"), seaLevel);
     terrainJson.insert(QStringLiteral("generatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-    terrainJson.insert(QStringLiteral("generator"), QStringLiteral("native-heightmap-v3"));
+    terrainJson.insert(QStringLiteral("generator"), QStringLiteral("native-heightmap-v4"));
     terrainJson.insert(QStringLiteral("biomes"), buildBiomes(terrain, static_cast<quint32>(seed), seaLevel));
+    terrainJson.insert(QStringLiteral("regions"), buildPoliticalRegions(terrain, capitals, seaLevel));
+    QJsonArray regionNames;
+    for(int i=0;i<capitals.size();++i)regionNames.append(regionNameForCapital(generatedPlaceName(i,static_cast<quint32>(seed)),i));
+    terrainJson.insert(QStringLiteral("regionNames"),regionNames);
     pilin.insert(QStringLiteral("terrainModel"), terrainJson);
 
     QJsonArray layers = pilin.value(QStringLiteral("layers")).toArray();
@@ -170,12 +216,13 @@ void PilinReyEditor::generateProceduralWorld() {
     }
     hydro.insert(QStringLiteral("objects"),hydroObjects); layers.replace(hydroIndex,hydro);
 
-    const QVector<QPointF> settlements = chooseSettlements(terrain, static_cast<quint32>(seed), seaLevel, qBound(6, continents * 5 + islands / 4, 24));
+    QStringList placeNames;
+    for(int i=0;i<settlements.size();++i)placeNames.append(generatedPlaceName(i,static_cast<quint32>(seed)));
     QJsonObject settlementLayer = layers.at(settlementIndex).toObject();
     QJsonArray settlementObjects = keepManualObjects(settlementLayer.value(QStringLiteral("objects")).toArray());
     for (int i=0;i<settlements.size();++i) {
         const QPointF p=settlements.at(i); const double elevation=terrain.at(static_cast<int>(p.x()),static_cast<int>(p.y()));
-        settlementObjects.append(QJsonObject{{QStringLiteral("id"),generatedId(QStringLiteral("settlement"))},{QStringLiteral("type"),QStringLiteral("settlement")},{QStringLiteral("x"),p.x()/std::max(1,terrain.width()-1)*docW},{QStringLiteral("y"),p.y()/std::max(1,terrain.height()-1)*docH},{QStringLiteral("label"),generatedPlaceName(i,static_cast<quint32>(seed))},{QStringLiteral("settlementType"),i<continents?tr("Capital"):tr("Ciudad")},{QStringLiteral("population"),1200+static_cast<int>(noise01(i,19,seed)*42000)},{QStringLiteral("elevation"),static_cast<int>(elevation*1800)},{QStringLiteral("size"),i<continents?88:64},{QStringLiteral("generated"),true}});
+        settlementObjects.append(QJsonObject{{QStringLiteral("id"),generatedId(QStringLiteral("settlement"))},{QStringLiteral("type"),QStringLiteral("settlement")},{QStringLiteral("x"),p.x()/std::max(1,terrain.width()-1)*docW},{QStringLiteral("y"),p.y()/std::max(1,terrain.height()-1)*docH},{QStringLiteral("label"),placeNames.at(i)},{QStringLiteral("group"),i<capitals.size()?regionNames.at(i).toString():QString()},{QStringLiteral("settlementType"),i<continents?tr("Capital"):tr("Ciudad")},{QStringLiteral("population"),1200+static_cast<int>(noise01(i,19,seed)*42000)},{QStringLiteral("elevation"),static_cast<int>(elevation*1800)},{QStringLiteral("size"),i<continents?88:64},{QStringLiteral("generated"),true}});
     }
     settlementLayer.insert(QStringLiteral("objects"),settlementObjects); layers.replace(settlementIndex,settlementLayer);
 
@@ -184,8 +231,10 @@ void PilinReyEditor::generateProceduralWorld() {
     for(int i=1;i<settlements.size();++i) {
         int nearest=0; double nearestDistance=1e12;
         for(int j=0;j<i;++j){const double d=std::hypot(settlements.at(i).x()-settlements.at(j).x(),settlements.at(i).y()-settlements.at(j).y());if(d<nearestDistance){nearestDistance=d;nearest=j;}}
-        if(nearestDistance>95.0) continue;
-        routeObjects.append(QJsonObject{{QStringLiteral("id"),generatedId(QStringLiteral("road"))},{QStringLiteral("type"),QStringLiteral("road")},{QStringLiteral("points"),roadPoints(settlements.at(i),settlements.at(nearest),docW,docH,terrain.width(),terrain.height(),static_cast<quint32>(seed),i)},{QStringLiteral("generated"),true}});
+        if(nearestDistance>110.0) continue;
+        const QJsonArray points=terrainAwareRoad(settlements.at(i),settlements.at(nearest),terrain,seaLevel,docW,docH);
+        if(points.size()<2)continue;
+        routeObjects.append(QJsonObject{{QStringLiteral("id"),generatedId(QStringLiteral("road"))},{QStringLiteral("type"),QStringLiteral("road")},{QStringLiteral("points"),points},{QStringLiteral("generated"),true}});
     }
     routes.insert(QStringLiteral("objects"),routeObjects); layers.replace(routesIndex,routes);
 
