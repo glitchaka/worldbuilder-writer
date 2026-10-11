@@ -68,6 +68,7 @@ private:
     void buildUi();
     void layoutFloatingPanels();
     void ensurePilinDocument();
+    void generateProceduralWorld();
     void refreshLayers();
     void refreshLayerControls();
     void refreshAssets();
@@ -150,6 +151,7 @@ private:
     QLabel* status_ = nullptr;
     QLabel* selectionLabel_ = nullptr;
     QLabel* toolOptionsLabel_ = nullptr;
+    QToolButton* generateButton_ = nullptr;
     QToolButton* undoButton_ = nullptr;
     QToolButton* redoButton_ = nullptr;
     QToolButton* editObjectButton_ = nullptr;
