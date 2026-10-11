@@ -1,5 +1,5 @@
 diff --git a/app/archive-client.tsx b/app/archive-client.tsx
-index be2480e..38b1d37 100644
+index be2480e..039d0a3 100644
 --- a/app/archive-client.tsx
 +++ b/app/archive-client.tsx
 @@ -40,6 +40,7 @@ import { chaptersFromImportedManuscript, structuredTextFromMammothHtml } from ".
@@ -69,6 +69,15 @@ index be2480e..38b1d37 100644
        {dossierId && dossierCharacter && (
          <DossierDrawer
            character={dossierCharacter}
+@@ -3192,7 +3197,7 @@ function AttachmentStrip({ projectId, scope, recordId, attachments }: { projectI
+   );
+ }
+ 
+-function AttachmentManager({ attachments, onChange }: { attachments: ArchiveAttachment[]; onChange: (attachments: ArchiveAttachment[]) => void }) {
++function AttachmentManager({ projectId, scope, recordId, attachments, onChange }: { projectId: string; scope: "world" | "magic"; recordId: string; attachments: ArchiveAttachment[]; onChange: (attachments: ArchiveAttachment[]) => void }) {
+   const [uploading, setUploading] = useState(false);
+   const [error, setError] = useState("");
+ 
 diff --git a/app/globals.css b/app/globals.css
 index 0819496..63c659c 100644
 --- a/app/globals.css
@@ -88,7 +97,7 @@ index 0819496..63c659c 100644
  .filter-bar { display: grid; grid-template-columns: minmax(260px, 1fr) 160px 160px; gap: 10px; margin-bottom: 18px; }
 diff --git a/app/wbw-download-dialog.tsx b/app/wbw-download-dialog.tsx
 new file mode 100644
-index 0000000..8257d42
+index 0000000..71e5744
 --- /dev/null
 +++ b/app/wbw-download-dialog.tsx
 @@ -0,0 +1,56 @@
@@ -141,7 +150,7 @@ index 0000000..8257d42
 +          <p id="wbw-download-instructions">El archivo está preparado. Pulsa Descargar .wbw para guardarlo en tu equipo.</p>
 +          <strong>{download.fileName}</strong>
 +          <span>{new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(download.blob.size / 1024 / 1024)} MB · Manuscrito, fichas y recursos del proyecto</span>
-+          <p>El enlace permanece disponible mientras esta ventana esté abierta. Si la descarga no aparece, puedes volver a pulsarlo.</p>
++          <p>El enlace permanece disponible mientras esta ventana esté abierta. Si la descarga no aparece, puedes volver a pulsarlo o usar «Guardar enlace como…» sobre el botón.</p>
 +        </div>
 +        <footer className="editor-actions"><button type="button" onClick={onClose}>Cerrar</button>{url ? <a ref={linkRef} className="primary-action wbw-download-link" href={url} download={download.fileName} onClick={onDownload}>Descargar .wbw</a> : <span role="status">Preparando enlace…</span>}</footer>
 +      </section>
@@ -179,8 +188,34 @@ index 9944cf9..eeec042 100644
    const manifestEntry = zip.file("manifest.json");
    const projectEntry = zip.file("project.json");
    if (!manifestEntry || !projectEntry) throw new Error("El paquete .wbw está incompleto.");
+diff --git a/package-lock.json b/package-lock.json
+index 579b013..3ac4302 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -29,6 +29,7 @@
+       },
+       "devDependencies": {
+         "@cloudflare/vite-plugin": "1.37.1",
++        "@cloudflare/workers-types": "4.20260702.1",
+         "@tailwindcss/postcss": "4.2.1",
+         "@types/node": "22.19.19",
+         "@types/pdfmake": "^0.2.12",
+@@ -432,6 +433,13 @@
+         "node": ">=16"
+       }
+     },
++    "node_modules/@cloudflare/workers-types": {
++      "version": "4.20260702.1",
++      "resolved": "https://registry.npmjs.org/@cloudflare/workers-types/-/workers-types-4.20260702.1.tgz",
++      "integrity": "sha512-mOhf5TUEB1m2vPrxtqoIGfz0fUC9xyxRDx5gWHy5s+OCo6dcV+g7wI1R7gYCMFohhqF/2y2xeKVwMwCJjfn/WA==",
++      "devOptional": true,
++      "license": "MIT OR Apache-2.0"
++    },
+     "node_modules/@cspotcode/source-map-support": {
+       "version": "0.8.1",
+       "resolved": "https://registry.npmjs.org/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz",
 diff --git a/package.json b/package.json
-index 97174e1..68f023d 100644
+index 97174e1..2055797 100644
 --- a/package.json
 +++ b/package.json
 @@ -10,7 +10,7 @@
@@ -192,6 +227,24 @@ index 97174e1..68f023d 100644
      "validate:artifact": "bash scripts/validate-artifact.sh",
      "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
      "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+@@ -26,8 +26,8 @@
+     "@tiptap/pm": "^3.29.2",
+     "@tiptap/react": "^3.29.2",
+     "@tiptap/starter-kit": "^3.29.2",
+-    "drizzle-orm": "0.45.2",
+     "docx": "^9.7.1",
++    "drizzle-orm": "0.45.2",
+     "jszip": "^3.10.1",
+     "mammoth": "^1.12.1",
+     "next": "16.2.6",
+@@ -37,6 +37,7 @@
+   },
+   "devDependencies": {
+     "@cloudflare/vite-plugin": "1.37.1",
++    "@cloudflare/workers-types": "4.20260702.1",
+     "@tailwindcss/postcss": "4.2.1",
+     "@types/node": "22.19.19",
+     "@types/pdfmake": "^0.2.12",
 diff --git a/tests/wbw-export.test.mjs b/tests/wbw-export.test.mjs
 new file mode 100644
 index 0000000..0b94d3f
@@ -283,3 +336,16 @@ index 0000000..0b94d3f
 +    globalThis.fetch = originalFetch;
 +  }
 +});
+diff --git a/tsconfig.json b/tsconfig.json
+index 3a13f90..af07be5 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -6,6 +6,8 @@
+     "skipLibCheck": true,
+     "strict": true,
+     "noEmit": true,
++    "allowImportingTsExtensions": true,
++    "types": ["node", "@cloudflare/workers-types"],
+     "esModuleInterop": true,
+     "module": "esnext",
+     "moduleResolution": "bundler",
