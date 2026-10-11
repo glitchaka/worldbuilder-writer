@@ -30,6 +30,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QShortcut>
 #include <QSizeF>
 #include <QStackedWidget>
 #include <QTextBlockFormat>
@@ -115,6 +116,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     autosaveTimer_ = new QTimer(this);
     autosaveTimer_->setInterval(savedAutosaveIntervalMs());
     connect(autosaveTimer_, &QTimer::timeout, this, [this]() {
+        commitPendingEdits();
         if (document_.isDirty() && !document_.sourcePath().isEmpty()) saveProject(true);
     });
     autosaveTimer_->start();
@@ -258,6 +260,13 @@ void MainWindow::createShell() {
         if (autosaveTimer_) autosaveTimer_->setInterval(savedAutosaveIntervalMs());
     });
     connect(quickSave, &QPushButton::clicked, this, [this]() { saveProject(); });
+    auto* saveShortcut = new QShortcut(QKeySequence::Save, this);
+    saveShortcut->setObjectName(QStringLiteral("wbwSaveShortcut"));
+    saveShortcut->setContext(Qt::WindowShortcut);
+    saveShortcut->setAutoRepeat(false);
+    connect(saveShortcut, &QShortcut::activated, this, [this]() {
+        if (!document_.sourcePath().isEmpty()) saveProject();
+    });
     connect(focus, &QPushButton::clicked, writingPage_, &WritingPage::openFocusMode);
     connect(hubPage_, &ProjectHubPage::newProjectRequested, this, &MainWindow::newProject);
     connect(hubPage_, &ProjectHubPage::importProjectRequested, this, &MainWindow::importWbw);
@@ -345,7 +354,6 @@ void MainWindow::newProject() {
     }
     setDocument(std::move(document));
     hubPage_->refresh();
-    navigation_->setCurrentRow(2);
 }
 
 void MainWindow::openLibrary() {
@@ -353,18 +361,17 @@ void MainWindow::openLibrary() {
 }
 
 void MainWindow::openProject() {
-    if (!confirmDiscard()) return;
     const QString path = QFileDialog::getOpenFileName(this, tr("Abrir proyecto"), QString(), tr("Proyectos Worldbuilder Writer (*.json *.wbw);;JSON (*.json);;Paquete WBW (*.wbw)"));
     if (!path.isEmpty()) loadPath(path);
 }
 
 void MainWindow::importWbw() {
-    if (!confirmDiscard()) return;
     const QString path = QFileDialog::getOpenFileName(this, tr("Importar proyecto .wbw"), QString(), tr("Paquete Worldbuilder Writer (*.wbw)"));
     if (!path.isEmpty()) loadPath(path);
 }
 
 bool MainWindow::loadPath(const QString& path) {
+    if (!confirmDiscard()) return false;
     ArchiveDocument candidate;
     QString error;
     if (QFileInfo(path).suffix().compare(QStringLiteral("wbw"), Qt::CaseInsensitive) == 0) {
@@ -384,38 +391,61 @@ bool MainWindow::loadPath(const QString& path) {
 
     setDocument(std::move(candidate));
     hubPage_->refresh();
-    navigation_->setCurrentRow(2);
     return true;
 }
 
 bool MainWindow::saveProject(bool quiet) {
+    commitPendingEdits();
     QString error;
     if (document_.sourcePath().isEmpty()) {
         const QString directory = ProjectStore::createProjectDirectory();
         if (!ProjectStore::saveIntoProjectDirectory(directory, document_, &error)) {
-            if (!quiet) QMessageBox::critical(this, tr("No se pudo guardar"), error);
+            reportSaveFailure(error, quiet);
             return false;
         }
     } else if (!ProjectStore::saveJsonFile(document_.sourcePath(), document_, &error)) {
-        if (!quiet) QMessageBox::critical(this, tr("No se pudo guardar"), error);
+        reportSaveFailure(error, quiet);
         return false;
     }
+    saveError_.clear();
     updateWindowTitle();
+    if (!quiet) statusBar()->showMessage(tr("Proyecto guardado."), 5000);
     return true;
 }
 
 bool MainWindow::saveProjectAs() {
+    commitPendingEdits();
     const QString path = QFileDialog::getSaveFileName(this, tr("Guardar proyecto JSON"), document_.storyTitle().isEmpty() ? QStringLiteral("project.json") : safeFileName(document_.storyTitle()) + QStringLiteral(".json"), tr("JSON (*.json)"));
     if (path.isEmpty()) return false;
     QString target = path;
     if (!target.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive)) target += QStringLiteral(".json");
     QString error;
     if (!ProjectStore::saveJsonFile(target, document_, &error)) {
-        QMessageBox::critical(this, tr("No se pudo guardar"), error);
+        reportSaveFailure(error, false);
         return false;
     }
+    saveError_.clear();
     updateWindowTitle();
     return true;
+}
+
+void MainWindow::commitPendingEdits() {
+    const QList<QWidget*> dataPages{planningPage_, writingPage_, worldPage_, reviewPage_};
+    for (QWidget* page : dataPages) {
+        if (!page) continue;
+        for (QLineEdit* field : page->findChildren<QLineEdit*>()) {
+            if (!field->isModified() || !field->hasAcceptableInput()) continue;
+            QMetaObject::invokeMethod(field, "editingFinished", Qt::DirectConnection);
+            field->setModified(false);
+        }
+    }
+}
+
+void MainWindow::reportSaveFailure(const QString& error, bool quiet) {
+    saveError_ = error;
+    updateWindowTitle();
+    statusBar()->showMessage(tr("No se pudo guardar el proyecto: %1").arg(error), 10000);
+    if (!quiet) QMessageBox::critical(this, tr("No se pudo guardar"), error);
 }
 
 void MainWindow::exportWbw() {
@@ -557,6 +587,7 @@ void MainWindow::createBackup() {
 }
 
 bool MainWindow::confirmDiscard() {
+    commitPendingEdits();
     if (!document_.isDirty()) return true;
     const QMessageBox::StandardButton answer = QMessageBox::warning(this, tr("Cambios sin guardar"), tr("Hay cambios sin guardar. ¿Quieres guardarlos antes de continuar?"), QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
     if (answer == QMessageBox::Cancel) return false;
@@ -566,12 +597,19 @@ bool MainWindow::confirmDiscard() {
 
 void MainWindow::setDocument(ArchiveDocument document) {
     document_ = std::move(document);
+    saveError_.clear();
+    saveState_->setProperty("projectLoaded", true);
     planningPage_->setDocument(&document_);
     writingPage_->setDocument(&document_);
     worldPage_->setDocument(&document_);
     reviewPage_->setDocument(&document_);
-    if (navigation_->currentRow() <= 0) navigation_->setCurrentRow(2);
-    pages_->setCurrentIndex(navigation_->currentRow());
+    for (int row = 0; row < navigation_->count(); ++row) {
+        if (navigation_->item(row)->text() == tr("Escritura")) {
+            navigation_->setCurrentRow(row);
+            break;
+        }
+    }
+    pages_->setCurrentWidget(writingPage_);
     updateWindowTitle();
 }
 
@@ -592,7 +630,9 @@ void MainWindow::updateWindowTitle() {
     setWindowTitle(QStringLiteral("%1%2 — Worldbuilder Writer").arg(document_.isDirty() ? QStringLiteral("* ") : QString(), title.isEmpty() ? tr("Sin título") : title));
     if (navigation_ && navigation_->currentRow() == 0) return;
     projectTitle_->setText(title.isEmpty() ? tr("Sin título") : title);
-    if (document_.isDirty()) saveState_->setText(tr("Cambios pendientes"));
+    saveState_->setToolTip(saveError_);
+    if (!saveError_.isEmpty()) saveState_->setText(tr("No se pudo guardar"));
+    else if (document_.isDirty()) saveState_->setText(tr("Cambios pendientes"));
     else saveState_->setText(document_.sourcePath().isEmpty() ? tr("Sin ubicación local") : tr("Guardado local"));
 }
 

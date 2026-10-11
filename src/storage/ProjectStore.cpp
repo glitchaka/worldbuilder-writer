@@ -53,13 +53,17 @@ bool ProjectStore::loadJsonFile(const QString& path, ArchiveDocument& document, 
 }
 
 bool ProjectStore::saveJsonFile(const QString& path, ArchiveDocument& document, QString* error) {
-    QDir().mkpath(QFileInfo(path).absolutePath());
+    if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
+        if (error) *error = QStringLiteral("No se pudo crear la carpeta del proyecto: %1.").arg(QFileInfo(path).absolutePath());
+        return false;
+    }
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
         if (error) *error = file.errorString();
         return false;
     }
-    if (file.write(document.toJson()) < 0) {
+    const QByteArray bytes = document.toJson();
+    if (file.write(bytes) != bytes.size()) {
         if (error) *error = file.errorString();
         file.cancelWriting();
         return false;

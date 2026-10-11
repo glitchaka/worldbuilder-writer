@@ -55,13 +55,6 @@ private:
         QObject::connect(nav_, &QListWidget::currentRowChanged, this, [this](int) { QTimer::singleShot(0, this, [this]() { enforceRoute(); }); });
         QObject::connect(pages_, &QStackedWidget::currentChanged, this, [this](int) { QTimer::singleShot(0, this, [this]() { enforceRoute(); }); });
 
-        if (auto* hub = qobject_cast<ProjectHubPage*>(hub_)) {
-            auto goWriting = [this]() { if (nav_) nav_->setCurrentRow(1); };
-            QObject::connect(hub, &ProjectHubPage::openProjectRequested, this, [goWriting](const QString&) { goWriting(); });
-            QObject::connect(hub, &ProjectHubPage::newProjectRequested, this, goWriting);
-            QObject::connect(hub, &ProjectHubPage::importProjectRequested, this, goWriting);
-        }
-
         if (auto* writing = qobject_cast<WritingPage*>(writing_)) {
             QObject::connect(writing, &WritingPage::referenceActivated, this, [this](const QString& kind, const QString&) {
                 if (kind == QStringLiteral("character") && nav_) nav_->setCurrentRow(3);
@@ -133,7 +126,7 @@ QListWidget#sideNavigation::item:selected{background:#24211c;color:#e7c28a;borde
     void setHeader(const QString& title, const QString& state) {
         if (!window_) return;
         if (auto* label = window_->findChild<QLabel*>(QStringLiteral("projectTitle"))) label->setText(title);
-        if (auto* label = window_->findChild<QLabel*>(QStringLiteral("saveState"))) label->setText(state);
+        if (auto* label = window_->findChild<QLabel*>(QStringLiteral("saveState")); label && !label->property("projectLoaded").toBool()) label->setText(state);
     }
 
     void routeWorld(bool maps) {
