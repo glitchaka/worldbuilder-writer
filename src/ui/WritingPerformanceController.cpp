@@ -36,6 +36,7 @@ public:
         });
         connect(&commitTimer_, &QTimer::timeout, this, [this]() { flushPendingEdit(); });
 
+        window_->installEventFilter(this);
         editor_->installEventFilter(this);
         if (editor_->viewport()) editor_->viewport()->installEventFilter(this);
         if (tree_) {
@@ -49,6 +50,11 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
         if (event->type() == QEvent::Resize || event->type() == QEvent::Show || event->type() == QEvent::LayoutRequest)
             QTimer::singleShot(0, this, [this]() { applyMargins(); });
+
+        // Flush before MainWindow evaluates dirty state on close, otherwise the debounced edit
+        // could still live only in QTextDocument and be lost without a save prompt.
+        if (watched == window_ && event->type() == QEvent::Close && commitTimer_.isActive())
+            flushPendingEdit();
 
         // Mouse/keyboard scene navigation changes the current tree item. Flush while the old item
         // is still current so pending text can never be written into the newly selected scene.
@@ -101,8 +107,8 @@ private:
 } // namespace
 
 void installWritingPerformanceController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingPerformanceV3").toBool()) return;
-    window->setProperty("wbwWritingPerformanceV3", true);
+    if (!window || window->property("wbwWritingPerformanceV4").toBool()) return;
+    window->setProperty("wbwWritingPerformanceV4", true);
     new ManuscriptGuard(window);
 }
 
