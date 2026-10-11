@@ -8,9 +8,8 @@ class QGridLayout;
 class QHideEvent;
 class QLabel;
 class QLineEdit;
+class QResizeEvent;
 class QShowEvent;
-class QScrollArea;
-class QVBoxLayout;
 
 namespace wbw {
 
@@ -31,9 +30,11 @@ signals:
 protected:
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     void rebuildCards();
+    int cardColumns() const;
 
     QWidget* cardsHost_ = nullptr;
     QGridLayout* cards_ = nullptr;
