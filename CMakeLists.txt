@@ -24,7 +24,7 @@ qt_standard_project_setup()
 
 enable_testing()
 
-qt_add_library(WorldbuilderWriterUi STATIC
+qt_add_library(WorldbuilderWriterUi OBJECT
     src/core/ArchiveDocument.cpp
     src/storage/ProjectStore.cpp
     src/storage/WbwPackage.cpp
