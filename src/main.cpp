@@ -1,5 +1,6 @@
 #include "ui/MainWindow.h"
 #include "ui/AtlasWorkspaceController.h"
+#include "ui/CartographicCanvasController.h"
 #include "ui/LibraryMockupController.h"
 #include "ui/MapMockupController.h"
 #include "ui/MapSelectionController.h"
@@ -108,6 +109,7 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::installMapMockupController(&window);
     wbw::installMapSelectionController(&window);
     wbw::installMapWorkflowController(&window);
+    wbw::installCartographicCanvasController(&window);
     wbw::installWritingMockupController(&window);
     wbw::installWritingShortcutBridge(&window);
     wbw::installPlanningMockupController(&window);
@@ -183,6 +185,7 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
                     require(window.findChild<QWidget*>(QStringLiteral("pilinToolPalette")) != nullptr, QStringLiteral("mapToolPalette"));
                     require(window.findChild<QWidget*>(QStringLiteral("pilinTopCommands")) != nullptr, QStringLiteral("mapCommands"));
                     require(window.findChild<QWidget*>(QStringLiteral("mapWorkflowStrip")) != nullptr, QStringLiteral("mapWorkflowStrip"));
+                    require(window.findChild<QWidget*>(QStringLiteral("cartographicCanvasV2")) != nullptr, QStringLiteral("cachedCartographicCanvas"));
                     break;
                 case 5:
                     require(window.findChild<QWidget*>(QStringLiteral("reviewAnalysisTab")) != nullptr, QStringLiteral("reviewAnalysis"));
