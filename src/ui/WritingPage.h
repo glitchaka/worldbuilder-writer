@@ -44,6 +44,7 @@ private:
     void refreshSceneBoard();
     void selectItem();
     void applyScene();
+    QJsonObject sceneEditState() const;
     void addChapter();
     void addScene();
     void removeItem();
@@ -59,6 +60,7 @@ private:
     void closeFocusMode();
 
     ArchiveDocument* document_ = nullptr;
+    QJsonObject sceneEditState_;
     bool refreshing_ = false;
     bool focusActive_ = false;
     bool indexWasVisible_ = true;

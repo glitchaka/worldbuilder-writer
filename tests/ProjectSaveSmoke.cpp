@@ -67,8 +67,10 @@ QJsonObject savedScene(const QString& path) {
 }
 
 void openProject(wbw::ProjectHubPage* hub, const QString& path) {
+    std::cout << "Opening " << path.toStdString() << std::endl;
     QMetaObject::invokeMethod(hub, "openProjectRequested", Qt::DirectConnection, Q_ARG(QString, path));
     settleUi();
+    std::cout << "Open request finished" << std::endl;
 }
 
 void answerNextPrompt(QMessageBox::StandardButton answer, bool* seen) {
@@ -88,6 +90,20 @@ void answerNextPrompt(QMessageBox::StandardButton answer, bool* seen) {
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
+    int unexpectedPrompts = 0;
+    QTimer promptWatchdog;
+    promptWatchdog.setInterval(200);
+    QObject::connect(&promptWatchdog, &QTimer::timeout, &app, [&unexpectedPrompts]() {
+        for (QWidget* widget : QApplication::topLevelWidgets()) {
+            auto* box = qobject_cast<QMessageBox*>(widget);
+            if (!box || !box->isVisible()) continue;
+            ++unexpectedPrompts;
+            std::cerr << "Unexpected prompt: " << box->text().toStdString() << std::endl;
+            if (auto* cancel = box->button(QMessageBox::Cancel)) cancel->click();
+            else box->accept();
+        }
+    });
+    promptWatchdog.start();
     QTemporaryDir temp;
     if (!require(temp.isValid(), "temporary fixture directory")) return 1;
 
@@ -101,6 +117,7 @@ int main(int argc, char** argv) {
     if (!require(wbw::ProjectStore::saveIntoProjectDirectory(firstDirectory, first, &error), "create first existing project") ||
         !require(wbw::ProjectStore::saveIntoProjectDirectory(secondDirectory, second, &error), "create second existing project")) return 1;
 
+    std::cout << "Creating project window" << std::endl;
     wbw::MainWindow window;
     wbw::applyProductReorganization(&window);
     wbw::installNavigationConsistencyController(&window);
@@ -108,6 +125,7 @@ int main(int argc, char** argv) {
     window.activateWindow();
     QApplication::setActiveWindow(&window);
     settleUi();
+    std::cout << "Project window ready" << std::endl;
 
     auto* hub = window.findChild<wbw::ProjectHubPage*>();
     auto* editor = window.findChild<QTextEdit*>(QStringLiteral("sceneEditor"));
@@ -126,6 +144,7 @@ int main(int argc, char** argv) {
                   "Ctrl+S works at window scope");
     openProject(hub, firstPath);
     ok &= require(editor->toPlainText() == QStringLiteral("Texto original."), "open existing project's scene");
+    ok &= require(!window.windowTitle().startsWith(QStringLiteral("* ")), "opening existing project keeps it clean");
 
     editor->append(QStringLiteral("Cambios guardados con Ctrl+S."));
     const QString editedText = editor->toPlainText();
@@ -173,6 +192,7 @@ int main(int argc, char** argv) {
     ok &= require(savedScene(firstPath).value(QStringLiteral("text")).toString() == beforeSwitch,
                   "switch saves to previous project's own file");
     ok &= require(editor->toPlainText() == QStringLiteral("Otra historia."), "switch opens second project after saving");
+    ok &= require(!window.windowTitle().startsWith(QStringLiteral("* ")), "loading another project's formatting does not create edits");
 
     openProject(hub, firstPath);
     editor->append(QStringLiteral("Cambios guardados con el botón."));
@@ -221,6 +241,7 @@ int main(int argc, char** argv) {
                   "Ctrl+S saves in focus mode while Guardar is hidden");
     QTest::keyClick(editor, Qt::Key_Escape);
     settleUi();
+    ok &= require(unexpectedPrompts == 0, "normal save and reopen never show unexpected prompts");
     std::cout << (ok ? "Project save smoke passed\n" : "Project save smoke failed\n");
     return ok ? 0 : 1;
 }

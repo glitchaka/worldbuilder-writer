@@ -27,6 +27,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QScopedValueRollback>
 #include <QShortcut>
 #include <QSignalBlocker>
 #include <QSplitter>
@@ -559,7 +560,7 @@ QWidget* WritingPage::buildSceneBoardTab() {
         tabs_->setCurrentIndex(1);
     });
     connect(sceneBoardCompact_, &QCheckBox::toggled, this, [this](bool checked) {
-        if (!document_) return;
+        if (refreshing_ || !document_) return;
         QJsonObject profile = document_->object(QStringLiteral("profile"));
         profile.insert(QStringLiteral("sceneBoardCompact"), checked);
         document_->setObject(QStringLiteral("profile"), profile);
@@ -578,13 +579,12 @@ QWidget* WritingPage::buildSceneBoardTab() {
 
 void WritingPage::refresh() {
     if (!document_) return;
-    refreshing_ = true;
+    QScopedValueRollback<bool> refreshGuard(refreshing_, true);
     editor_->setArchiveDocument(document_);
     refreshTree();
     const QJsonObject profile = document_->object(QStringLiteral("profile"));
     sceneBoardCompact_->setChecked(profile.value(QStringLiteral("sceneBoardCompact")).toBool(false));
     refreshSceneBoard();
-    refreshing_ = false;
     if (tree_->topLevelItemCount() > 0) {
         auto* chapter = tree_->topLevelItem(0);
         tree_->setCurrentItem(chapter->childCount() ? chapter->child(0) : chapter);
@@ -620,25 +620,25 @@ void WritingPage::refreshTree() {
 
 void WritingPage::selectItem() {
     if (!document_) return;
-    refreshing_ = true;
+    QScopedValueRollback<bool> refreshGuard(refreshing_, true);
     auto* item = tree_->currentItem();
     const bool sceneSelected = item && item->data(0, Qt::UserRole).toString() == QStringLiteral("scene");
     for (QWidget* widget : {static_cast<QWidget*>(sceneTitle_), static_cast<QWidget*>(scenePov_), static_cast<QWidget*>(sceneLocation_), static_cast<QWidget*>(sceneLayer_), static_cast<QWidget*>(sceneStatus_), static_cast<QWidget*>(editor_)}) widget->setEnabled(sceneSelected);
     if (!sceneSelected) {
+        sceneEditState_ = QJsonObject();
         sceneTitle_->clear(); scenePov_->clear(); sceneLocation_->clear(); sceneLayer_->clear();
         sceneStatus_->setCurrentIndex(0);
         editor_->clear();
         wordCount_->clear();
         proofState_->clear();
-        refreshing_ = false;
         return;
     }
     const int c = item->data(0, Qt::UserRole + 1).toInt();
     const int s = item->data(0, Qt::UserRole + 2).toInt();
     const QJsonArray chapters = document_->array(QStringLiteral("writingChapters"));
-    if (c < 0 || c >= chapters.size()) { refreshing_ = false; return; }
+    if (c < 0 || c >= chapters.size()) return;
     const QJsonArray scenes = chapters.at(c).toObject().value(QStringLiteral("scenes")).toArray();
-    if (s < 0 || s >= scenes.size()) { refreshing_ = false; return; }
+    if (s < 0 || s >= scenes.size()) return;
     const QJsonObject scene = scenes.at(s).toObject();
     sceneTitle_->setText(scene.value(QStringLiteral("title")).toString());
     scenePov_->setText(scene.value(QStringLiteral("pov")).toString());
@@ -647,11 +647,12 @@ void WritingPage::selectItem() {
     const int status = sceneStatus_->findText(scene.value(QStringLiteral("status")).toString());
     sceneStatus_->setCurrentIndex(status >= 0 ? status : 0);
     loadSceneContent(scene);
-    refreshing_ = false;
     updateFormattingState();
     editor_->refreshSemanticReferences();
     editor_->clearProofread();
     updateWordCount();
+    editor_->document()->setModified(false);
+    sceneEditState_ = sceneEditState();
 }
 
 void WritingPage::loadSceneContent(const QJsonObject& scene) {
@@ -724,6 +725,18 @@ void WritingPage::applyFormatting(const QJsonArray& formatting) {
     }
 }
 
+QJsonObject WritingPage::sceneEditState() const {
+    return QJsonObject{
+        {QStringLiteral("title"), sceneTitle_->text()},
+        {QStringLiteral("pov"), scenePov_->text()},
+        {QStringLiteral("location"), sceneLocation_->text()},
+        {QStringLiteral("narrativeLayer"), sceneLayer_->text()},
+        {QStringLiteral("status"), sceneStatus_->currentText()},
+        {QStringLiteral("text"), editor_->toPlainText()},
+        {QStringLiteral("formatting"), serializeFormatting()}
+    };
+}
+
 void WritingPage::applyScene() {
     if (refreshing_ || !document_) return;
     auto* item = tree_->currentItem();
@@ -735,14 +748,11 @@ void WritingPage::applyScene() {
     QJsonObject chapter = chapters.at(c).toObject();
     QJsonArray scenes = chapter.value(QStringLiteral("scenes")).toArray();
     if (s < 0 || s >= scenes.size()) return;
+    const QJsonObject editState = sceneEditState();
+    if (editState == sceneEditState_) return;
+    sceneEditState_ = editState;
     QJsonObject scene = scenes.at(s).toObject();
-    scene.insert(QStringLiteral("title"), sceneTitle_->text());
-    scene.insert(QStringLiteral("pov"), scenePov_->text());
-    scene.insert(QStringLiteral("location"), sceneLocation_->text());
-    scene.insert(QStringLiteral("narrativeLayer"), sceneLayer_->text());
-    scene.insert(QStringLiteral("status"), sceneStatus_->currentText());
-    scene.insert(QStringLiteral("text"), editor_->toPlainText());
-    scene.insert(QStringLiteral("formatting"), serializeFormatting());
+    for (auto it = editState.begin(); it != editState.end(); ++it) scene.insert(it.key(), it.value());
     scene.remove(QStringLiteral("content"));
     scene.insert(QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     scenes.replace(s, scene);
@@ -912,11 +922,10 @@ void WritingPage::applyCharacterFormat(int property, bool enabled) {
 void WritingPage::updateFormattingState() {
     if (!editor_) return;
     const QTextCharFormat format = editor_->currentCharFormat();
-    refreshing_ = true;
+    QScopedValueRollback<bool> refreshGuard(refreshing_, true);
     bold_->setChecked(format.fontWeight() >= QFont::DemiBold);
     italic_->setChecked(format.fontItalic());
     underline_->setChecked(format.fontUnderline());
-    refreshing_ = false;
 }
 
 void WritingPage::updateWordCount() {
