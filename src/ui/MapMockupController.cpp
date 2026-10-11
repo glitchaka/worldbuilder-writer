@@ -48,57 +48,118 @@ QString frameTitle(QFrame* frame) {
 }
 
 void rebuildRail(QWidget* rail, QWidget* editor) {
-    if (!rail || !editor || rail->property("wbwMapPaletteV5").toBool()) return;
-    rail->setProperty("wbwMapPaletteV5", true);
-    rail->setMinimumWidth(292); rail->setMaximumWidth(292);
+    if (!rail || !editor || rail->property("wbwMapPaletteV6").toBool()) return;
+    rail->setProperty("wbwMapPaletteV6", true);
+    rail->setMinimumWidth(292);
+    rail->setMaximumWidth(292);
 
     QList<QToolButton*> buttons = rail->findChildren<QToolButton*>(QStringLiteral("pilinMapTool"), Qt::FindDirectChildrenOnly);
     for (QToolButton* button : buttons) button->setParent(nullptr);
-    if (QLayout* old = rail->layout()) { while (QLayoutItem* item = old->takeAt(0)) delete item; delete old; }
+    if (QLayout* old = rail->layout()) {
+        while (QLayoutItem* item = old->takeAt(0)) delete item;
+        delete old;
+    }
 
-    auto* root = new QVBoxLayout(rail); root->setContentsMargins(14,12,14,14); root->setSpacing(10);
+    auto* root = new QVBoxLayout(rail);
+    root->setContentsMargins(14, 12, 14, 14);
+    root->setSpacing(10);
     auto* heading = new QHBoxLayout;
-    auto* copy = new QVBoxLayout; copy->setSpacing(1);
-    auto* kicker = new QLabel(QObject::tr("PILÍN REY"), rail); kicker->setObjectName(QStringLiteral("mapPaletteEyebrow"));
-    auto* title = new QLabel(QObject::tr("Pinceles y terreno"), rail); title->setObjectName(QStringLiteral("mapPaletteTitle"));
-    copy->addWidget(kicker); copy->addWidget(title); heading->addLayout(copy); heading->addStretch();
-    auto* pin = new QLabel(QStringLiteral("⌖"), rail); pin->setObjectName(QStringLiteral("mapPalettePin")); heading->addWidget(pin); root->addLayout(heading);
+    auto* copy = new QVBoxLayout;
+    copy->setSpacing(1);
+    auto* kicker = new QLabel(QObject::tr("PILÍN REY"), rail);
+    kicker->setObjectName(QStringLiteral("mapPaletteEyebrow"));
+    auto* title = new QLabel(QObject::tr("Pinceles y terreno"), rail);
+    title->setObjectName(QStringLiteral("mapPaletteTitle"));
+    copy->addWidget(kicker);
+    copy->addWidget(title);
+    heading->addLayout(copy);
+    heading->addStretch();
+    auto* pin = new QLabel(QStringLiteral("⌖"), rail);
+    pin->setObjectName(QStringLiteral("mapPalettePin"));
+    heading->addWidget(pin);
+    root->addLayout(heading);
 
-    auto* tabs = new QHBoxLayout; tabs->setSpacing(4);
-    auto* terrainTab = new QToolButton(rail); terrainTab->setObjectName(QStringLiteral("mapPaletteTab")); terrainTab->setText(QObject::tr("Terreno")); terrainTab->setCheckable(true); terrainTab->setChecked(true);
-    auto* masksTab = new QToolButton(rail); masksTab->setObjectName(QStringLiteral("mapPaletteTab")); masksTab->setText(QObject::tr("Máscaras")); masksTab->setCheckable(true); masksTab->setEnabled(false);
-    tabs->addWidget(terrainTab); tabs->addWidget(masksTab); tabs->addStretch(); root->addLayout(tabs);
+    auto* tabs = new QHBoxLayout;
+    tabs->setSpacing(4);
+    auto* terrainTab = new QToolButton(rail);
+    terrainTab->setObjectName(QStringLiteral("mapPaletteTab"));
+    terrainTab->setText(QObject::tr("Terreno"));
+    terrainTab->setCheckable(true);
+    terrainTab->setChecked(true);
+    auto* masksTab = new QToolButton(rail);
+    masksTab->setObjectName(QStringLiteral("mapPaletteTab"));
+    masksTab->setText(QObject::tr("Máscaras"));
+    masksTab->setCheckable(true);
+    masksTab->setEnabled(false);
+    tabs->addWidget(terrainTab);
+    tabs->addWidget(masksTab);
+    tabs->addStretch();
+    root->addLayout(tabs);
 
-    auto* grid = new QGridLayout; grid->setHorizontalSpacing(6); grid->setVerticalSpacing(6);
+    auto* grid = new QGridLayout;
+    grid->setHorizontalSpacing(6);
+    grid->setVerticalSpacing(6);
     for (int i = 0; i < buttons.size(); ++i) {
-        QToolButton* button = buttons.at(i); button->setParent(rail);
-        const QString caption = toolCaption(button->toolTip()); if (!caption.isEmpty()) button->setText(caption);
-        button->setToolButtonStyle(Qt::ToolButtonTextOnly); button->setMinimumSize(48,54); button->setMaximumSize(QWIDGETSIZE_MAX,54);
+        QToolButton* button = buttons.at(i);
+        button->setParent(rail);
+        const QString caption = toolCaption(button->toolTip());
+        if (!caption.isEmpty()) button->setText(caption);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        button->setMinimumSize(48, 54);
+        button->setMaximumSize(QWIDGETSIZE_MAX, 54);
         grid->addWidget(button, i / 4, i % 4);
     }
-    for (int c=0;c<4;++c) grid->setColumnStretch(c,1);
+    for (int c = 0; c < 4; ++c) grid->setColumnStretch(c, 1);
     root->addLayout(grid);
 
-    auto* divider = new QFrame(rail); divider->setObjectName(QStringLiteral("mapPaletteDivider")); divider->setFrameShape(QFrame::HLine); root->addWidget(divider);
+    auto* divider = new QFrame(rail);
+    divider->setObjectName(QStringLiteral("mapPaletteDivider"));
+    divider->setFrameShape(QFrame::HLine);
+    root->addWidget(divider);
 
     QWidget* sourceOptions = editor->findChild<QWidget*>(QStringLiteral("pilinToolOptions"));
     QList<QSlider*> sliders = sourceOptions ? sourceOptions->findChildren<QSlider*>() : QList<QSlider*>();
     const QStringList names{QObject::tr("Tamaño"), QObject::tr("Densidad"), QObject::tr("Trazo"), QObject::tr("Símbolo")};
-    for (int i=0;i<qMin(sliders.size(),names.size());++i) {
-        auto* line = new QWidget(rail); line->setObjectName(QStringLiteral("mapPaletteControl"));
-        auto* box = new QVBoxLayout(line); box->setContentsMargins(0,0,0,0); box->setSpacing(3);
-        auto* labelRow = new QHBoxLayout; auto* label = new QLabel(names.at(i), line); label->setObjectName(QStringLiteral("mapPaletteControlLabel"));
-        auto* value = new QLabel(QString::number(sliders.at(i)->value()), line); value->setObjectName(QStringLiteral("mapPaletteControlValue"));
-        labelRow->addWidget(label); labelRow->addStretch(); labelRow->addWidget(value); box->addLayout(labelRow);
-        auto* mirror = new QSlider(Qt::Horizontal,line); mirror->setRange(sliders.at(i)->minimum(),sliders.at(i)->maximum()); mirror->setValue(sliders.at(i)->value()); box->addWidget(mirror);
-        QObject::connect(mirror,&QSlider::valueChanged,sliders.at(i),&QSlider::setValue); QObject::connect(sliders.at(i),&QSlider::valueChanged,mirror,&QSlider::setValue); QObject::connect(mirror,&QSlider::valueChanged,value,[value](int v){value->setText(QString::number(v));});
+    for (int i = 0; i < qMin(sliders.size(), names.size()); ++i) {
+        auto* line = new QWidget(rail);
+        line->setObjectName(QStringLiteral("mapPaletteControl"));
+        auto* box = new QVBoxLayout(line);
+        box->setContentsMargins(0, 0, 0, 0);
+        box->setSpacing(3);
+        auto* labelRow = new QHBoxLayout;
+        auto* label = new QLabel(names.at(i), line);
+        label->setObjectName(QStringLiteral("mapPaletteControlLabel"));
+        auto* value = new QLabel(QString::number(sliders.at(i)->value()), line);
+        value->setObjectName(QStringLiteral("mapPaletteControlValue"));
+        labelRow->addWidget(label);
+        labelRow->addStretch();
+        labelRow->addWidget(value);
+        box->addLayout(labelRow);
+        auto* mirror = new QSlider(Qt::Horizontal, line);
+        mirror->setRange(sliders.at(i)->minimum(), sliders.at(i)->maximum());
+        mirror->setValue(sliders.at(i)->value());
+        box->addWidget(mirror);
+        QObject::connect(mirror, &QSlider::valueChanged, sliders.at(i), &QSlider::setValue);
+        QObject::connect(sliders.at(i), &QSlider::valueChanged, mirror, &QSlider::setValue);
+        QObject::connect(mirror, &QSlider::valueChanged, value, [value](int v) { value->setText(QString::number(v)); });
         root->addWidget(line);
     }
 
-    auto* materialTitle = new QLabel(QObject::tr("Terreno / material"), rail); materialTitle->setObjectName(QStringLiteral("mapPaletteControlLabel")); root->addWidget(materialTitle);
-    auto* swatches = new QHBoxLayout; swatches->setSpacing(5);
-    const QStringList colors{QStringLiteral("#738055"),QStringLiteral("#516847"),QStringLiteral("#7b705b"),QStringLiteral("#777d82"),QStringLiteral("#c6b58d"),QStringLiteral("#a98663")};
-    for(const QString& color:colors){auto* swatch=new QToolButton(rail);swatch->setObjectName(QStringLiteral("mapMaterialSwatch"));swatch->setFixedSize(34,28);swatch->setStyleSheet(QStringLiteral("background:%1;border:1px solid #46515c;border-radius:5px;").arg(color));swatches->addWidget(swatch);} swatches->addStretch();root->addLayout(swatches);
+    auto* materialTitle = new QLabel(QObject::tr("Terreno / material"), rail);
+    materialTitle->setObjectName(QStringLiteral("mapPaletteControlLabel"));
+    root->addWidget(materialTitle);
+    auto* swatches = new QHBoxLayout;
+    swatches->setSpacing(5);
+    const QStringList colors{QStringLiteral("#738055"), QStringLiteral("#516847"), QStringLiteral("#7b705b"), QStringLiteral("#777d82"), QStringLiteral("#c6b58d"), QStringLiteral("#a98663")};
+    for (const QString& color : colors) {
+        auto* swatch = new QToolButton(rail);
+        swatch->setObjectName(QStringLiteral("mapMaterialSwatch"));
+        swatch->setFixedSize(34, 28);
+        swatch->setStyleSheet(QStringLiteral("background:%1;border:1px solid #46515c;border-radius:5px;").arg(color));
+        swatches->addWidget(swatch);
+    }
+    swatches->addStretch();
+    root->addLayout(swatches);
     root->addStretch(1);
     if (sourceOptions) sourceOptions->hide();
 }
@@ -110,51 +171,169 @@ void styleCommands(QWidget* commands) {
         if (tip == QObject::tr("Capas") || tip == QObject::tr("Assets") || tip == QObject::tr("Plantilla") || tip == QObject::tr("Apariencia") || tip == QObject::tr("Encajar") || tip == QObject::tr("Exportar")) button->setText(tip);
         else if (tip == QObject::tr("Deshacer")) button->setText(QStringLiteral("↶"));
         else if (tip == QObject::tr("Rehacer")) button->setText(QStringLiteral("↷"));
-        button->setToolButtonStyle(Qt::ToolButtonTextOnly); button->setMinimumHeight(32);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        button->setMinimumHeight(32);
     }
 }
 
 class MapWorkspaceFilter final : public QObject {
 public:
-    explicit MapWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
-    bool eventFilter(QObject*, QEvent* event) override { if(event->type()==QEvent::Show||event->type()==QEvent::Resize||event->type()==QEvent::LayoutRequest||event->type()==QEvent::ParentChange) scheduleApply(); return false; }
+    explicit MapWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {
+        resizeTimer_.setSingleShot(true);
+        resizeTimer_.setInterval(45);
+        connect(&resizeTimer_, &QTimer::timeout, this, [this]() { apply(); });
+    }
+
+    bool eventFilter(QObject*, QEvent* event) override {
+        if (event->type() == QEvent::Show) {
+            scheduleApply(0);
+        } else if (event->type() == QEvent::Resize) {
+            scheduleApply(45);
+        }
+        return false;
+    }
 
     void apply() {
-        pending_=false; if(applying_||!window_)return; applying_=true;
-        QWidget* editor=window_->findChild<QWidget*>(QStringLiteral("pilinReyEditor")); QWidget* canvas=editor?editor->findChild<QWidget*>(QStringLiteral("pilinCanvasHost")):nullptr; QWidget* rail=editor?editor->findChild<QWidget*>(QStringLiteral("pilinToolPalette")):nullptr; QWidget* commands=editor?editor->findChild<QWidget*>(QStringLiteral("pilinTopCommands")):nullptr;
-        if(!editor||!canvas||canvas->width()<200){applying_=false;return;}
-        if(!editor->property("wbwMapWorkspaceObserved").toBool()){editor->setProperty("wbwMapWorkspaceObserved",true);editor->installEventFilter(this);canvas->installEventFilter(this);}
-        rebuildRail(rail,editor); styleCommands(commands);
+        pending_ = false;
+        if (applying_ || !window_) return;
+        applying_ = true;
 
-        QSettings settings(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter"));
-        for(QCheckBox* check:editor->findChildren<QCheckBox*>()){
-            if(check->text()==QObject::tr("Ajustar")&&!check->property("wbwPersist").toBool()){check->setChecked(settings.value(QStringLiteral("map/defaultSnap"),true).toBool());check->setProperty("wbwPersist",true);QObject::connect(check,&QCheckBox::toggled,editor,[](bool value){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter"));s.setValue(QStringLiteral("map/defaultSnap"),value);});}
-            if(check->text()==QObject::tr("Cuadrícula")&&!check->property("wbwPersist").toBool()){check->setChecked(settings.value(QStringLiteral("map/defaultGrid"),false).toBool());check->setProperty("wbwPersist",true);QObject::connect(check,&QCheckBox::toggled,editor,[](bool value){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter"));s.setValue(QStringLiteral("map/defaultGrid"),value);});}
+        QWidget* editor = window_->findChild<QWidget*>(QStringLiteral("pilinReyEditor"));
+        QWidget* canvas = editor ? editor->findChild<QWidget*>(QStringLiteral("pilinCanvasHost")) : nullptr;
+        QWidget* rail = editor ? editor->findChild<QWidget*>(QStringLiteral("pilinToolPalette")) : nullptr;
+        QWidget* commands = editor ? editor->findChild<QWidget*>(QStringLiteral("pilinTopCommands")) : nullptr;
+        if (!editor || !canvas || canvas->width() < 200) {
+            applying_ = false;
+            return;
         }
 
-        editor->setStyleSheet(QStringLiteral(R"QSS(
+        if (!editor->property("wbwMapWorkspaceObserved").toBool()) {
+            editor->setProperty("wbwMapWorkspaceObserved", true);
+            editor->installEventFilter(this);
+            canvas->installEventFilter(this);
+        }
+
+        rebuildRail(rail, editor);
+        styleCommands(commands);
+
+        QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+        for (QCheckBox* check : editor->findChildren<QCheckBox*>()) {
+            if (check->text() == QObject::tr("Ajustar") && !check->property("wbwPersist").toBool()) {
+                check->setChecked(settings.value(QStringLiteral("map/defaultSnap"), true).toBool());
+                check->setProperty("wbwPersist", true);
+                QObject::connect(check, &QCheckBox::toggled, editor, [](bool value) {
+                    QSettings s(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+                    s.setValue(QStringLiteral("map/defaultSnap"), value);
+                });
+            }
+            if (check->text() == QObject::tr("Cuadrícula") && !check->property("wbwPersist").toBool()) {
+                check->setChecked(settings.value(QStringLiteral("map/defaultGrid"), false).toBool());
+                check->setProperty("wbwPersist", true);
+                QObject::connect(check, &QCheckBox::toggled, editor, [](bool value) {
+                    QSettings s(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+                    s.setValue(QStringLiteral("map/defaultGrid"), value);
+                });
+            }
+        }
+
+        if (!editor->property("wbwMapStyleAppliedV6").toBool()) {
+            editor->setProperty("wbwMapStyleAppliedV6", true);
+            editor->setStyleSheet(QStringLiteral(R"QSS(
 #pilinReyEditor{background:#090d12;color:#dde5ec;} #pilinCanvasHost{background:#090d12;} #pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinSelectionPopover,#pilinToolOptions{background:rgba(13,19,26,246);border:1px solid #2c3946;border-radius:10px;} #mapPaletteEyebrow{color:#6e9fc8;font-size:7pt;font-weight:700;letter-spacing:1.2px;} #mapPaletteTitle{color:#f1f4f7;font-family:'Georgia';font-size:12.5pt;font-weight:600;} #mapPalettePin{color:#71808e;} #mapPaletteTab{background:transparent;color:#8c98a4;border:0;border-bottom:2px solid transparent;padding:7px 12px;} #mapPaletteTab:checked{color:#8dccff;border-bottom-color:#3698e6;} #pilinMapTool{background:#111923;color:#aeb9c4;border:1px solid #273544;border-radius:7px;text-align:center;padding:4px;font-size:7.5pt;} #pilinMapTool:hover{background:#172431;color:#eef6fc;border-color:#3a5a73;} #pilinMapTool:checked{background:#17314a;color:#8fd0ff;border:1px solid #3d86bd;font-weight:700;} #pilinCommand{background:transparent;color:#c5d0d9;border:0;border-radius:7px;text-align:center;padding:0 9px;} #pilinCommand:hover{background:#172431;color:#fff;} #pilinPopoverTitle{color:#f1f4f7;font-family:'Georgia';font-size:12pt;font-weight:600;} #pilinTinyLabel,#pilinToolOptionsLabel,#mapPaletteControlLabel{color:#929da7;font-size:8pt;} #mapPaletteControlValue{color:#cbd5de;font-size:8pt;} #mapPaletteDivider{color:#27323d;background:#27323d;max-height:1px;} #pilinPopover QListWidget{background:#0b1117;color:#d9e1e8;border:1px solid #2c3946;border-radius:7px;outline:0;} #pilinPopover QListWidget::item{padding:8px;border-radius:5px;} #pilinPopover QListWidget::item:selected{background:#17314a;color:#8fd0ff;} #pilinPopover QPushButton{background:#111923;color:#d2dbe3;border:1px solid #2e3c49;border-radius:7px;padding:7px 9px;} #pilinPopover QPushButton:hover{background:#192735;color:#fff;} QSlider::groove:horizontal{height:4px;background:#303b46;border-radius:2px;} QSlider::handle:horizontal{width:12px;margin:-4px 0;background:#4b9de0;border-radius:6px;} QCheckBox{color:#c5cfd8;spacing:7px;}
 )QSS"));
+        }
 
-        const int margin=14;
-        if(QWidget* identity=canvas->findChild<QWidget*>(QStringLiteral("mapCanvasIdentity")))identity->hide();
-        if(rail){rail->adjustSize();rail->resize(292,qMin(rail->sizeHint().height(),canvas->height()-28));rail->move(margin,qMax(margin,(canvas->height()-rail->height())/2));rail->show();rail->raise();}
-        QWidget* mapBar=canvas->findChild<QWidget*>(QStringLiteral("mapWorkspaceBar")); if(mapBar){mapBar->adjustSize();mapBar->move(320,14);mapBar->show();mapBar->raise();}
-        if(commands){commands->adjustSize();const int preferred=mapBar?mapBar->geometry().right()+10:320;const int rightLimit=canvas->width()-margin;const int x=qMin(qMax(preferred,320),qMax(320,rightLimit-commands->width()));commands->move(x,14);commands->show();commands->raise();}
+        const int margin = 14;
+        if (QWidget* identity = canvas->findChild<QWidget*>(QStringLiteral("mapCanvasIdentity"))) identity->hide();
+        if (rail) {
+            rail->adjustSize();
+            rail->resize(292, qMin(rail->sizeHint().height(), canvas->height() - 28));
+            rail->move(margin, qMax(margin, (canvas->height() - rail->height()) / 2));
+            rail->show();
+            rail->raise();
+        }
 
-        QFrame* layers=nullptr;QFrame* assets=nullptr;QList<QFrame*> contextual;
-        for(QFrame* frame:editor->findChildren<QFrame*>(QStringLiteral("pilinPopover"))){const QString title=frameTitle(frame);if(title==QObject::tr("Capas"))layers=frame;else if(title==QObject::tr("Assets")||title==QObject::tr("Assets cartográficos")||title==QObject::tr("Assets y sellos"))assets=frame;else contextual.append(frame);}
-        const bool persistentRight=canvas->width()>=1180;int rightY=66;
-        auto placeRight=[&](QFrame* frame,bool visible){if(!frame)return;frame->setMinimumWidth(294);frame->setMaximumWidth(318);frame->setVisible(visible);if(!visible)return;frame->adjustSize();const int maxHeight=qMax(140,canvas->height()-rightY-margin);if(frame->height()>maxHeight)frame->resize(frame->width(),maxHeight);frame->move(canvas->width()-frame->width()-margin,rightY);frame->raise();rightY=frame->geometry().bottom()+10;};
-        placeRight(layers,persistentRight);placeRight(assets,persistentRight&&rightY<canvas->height()-180);for(QFrame* frame:contextual)if(frame->isVisible())placeRight(frame,true);
-        if(QWidget* selection=editor->findChild<QWidget*>(QStringLiteral("pilinSelectionPopover"));selection&&selection->isVisible()){selection->adjustSize();selection->move(canvas->width()-selection->width()-margin,qMax(68,canvas->height()-selection->height()-20));selection->raise();}
-        applying_=false;
+        QWidget* mapBar = canvas->findChild<QWidget*>(QStringLiteral("mapWorkspaceBar"));
+        if (mapBar) {
+            mapBar->adjustSize();
+            mapBar->move(320, 14);
+            mapBar->show();
+            mapBar->raise();
+        }
+        if (commands) {
+            commands->adjustSize();
+            const int preferred = mapBar ? mapBar->geometry().right() + 10 : 320;
+            const int rightLimit = canvas->width() - margin;
+            const int x = qMin(qMax(preferred, 320), qMax(320, rightLimit - commands->width()));
+            commands->move(x, 14);
+            commands->show();
+            commands->raise();
+        }
+
+        QFrame* layers = nullptr;
+        QFrame* assets = nullptr;
+        QList<QFrame*> contextual;
+        for (QFrame* frame : editor->findChildren<QFrame*>(QStringLiteral("pilinPopover"))) {
+            const QString title = frameTitle(frame);
+            if (title == QObject::tr("Capas")) layers = frame;
+            else if (title == QObject::tr("Assets") || title == QObject::tr("Assets cartográficos") || title == QObject::tr("Assets y sellos")) assets = frame;
+            else contextual.append(frame);
+        }
+
+        const bool persistentRight = canvas->width() >= 1180;
+        int rightY = 66;
+        auto placeRight = [&](QFrame* frame, bool visible) {
+            if (!frame) return;
+            frame->setMinimumWidth(294);
+            frame->setMaximumWidth(318);
+            frame->setVisible(visible);
+            if (!visible) return;
+            frame->adjustSize();
+            const int maxHeight = qMax(140, canvas->height() - rightY - margin);
+            if (frame->height() > maxHeight) frame->resize(frame->width(), maxHeight);
+            frame->move(canvas->width() - frame->width() - margin, rightY);
+            frame->raise();
+            rightY = frame->geometry().bottom() + 10;
+        };
+        placeRight(layers, persistentRight);
+        placeRight(assets, persistentRight && rightY < canvas->height() - 180);
+        for (QFrame* frame : contextual) if (frame->isVisible()) placeRight(frame, true);
+
+        if (QWidget* selection = editor->findChild<QWidget*>(QStringLiteral("pilinSelectionPopover")); selection && selection->isVisible()) {
+            selection->adjustSize();
+            selection->move(canvas->width() - selection->width() - margin, qMax(68, canvas->height() - selection->height() - 20));
+            selection->raise();
+        }
+
+        applying_ = false;
     }
-private:void scheduleApply(){if(pending_)return;pending_=true;QTimer::singleShot(0,this,[this](){apply();});}QPointer<QMainWindow> window_;bool pending_=false;bool applying_=false;
+
+private:
+    void scheduleApply(int delay) {
+        if (delay <= 0) {
+            if (pending_) return;
+            pending_ = true;
+            QTimer::singleShot(0, this, [this]() { apply(); });
+            return;
+        }
+        pending_ = true;
+        resizeTimer_.start(delay);
+    }
+
+    QPointer<QMainWindow> window_;
+    QTimer resizeTimer_;
+    bool pending_ = false;
+    bool applying_ = false;
 };
 
 } // namespace
 
-void installMapMockupController(QMainWindow* window){if(!window||window->property("wbwMapMockupControllerV5").toBool())return;window->setProperty("wbwMapMockupControllerV5",true);auto* filter=new MapWorkspaceFilter(window);window->installEventFilter(filter);QTimer::singleShot(0,filter,[filter](){filter->apply();});}
+void installMapMockupController(QMainWindow* window) {
+    if (!window || window->property("wbwMapMockupControllerV6").toBool()) return;
+    window->setProperty("wbwMapMockupControllerV6", true);
+    auto* filter = new MapWorkspaceFilter(window);
+    window->installEventFilter(filter);
+    QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
+}
 
 } // namespace wbw
