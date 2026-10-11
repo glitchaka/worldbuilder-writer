@@ -2,6 +2,8 @@
 
 #include "core/ArchiveDocument.h"
 
+#include <QCoreApplication>
+#include <QEvent>
 #include <QKeySequence>
 #include <QLineEdit>
 #include <QMainWindow>
