@@ -33,7 +33,6 @@ qt_add_library(WorldbuilderWriterUi STATIC
     src/ui/ThemeManager.cpp
     src/ui/ProductReorganizer.cpp
     src/ui/NavigationConsistencyController.cpp
-    src/ui/LibraryMockupController.cpp
     src/ui/MapMockupController.cpp
     src/ui/MapWorkflowController.cpp
     src/ui/MapWorkflowController.h

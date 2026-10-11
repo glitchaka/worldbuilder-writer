@@ -1,19 +1,51 @@
 #include "ui/ProductReorganizer.h"
 
+#include <QColor>
+#include <QIcon>
+#include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QObject>
+#include <QPainter>
+#include <QPixmap>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QVBoxLayout>
 #include <QWidget>
 
 namespace wbw {
 
+namespace {
+
+QIcon navIcon(const QString& glyph) {
+    QPixmap pixmap(24, 24);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    QFont font(QStringLiteral("Segoe UI Symbol"));
+    font.setPixelSize(18);
+    painter.setFont(font);
+    painter.setPen(QColor(QStringLiteral("#91a4b7")));
+    painter.drawText(pixmap.rect(), Qt::AlignCenter, glyph);
+    return QIcon(pixmap);
+}
+
+void rebuildNavigationItem(QListWidget* navigation, int row, const QString& glyph, const QString& label) {
+    if (!navigation || row < 0 || row >= navigation->count()) return;
+    auto* item = navigation->item(row);
+    item->setText(label);
+    item->setIcon(navIcon(glyph));
+    item->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    item->setSizeHint(QSize(108, 70));
+}
+
+} // namespace
+
 void applyProductReorganization(QMainWindow* window) {
-    if (!window || window->property("wbwProductReorganizedV4").toBool()) return;
-    window->setProperty("wbwProductReorganizedV4", true);
-    window->setMinimumSize(960, 640);
+    if (!window || window->property("wbwProductReorganizedV6").toBool()) return;
+    window->setProperty("wbwProductReorganizedV6", true);
+    window->setMinimumSize(1040, 680);
 
     auto* navigation = window->findChild<QListWidget*>(QStringLiteral("sideNavigation"));
     auto* pages = window->findChild<QStackedWidget*>(QStringLiteral("pageStack"));
@@ -28,8 +60,6 @@ void applyProductReorganization(QMainWindow* window) {
 
     if (!navigation || !pages || !hub || !writing || !world || !review || !worldTabs) return;
 
-    // MainWindow's original five-page route is intentionally detached before the product
-    // tree is reorganized. NavigationConsistencyController becomes the only route owner.
     QObject::disconnect(navigation, &QListWidget::currentRowChanged, nullptr, nullptr);
 
     if (planning && planning->parentWidget() == pages) {
@@ -63,11 +93,44 @@ void applyProductReorganization(QMainWindow* window) {
         QObject::tr("Mapas"),
         QObject::tr("Revisión")
     });
-    for (int i = 0; i < navigation->count(); ++i) {
-        navigation->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-        navigation->item(i)->setSizeHint(QSize(176, 43));
-    }
+    navigation->setWordWrap(true);
+    navigation->setSpacing(2);
+    navigation->setIconSize(QSize(22, 22));
+    navigation->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    navigation->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    rebuildNavigationItem(navigation, 0, QStringLiteral("▥"), QObject::tr("Biblioteca"));
+    rebuildNavigationItem(navigation, 1, QStringLiteral("▤"), QObject::tr("Escritura"));
+    rebuildNavigationItem(navigation, 2, QStringLiteral("▦"), QObject::tr("Tablero de escenas"));
+    rebuildNavigationItem(navigation, 3, QStringLiteral("◎"), QObject::tr("Atlas / documentación"));
+    rebuildNavigationItem(navigation, 4, QStringLiteral("▧"), QObject::tr("Mapas"));
+    rebuildNavigationItem(navigation, 5, QStringLiteral("▥"), QObject::tr("Revisión"));
     navigation->setCurrentRow(0);
+
+    if (QWidget* rail = window->findChild<QWidget*>(QStringLiteral("sideRail"))) {
+        rail->setFixedWidth(128);
+        if (auto* layout = qobject_cast<QVBoxLayout*>(rail->layout())) {
+            layout->setContentsMargins(8, 12, 8, 10);
+            layout->setSpacing(6);
+        }
+    }
+    if (QWidget* identity = window->findChild<QWidget*>(QStringLiteral("appIdentity"))) {
+        identity->setMinimumHeight(58);
+        identity->setMaximumHeight(58);
+    }
+    if (QLabel* name = window->findChild<QLabel*>(QStringLiteral("appName"))) name->hide();
+    if (QLabel* mode = window->findChild<QLabel*>(QStringLiteral("appMode"))) mode->hide();
+    if (QLabel* mark = window->findChild<QLabel*>(QStringLiteral("appMark"))) {
+        mark->setFixedSize(42, 42);
+        mark->setText(QStringLiteral("WW"));
+    }
+
+    navigation->setStyleSheet(QStringLiteral(R"QSS(
+QListWidget#sideNavigation{background:transparent;border:0;outline:0;color:#8e9aa7;font-size:7.8pt;}
+QListWidget#sideNavigation::item{border:0;border-radius:8px;padding:5px 3px;margin:1px 0;}
+QListWidget#sideNavigation::item:hover{background:#111a24;color:#d7e2eb;}
+QListWidget#sideNavigation::item:selected{background:#14263a;color:#8dcbff;border-left:2px solid #3d9df4;}
+)QSS"));
 
     const int mapIndex = mapsTab ? worldTabs->indexOf(mapsTab) : -1;
     for (int i = 0; i < worldTabs->count(); ++i) worldTabs->setTabVisible(i, i != mapIndex);

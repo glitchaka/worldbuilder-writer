@@ -5,6 +5,7 @@
 
 #include <QComboBox>
 #include <QDateTime>
+#include <QDir>
 #include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
@@ -356,12 +357,12 @@ void ProjectHubPage::rebuildCards() {
         setCover(cover, profile, genre);
         layout->addWidget(cover);
 
-        auto* status = new QLabel(profile.value(QStringLiteral("status")).toString(tr("Planificación")).toUpper(), cover);
-        status->setObjectName(QStringLiteral("projectCardState"));
-        status->setProperty("statusClass", statusClass(profile.value(QStringLiteral("status")).toString()));
-        status->adjustSize();
-        status->move(10, 10);
-        status->raise();
+        auto* statusBadge = new QLabel(status.toUpper(), cover);
+        statusBadge->setObjectName(QStringLiteral("projectCardState"));
+        statusBadge->setProperty("statusClass", statusClass(status));
+        statusBadge->adjustSize();
+        statusBadge->move(10, 10);
+        statusBadge->raise();
 
         auto* titleLabel = new QLabel(archiveTitle.isEmpty() ? tr("Proyecto sin nombre") : archiveTitle, card);
         titleLabel->setObjectName(QStringLiteral("projectCardTitle"));

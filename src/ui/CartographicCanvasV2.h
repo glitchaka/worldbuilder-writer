@@ -12,6 +12,7 @@ namespace wbw {
 class PilinReyEditor;
 
 class CartographicCanvasV2 final : public QWidget {
+    Q_OBJECT
 public:
     explicit CartographicCanvasV2(PilinReyEditor* editor, QWidget* inputViewport, QWidget* parent = nullptr);
 
