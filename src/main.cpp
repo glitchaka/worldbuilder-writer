@@ -1,7 +1,6 @@
 #include "ui/MainWindow.h"
 #include "ui/AtlasWorkspaceController.h"
 #include "ui/CartographicCanvasController.h"
-#include "ui/LibraryMockupController.h"
 #include "ui/MapMockupController.h"
 #include "ui/MapSelectionController.h"
 #include "ui/MapWorkflowController.h"
@@ -105,7 +104,6 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::applyProductReorganization(&window);
     installSettingsWorkspace(window);
     wbw::installNavigationConsistencyController(&window);
-    wbw::installLibraryMockupController(&window);
     wbw::installMapMockupController(&window);
     wbw::installMapSelectionController(&window);
     wbw::installMapWorkflowController(&window);
@@ -127,16 +125,9 @@ void settleUi() {
 int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     QDir dir(QDir::cleanPath(outputDirectory.isEmpty() ? QStringLiteral("rc-qa") : outputDirectory));
     if (!dir.exists() && !QDir().mkpath(dir.absolutePath())) return 90;
-
     QFile progress(dir.absoluteFilePath(QStringLiteral("rc-progress.txt")));
-    if (progress.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream p(&progress); p << "START\n"; p.flush();
-    }
-    auto mark = [&progress](const QString& line) {
-        if (!progress.isOpen()) return;
-        QTextStream p(&progress); p << line << '\n'; p.flush();
-    };
-
+    if (progress.open(QIODevice::WriteOnly | QIODevice::Text)) { QTextStream p(&progress); p << "START\n"; p.flush(); }
+    auto mark = [&progress](const QString& line) { if (!progress.isOpen()) return; QTextStream p(&progress); p << line << '\n'; p.flush(); };
     QStringList failures;
     auto require = [&failures](bool condition, const QString& name) { if (!condition) failures.append(name); };
     auto* nav = window.findChild<QListWidget*>(QStringLiteral("sideNavigation"));
@@ -146,56 +137,24 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
     require(window.windowFlags().testFlag(Qt::FramelessWindowHint), QStringLiteral("framelessWindow"));
     QMenuBar* nativeMenu = window.findChild<QMenuBar*>(QString(), Qt::FindDirectChildrenOnly);
     require(!nativeMenu || !nativeMenu->isVisible(), QStringLiteral("nativeMenuHidden"));
-
     const QStringList expectedNavigation{QObject::tr("Biblioteca"), QObject::tr("Escritura"), QObject::tr("Tablero de escenas"), QObject::tr("Atlas / documentación"), QObject::tr("Mapas"), QObject::tr("Revisión"), QObject::tr("Configuración / salida")};
     require(nav && nav->count() == static_cast<int>(expectedNavigation.size()), QStringLiteral("sevenProductModules"));
     if (nav) for (int i = 0; i < qMin(nav->count(), static_cast<int>(expectedNavigation.size())); ++i) require(nav->item(i)->text() == expectedNavigation.at(i), QStringLiteral("navigation[%1]").arg(i));
-
     const QStringList slugs{QStringLiteral("library"), QStringLiteral("writing"), QStringLiteral("scenes"), QStringLiteral("atlas"), QStringLiteral("maps"), QStringLiteral("review"), QStringLiteral("settings")};
     if (nav) {
         for (int row = 0; row < qMin(nav->count(), static_cast<int>(slugs.size())); ++row) {
             const QString slug = slugs.at(row);
             mark(QStringLiteral("ROUTE %1 BEGIN").arg(slug));
-            nav->setCurrentRow(row);
-            settleUi();
-            window.repaint();
-            settleUi();
+            nav->setCurrentRow(row); settleUi(); window.repaint(); settleUi();
             mark(QStringLiteral("ROUTE %1 SETTLED").arg(slug));
             switch (row) {
-                case 0:
-                    require(window.findChild<QWidget*>(QStringLiteral("projectHubPage")) != nullptr, QStringLiteral("libraryPage"));
-                    require(window.findChild<QWidget*>(QStringLiteral("hubCardsHost")) != nullptr, QStringLiteral("libraryCards"));
-                    break;
-                case 1:
-                    require(window.findChild<QWidget*>(QStringLiteral("sceneEditor")) != nullptr, QStringLiteral("manuscriptEditor"));
-                    require(window.findChild<QWidget*>(QStringLiteral("indexPanel")) != nullptr, QStringLiteral("manuscriptIndex"));
-                    require(window.findChild<QShortcut*>(QStringLiteral("wbwFocusShortcut")) != nullptr, QStringLiteral("focusShortcut"));
-                    require(window.findChild<QShortcut*>(QStringLiteral("wbwProofShortcut")) != nullptr, QStringLiteral("proofShortcut"));
-                    break;
-                case 2:
-                    require(window.findChild<QWidget*>(QStringLiteral("sceneBoardCanvas")) != nullptr, QStringLiteral("sceneBoard"));
-                    break;
-                case 3:
-                    require(window.findChild<QWidget*>(QStringLiteral("worldIndexPanel")) != nullptr, QStringLiteral("atlasIndex"));
-                    require(window.findChild<QWidget*>(QStringLiteral("atlasContextRail")) != nullptr, QStringLiteral("atlasContextRail"));
-                    require(window.findChild<QWidget*>(QStringLiteral("planningContextRail")) != nullptr, QStringLiteral("planningContextRail"));
-                    break;
-                case 4:
-                    require(window.findChild<QWidget*>(QStringLiteral("pilinReyEditor")) != nullptr, QStringLiteral("mapEditor"));
-                    require(window.findChild<QWidget*>(QStringLiteral("pilinToolPalette")) != nullptr, QStringLiteral("mapToolPalette"));
-                    require(window.findChild<QWidget*>(QStringLiteral("pilinTopCommands")) != nullptr, QStringLiteral("mapCommands"));
-                    require(window.findChild<QWidget*>(QStringLiteral("mapWorkflowStrip")) != nullptr, QStringLiteral("mapWorkflowStrip"));
-                    require(window.findChild<QWidget*>(QStringLiteral("cartographicCanvasV2")) != nullptr, QStringLiteral("cachedCartographicCanvas"));
-                    break;
-                case 5:
-                    require(window.findChild<QWidget*>(QStringLiteral("reviewAnalysisTab")) != nullptr, QStringLiteral("reviewAnalysis"));
-                    require(window.findChild<QWidget*>(QStringLiteral("reviewDashboard")) != nullptr, QStringLiteral("reviewDashboard"));
-                    require(window.findChild<QWidget*>(QStringLiteral("reviewSectionBar")) != nullptr, QStringLiteral("reviewSectionBar"));
-                    break;
-                case 6:
-                    require(window.findChild<wbw::SettingsWorkspace*>() != nullptr, QStringLiteral("settingsWorkspace"));
-                    require(window.findChild<QListWidget*>(QStringLiteral("cloudBackups")) != nullptr, QStringLiteral("cloudSettings"));
-                    break;
+                case 0: require(window.findChild<QWidget*>(QStringLiteral("projectHubPage")) != nullptr, QStringLiteral("libraryPage")); require(window.findChild<QWidget*>(QStringLiteral("hubCardsHost")) != nullptr, QStringLiteral("libraryCards")); break;
+                case 1: require(window.findChild<QWidget*>(QStringLiteral("sceneEditor")) != nullptr, QStringLiteral("manuscriptEditor")); require(window.findChild<QWidget*>(QStringLiteral("indexPanel")) != nullptr, QStringLiteral("manuscriptIndex")); require(window.findChild<QShortcut*>(QStringLiteral("wbwFocusShortcut")) != nullptr, QStringLiteral("focusShortcut")); require(window.findChild<QShortcut*>(QStringLiteral("wbwProofShortcut")) != nullptr, QStringLiteral("proofShortcut")); break;
+                case 2: require(window.findChild<QWidget*>(QStringLiteral("sceneBoardCanvas")) != nullptr, QStringLiteral("sceneBoard")); break;
+                case 3: require(window.findChild<QWidget*>(QStringLiteral("worldIndexPanel")) != nullptr, QStringLiteral("atlasIndex")); require(window.findChild<QWidget*>(QStringLiteral("atlasContextRail")) != nullptr, QStringLiteral("atlasContextRail")); require(window.findChild<QWidget*>(QStringLiteral("planningContextRail")) != nullptr, QStringLiteral("planningContextRail")); break;
+                case 4: require(window.findChild<QWidget*>(QStringLiteral("pilinReyEditor")) != nullptr, QStringLiteral("mapEditor")); require(window.findChild<QWidget*>(QStringLiteral("pilinToolPalette")) != nullptr, QStringLiteral("mapToolPalette")); require(window.findChild<QWidget*>(QStringLiteral("pilinTopCommands")) != nullptr, QStringLiteral("mapCommands")); require(window.findChild<QWidget*>(QStringLiteral("mapWorkflowStrip")) != nullptr, QStringLiteral("mapWorkflowStrip")); require(window.findChild<QWidget*>(QStringLiteral("cartographicCanvasV2")) != nullptr, QStringLiteral("cachedCartographicCanvas")); break;
+                case 5: require(window.findChild<QWidget*>(QStringLiteral("reviewAnalysisTab")) != nullptr, QStringLiteral("reviewAnalysis")); require(window.findChild<QWidget*>(QStringLiteral("reviewDashboard")) != nullptr, QStringLiteral("reviewDashboard")); require(window.findChild<QWidget*>(QStringLiteral("reviewSectionBar")) != nullptr, QStringLiteral("reviewSectionBar")); break;
+                case 6: require(window.findChild<wbw::SettingsWorkspace*>() != nullptr, QStringLiteral("settingsWorkspace")); require(window.findChild<QListWidget*>(QStringLiteral("cloudBackups")) != nullptr, QStringLiteral("cloudSettings")); break;
             }
             const QPixmap shot = window.grab();
             const QString screenshotPath = dir.absoluteFilePath(QStringLiteral("%1.png").arg(slug));
@@ -204,15 +163,11 @@ int runRcSmoke(wbw::MainWindow& window, const QString& outputDirectory) {
             mark(QStringLiteral("ROUTE %1 CAPTURED").arg(slug));
         }
     }
-
     QFile report(dir.absoluteFilePath(QStringLiteral("rc-smoke.txt")));
     if (!report.open(QIODevice::WriteOnly | QIODevice::Text)) return 93;
-    QTextStream out(&report);
-    out << (failures.isEmpty() ? QStringLiteral("PASS\n") : QStringLiteral("FAIL\n"));
+    QTextStream out(&report); out << (failures.isEmpty() ? QStringLiteral("PASS\n") : QStringLiteral("FAIL\n"));
     for (const QString& failure : failures) out << failure << '\n';
-    report.close();
-    mark(QStringLiteral("DONE"));
-    progress.close();
+    report.close(); mark(QStringLiteral("DONE")); progress.close();
     return failures.isEmpty() ? 0 : 2;
 }
 
