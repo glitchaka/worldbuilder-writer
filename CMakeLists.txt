@@ -36,6 +36,8 @@ qt_add_executable(WorldbuilderWriter
     src/ui/NavigationConsistencyController.cpp
     src/ui/LibraryMockupController.cpp
     src/ui/MapMockupController.cpp
+    src/ui/MapWorkflowController.cpp
+    src/ui/MapWorkflowController.h
     src/ui/MapSelectionController.cpp
     src/ui/MapSelectionController.h
     src/ui/WritingMockupController.cpp
