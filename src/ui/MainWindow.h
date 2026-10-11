@@ -18,6 +18,7 @@ namespace wbw {
 class PlanningPage;
 class ProjectHubPage;
 class ReviewPage;
+class SettingsWorkspace;
 class WorldPage;
 class WritingPage;
 
@@ -32,6 +33,7 @@ protected:
 
 private:
     void createShell();
+    void routeProductModule(int row);
     void loadStartupProject();
     void showLibrary();
     void newProject();
@@ -63,6 +65,7 @@ private:
     WritingPage* writingPage_ = nullptr;
     WorldPage* worldPage_ = nullptr;
     ReviewPage* reviewPage_ = nullptr;
+    SettingsWorkspace* settingsPage_ = nullptr;
     QTimer* autosaveTimer_ = nullptr;
     QString saveError_;
 };
