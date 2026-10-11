@@ -33,6 +33,11 @@ public:
     void refresh();
     void openFocusMode();
 
+public slots:
+    // Kept as the single commit path so the UI can debounce manuscript persistence without
+    // duplicating serialization logic or rebuilding semantic/board state on every keystroke.
+    void applyScene();
+
 signals:
     void changed();
     void referenceActivated(const QString& kind, const QString& id);
@@ -43,7 +48,6 @@ private:
     void refreshTree();
     void refreshSceneBoard();
     void selectItem();
-    void applyScene();
     QJsonObject sceneEditState() const;
     void addChapter();
     void addScene();
