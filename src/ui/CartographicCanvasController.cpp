@@ -1,5 +1,5 @@
 #include "ui/CartographicCanvasController.h"
-#include "ui/CartographicCanvasV2.h"
+#include "ui/CartographicCanvasV3.h"
 #include "ui/PilinReyEditor.h"
 
 #include <QEvent>
@@ -29,10 +29,11 @@ public:
         auto* input = editor->findChild<QWidget*>(QStringLiteral("pilinQtViewport"));
         if (!input || !input->parentWidget()) return;
 
-        auto* canvas = input->parentWidget()->findChild<CartographicCanvasV2*>(QStringLiteral("cartographicCanvasV2"), Qt::FindDirectChildrenOnly);
+        auto* canvas = input->parentWidget()->findChild<CartographicCanvasV3*>(QStringLiteral("cartographicCanvasV3"), Qt::FindDirectChildrenOnly);
         if (!canvas) {
-            canvas = new CartographicCanvasV2(editor, input, input->parentWidget());
-            canvas->setObjectName(QStringLiteral("cartographicCanvasV2"));
+            if (QWidget* old = input->parentWidget()->findChild<QWidget*>(QStringLiteral("cartographicCanvasV2"), Qt::FindDirectChildrenOnly)) old->deleteLater();
+            canvas = new CartographicCanvasV3(editor, input, input->parentWidget());
+            canvas->setObjectName(QStringLiteral("cartographicCanvasV3"));
             canvas->setGeometry(input->geometry());
             canvas->show();
             canvas->raise();
@@ -61,8 +62,8 @@ private:
 } // namespace
 
 void installCartographicCanvasController(QMainWindow* window) {
-    if (!window || window->property("wbwCartographicCanvasV2").toBool()) return;
-    window->setProperty("wbwCartographicCanvasV2", true);
+    if (!window || window->property("wbwCartographicCanvasV3").toBool()) return;
+    window->setProperty("wbwCartographicCanvasV3", true);
     auto* filter = new CartographicCanvasFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
