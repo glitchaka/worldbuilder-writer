@@ -137,7 +137,6 @@ void MapTerrainEngine::normalize() {
 
 QJsonObject MapTerrainEngine::toJson() const {
     QJsonArray values;
-    values.reserve(heights_.size());
     for (float h : heights_) values.append(static_cast<int>(std::round(clamp01(h) * 255.0f)));
     return QJsonObject{{QStringLiteral("width"), width_},
                        {QStringLiteral("height"), height_},

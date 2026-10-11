@@ -205,9 +205,9 @@ void CartographicCanvasV2::drawObject(QPainter& painter, const QJsonObject& obje
 
     if ((type == QStringLiteral("forestArea") || type == QStringLiteral("mountainArea")) && !points.isEmpty()) {
         const int maxSymbols = type == QStringLiteral("forestArea") ? 72 : 42;
-        const int count = std::min(maxSymbols, std::max(8, points.size() * 2));
+        const int count = static_cast<int>(std::clamp<qsizetype>(points.size() * 2, 8, maxSymbols));
         for (int i = 0; i < count; ++i) {
-            const int pi = (i * points.size()) / count;
+            const qsizetype pi = (i * points.size()) / count;
             const QPointF w = pointFromJson(points.at(std::min(pi, points.size() - 1)));
             const double radius = pointRadius(points.at(std::min(pi, points.size() - 1)), 180.0);
             const double jx = jitter(id, i * 2 + 1) * radius * 1.25;

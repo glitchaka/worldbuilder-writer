@@ -41,6 +41,8 @@ private:
     bool loadPath(const QString& path);
     bool saveProject(bool quiet = false);
     bool saveProjectAs();
+    void commitPendingEdits();
+    void reportSaveFailure(const QString& error, bool quiet);
     void exportWbw();
     void exportPdf();
     void createBackup();
@@ -62,6 +64,7 @@ private:
     WorldPage* worldPage_ = nullptr;
     ReviewPage* reviewPage_ = nullptr;
     QTimer* autosaveTimer_ = nullptr;
+    QString saveError_;
 };
 
 } // namespace wbw

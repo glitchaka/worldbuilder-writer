@@ -19,13 +19,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniz)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets Network Svg)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets Network Svg Test)
 qt_standard_project_setup()
 
 enable_testing()
 
-qt_add_executable(WorldbuilderWriter
-    src/main.cpp
+qt_add_library(WorldbuilderWriterUi OBJECT
     src/core/ArchiveDocument.cpp
     src/storage/ProjectStore.cpp
     src/storage/WbwPackage.cpp
@@ -76,8 +75,8 @@ qt_add_executable(WorldbuilderWriter
     src/ui/MainWindow.cpp
 )
 
-target_include_directories(WorldbuilderWriter PRIVATE src)
-target_link_libraries(WorldbuilderWriter PRIVATE
+target_include_directories(WorldbuilderWriterUi PUBLIC src)
+target_link_libraries(WorldbuilderWriterUi PUBLIC
     Qt6::Widgets
     Qt6::PrintSupport
     Qt6::Multimedia
@@ -86,6 +85,14 @@ target_link_libraries(WorldbuilderWriter PRIVATE
     Qt6::Svg
     miniz
 )
+
+qt_add_executable(WorldbuilderWriter src/main.cpp)
+target_link_libraries(WorldbuilderWriter PRIVATE WorldbuilderWriterUi)
+
+qt_add_executable(WorldbuilderWriterProjectSaveSmoke tests/ProjectSaveSmoke.cpp)
+target_link_libraries(WorldbuilderWriterProjectSaveSmoke PRIVATE WorldbuilderWriterUi Qt6::Test)
+add_test(NAME project-save-smoke COMMAND WorldbuilderWriterProjectSaveSmoke)
+set_tests_properties(project-save-smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
 
 add_executable(WorldbuilderWriterCoreSmoke
     tests/CoreSmoke.cpp
