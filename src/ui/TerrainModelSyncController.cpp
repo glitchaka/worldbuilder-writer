@@ -11,6 +11,19 @@
 #include <algorithm>
 
 namespace wbw {
+
+void PilinReyEditor::applyBakedTerrainMap(const QJsonObject& updated) {
+    if (updated.isEmpty()) return;
+    map_ = updated;
+    selectedObjectIds_.clear();
+    refreshLayers();
+    refreshAssets();
+    refreshSelectionControls();
+    refreshViewport();
+    persistToArchive();
+    emit mapEdited(map_);
+}
+
 namespace {
 
 class TerrainModelSync final : public QObject {
@@ -38,6 +51,7 @@ private:
             QJsonObject layer = layers.at(li).toObject();
             QJsonArray objects = layer.value(QStringLiteral("objects")).toArray();
             QJsonArray kept;
+            bool layerChanged = false;
             for (const QJsonValue& value : objects) {
                 const QJsonObject object = value.toObject();
                 const QString type = object.value(QStringLiteral("type")).toString();
@@ -49,15 +63,15 @@ private:
                 const QJsonArray points = object.value(QStringLiteral("points")).toArray();
                 if (points.isEmpty()) { kept.append(object); continue; }
                 changed = true;
+                layerChanged = true;
 
                 QVector<QPointF> terrainPoints;
                 terrainPoints.reserve(points.size());
                 double averageRadius = 0.0;
                 for (const QJsonValue& pointValue : points) {
                     const QJsonObject point = pointValue.toObject();
-                    const double x = point.value(QStringLiteral("x")).toDouble();
-                    const double y = point.value(QStringLiteral("y")).toDouble();
-                    terrainPoints.append(QPointF(x / docW * (terrain.width() - 1), y / docH * (terrain.height() - 1)));
+                    terrainPoints.append(QPointF(point.value(QStringLiteral("x")).toDouble() / docW * (terrain.width() - 1),
+                                                  point.value(QStringLiteral("y")).toDouble() / docH * (terrain.height() - 1)));
                     averageRadius += point.value(QStringLiteral("radius")).toDouble(220.0);
                 }
                 averageRadius /= std::max(1, points.size());
@@ -69,18 +83,14 @@ private:
                         else terrain.addPit(p, radiusGrid, 0.22f);
                     }
                     terrain.smooth(1);
-                } else if (type == QStringLiteral("mountainArea")) {
+                } else {
                     if (terrainPoints.size() == 1) terrain.addHill(terrainPoints.first(), radiusGrid * .72, .24f);
-                    else {
-                        for (int i = 1; i < terrainPoints.size(); ++i)
-                            terrain.addRange(terrainPoints.at(i - 1), terrainPoints.at(i), radiusGrid * .55, .16f, .16f);
-                    }
+                    else for (int i = 1; i < terrainPoints.size(); ++i)
+                        terrain.addRange(terrainPoints.at(i - 1), terrainPoints.at(i), radiusGrid * .55, .16f, .16f);
                     terrain.erode(1, .12f);
                 }
-                // Do not retain the old brush-object representation. The stroke is now part of
-                // the heightmap, so redraw cost stays constant as the map becomes more detailed.
             }
-            if (changed) {
+            if (layerChanged) {
                 layer.insert(QStringLiteral("objects"), kept);
                 layers.replace(li, layer);
             }
@@ -88,7 +98,7 @@ private:
 
         if (!changed) return;
         QJsonObject newTerrain = terrain.toJson();
-        for (const QString& key : {QStringLiteral("seaLevel"), QStringLiteral("generatedAt"), QStringLiteral("generator")})
+        for (const QString& key : {QStringLiteral("seaLevel"), QStringLiteral("generatedAt"), QStringLiteral("generator"), QStringLiteral("biomes")})
             if (terrainJson.contains(key)) newTerrain.insert(key, terrainJson.value(key));
         pilin.insert(QStringLiteral("terrainModel"), newTerrain);
         pilin.insert(QStringLiteral("layers"), layers);
@@ -96,8 +106,7 @@ private:
         updated.insert(QStringLiteral("pilinRey"), pilin);
 
         busy_ = true;
-        editor_->setMap(updated);
-        QMetaObject::invokeMethod(editor_, "mapEdited", Qt::DirectConnection, Q_ARG(QJsonObject, updated));
+        editor_->applyBakedTerrainMap(updated);
         busy_ = false;
     }
 
@@ -109,8 +118,8 @@ private:
 } // namespace
 
 void installTerrainModelSyncController(QMainWindow* window) {
-    if (!window || window->property("wbwTerrainModelSyncV1").toBool()) return;
-    window->setProperty("wbwTerrainModelSyncV1", true);
+    if (!window || window->property("wbwTerrainModelSyncV2").toBool()) return;
+    window->setProperty("wbwTerrainModelSyncV2", true);
     new TerrainModelSync(window);
 }
 
