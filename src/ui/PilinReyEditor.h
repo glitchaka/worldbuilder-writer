@@ -49,6 +49,7 @@ public:
 
     void setMap(const QJsonObject& map);
     QJsonObject map() const { return map_; }
+    void generateProceduralWorld();
     void selectObjectIds(const QStringList& ids);
     void nudgeSelection(double dx, double dy);
     void transformSelectedPathGeometry(double scaleFactor, double rotationDegrees);
@@ -68,7 +69,6 @@ private:
     void buildUi();
     void layoutFloatingPanels();
     void ensurePilinDocument();
-    void generateProceduralWorld();
     void refreshLayers();
     void refreshLayerControls();
     void refreshAssets();
