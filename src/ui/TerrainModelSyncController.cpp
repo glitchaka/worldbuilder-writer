@@ -24,6 +24,12 @@ void PilinReyEditor::applyBakedTerrainMap(const QJsonObject& updated) {
     emit mapEdited(map_);
 }
 
+void PilinReyEditor::trimUndoHistory(int maximumEntries) {
+    maximumEntries = std::clamp(maximumEntries, 4, 32);
+    while (undoStack_.size() > maximumEntries) undoStack_.removeFirst();
+    while (redoStack_.size() > maximumEntries) redoStack_.removeFirst();
+}
+
 namespace {
 
 class TerrainModelSync final : public QObject {
@@ -31,7 +37,11 @@ public:
     explicit TerrainModelSync(QMainWindow* window) : QObject(window), window_(window) {
         editor_ = window ? window->findChild<PilinReyEditor*>(QStringLiteral("pilinReyEditor")) : nullptr;
         if (!editor_) return;
-        connect(editor_, &PilinReyEditor::mapEdited, this, [this](const QJsonObject& map) { synchronize(map); });
+        connect(editor_, &PilinReyEditor::mapEdited, this, [this](const QJsonObject& map) {
+            if (!editor_) return;
+            editor_->trimUndoHistory(14);
+            synchronize(map);
+        });
     }
 
 private:
@@ -98,7 +108,7 @@ private:
 
         if (!changed) return;
         QJsonObject newTerrain = terrain.toJson();
-        for (const QString& key : {QStringLiteral("seaLevel"), QStringLiteral("generatedAt"), QStringLiteral("generator"), QStringLiteral("biomes")})
+        for (const QString& key : {QStringLiteral("seaLevel"), QStringLiteral("generatedAt"), QStringLiteral("generator"), QStringLiteral("biomes"), QStringLiteral("regions"), QStringLiteral("regionNames")})
             if (terrainJson.contains(key)) newTerrain.insert(key, terrainJson.value(key));
         pilin.insert(QStringLiteral("terrainModel"), newTerrain);
         pilin.insert(QStringLiteral("layers"), layers);
@@ -118,8 +128,8 @@ private:
 } // namespace
 
 void installTerrainModelSyncController(QMainWindow* window) {
-    if (!window || window->property("wbwTerrainModelSyncV2").toBool()) return;
-    window->setProperty("wbwTerrainModelSyncV2", true);
+    if (!window || window->property("wbwTerrainModelSyncV3").toBool()) return;
+    window->setProperty("wbwTerrainModelSyncV3", true);
     new TerrainModelSync(window);
 }
 
