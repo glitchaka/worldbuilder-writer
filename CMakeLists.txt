@@ -40,6 +40,8 @@ qt_add_executable(WorldbuilderWriter
     src/ui/MapWorkflowController.h
     src/ui/MapSelectionController.cpp
     src/ui/MapSelectionController.h
+    src/ui/MapTerrainEngine.cpp
+    src/ui/MapTerrainEngine.h
     src/ui/CartographicCanvasV2.cpp
     src/ui/CartographicCanvasV2.h
     src/ui/CartographicCanvasController.cpp
