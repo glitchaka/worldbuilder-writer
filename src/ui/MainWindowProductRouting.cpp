@@ -79,9 +79,13 @@ void MainWindow::routeProductModule(int row) {
             return;
     }
 
-    if (auto* save = findChild<QPushButton*>(QStringLiteral("primarySave"))) save->setVisible(row > 0 && row < 6);
-    if (auto* focus = findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->setVisible(row == 1);
-    if (auto* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->setVisible(row != 0);
+    if (auto* save = findChild<QPushButton*>(QStringLiteral("primarySave"))) save->setVisible(false);
+    if (auto* focus = findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->setVisible(false);
+
+    // Biblioteca, escritura, tablero y Pilín Rey poseen ya una cabecera propia. Mantener además
+    // el encabezado genérico duplicaba jerarquías y alejaba la composición de los mockups.
+    const bool useGenericHeader = row == 3 || row == 5 || row == 6;
+    if (auto* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->setVisible(useGenericHeader);
 }
 
 } // namespace wbw
