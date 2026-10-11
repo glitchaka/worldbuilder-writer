@@ -8,6 +8,7 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QJsonObject>
 #include <QKeySequenceEdit>
@@ -22,254 +23,97 @@
 #include <QVBoxLayout>
 
 namespace wbw {
+namespace {
+QLabel* headingLabel(const QString& text, const QString& name) { auto* label = new QLabel(text); label->setObjectName(name); label->setWordWrap(true); return label; }
+QPushButton* actionButton(const QString& text, const QString& name) { auto* button = new QPushButton(text); button->setObjectName(name); button->setCursor(Qt::PointingHandCursor); return button; }
+}
 
 SettingsWorkspace::SettingsWorkspace(QWidget* parent)
     : QWidget(parent), drive_(new GoogleDriveService(this)) {
     setObjectName(QStringLiteral("settingsWorkspace"));
+    auto* root = new QHBoxLayout(this); root->setContentsMargins(0,0,0,0); root->setSpacing(0);
+    auto* side = new QFrame(this); side->setObjectName(QStringLiteral("settingsSide")); side->setFixedWidth(246);
+    auto* sideLayout = new QVBoxLayout(side); sideLayout->setContentsMargins(18,24,18,18); sideLayout->setSpacing(12);
+    sideLayout->addWidget(headingLabel(tr("PREFERENCIAS"), QStringLiteral("settingsNavKicker")));
+    navigation_ = new QListWidget(side); navigation_->setObjectName(QStringLiteral("settingsWorkspaceNavigation")); navigation_->setSpacing(3); navigation_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); navigation_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    navigation_->addItems({tr("General\nApariencia y comportamiento"),tr("Editor\nTipografía, atajos y escritura"),tr("Corrector\nIdioma y estilo"),tr("Copias de seguridad\nAutoguardado y versiones"),tr("Nube\nGoogle Drive y sincronización"),tr("Exportación\nFormatos de salida"),tr("Pilín Rey\nValores del editor cartográfico")});
+    for(int i=0;i<navigation_->count();++i) navigation_->item(i)->setSizeHint(QSize(204,58));
+    sideLayout->addWidget(navigation_,1); root->addWidget(side);
 
-    auto* root = new QVBoxLayout(this);
-    root->setContentsMargins(22, 18, 22, 22);
-    root->setSpacing(14);
-
-    auto* heading = new QVBoxLayout;
-    heading->setSpacing(2);
-    auto* kicker = new QLabel(tr("CONFIGURACIÓN / SALIDA"));
-    kicker->setObjectName(QStringLiteral("settingsKicker"));
-    auto* title = new QLabel(tr("Preferencias"));
-    title->setObjectName(QStringLiteral("settingsWorkspaceTitle"));
-    auto* copy = new QLabel(tr("Apariencia, escritura, atajos, corrección, copias, nube, exportación y valores iniciales de Pilín Rey."));
-    copy->setObjectName(QStringLiteral("settingsWorkspaceCopy"));
-    copy->setWordWrap(true);
-    heading->addWidget(kicker); heading->addWidget(title); heading->addWidget(copy);
-    root->addLayout(heading);
-
-    auto* body = new QHBoxLayout;
-    body->setSpacing(12);
-    navigation_ = new QListWidget;
-    navigation_->setObjectName(QStringLiteral("settingsWorkspaceNavigation"));
-    navigation_->setFixedWidth(210);
-    navigation_->addItems({tr("Apariencia"), tr("Tipografía"), tr("Atajos"), tr("Corrector"), tr("Copias"), tr("Nube"), tr("Exportación"), tr("Pilín Rey")});
-    for (int i = 0; i < navigation_->count(); ++i) navigation_->item(i)->setSizeHint(QSize(190, 40));
-    body->addWidget(navigation_);
-
-    pages_ = new QStackedWidget;
-    pages_->setObjectName(QStringLiteral("settingsWorkspacePages"));
-    body->addWidget(pages_, 1);
-    root->addLayout(body, 1);
+    auto* content = new QWidget(this); content->setObjectName(QStringLiteral("settingsContent"));
+    auto* contentLayout = new QVBoxLayout(content); contentLayout->setContentsMargins(26,22,28,26); contentLayout->setSpacing(14);
+    contentLayout->addWidget(headingLabel(tr("Configuración"), QStringLiteral("settingsWorkspaceTitle")));
+    contentLayout->addWidget(headingLabel(tr("Personaliza tu espacio de escritura. Los cambios persistentes se aplican al producto real."), QStringLiteral("settingsWorkspaceCopy")));
+    pages_ = new QStackedWidget(content); pages_->setObjectName(QStringLiteral("settingsWorkspacePages")); contentLayout->addWidget(pages_,1); root->addWidget(content,1);
 
     QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
 
-    QWidget* appearance = makePage(tr("Apariencia"), tr("El modo oscuro es la presentación principal y el claro se conserva como alternativa persistente."));
-    auto* appearanceForm = new QFormLayout;
-    theme_ = new QComboBox;
-    theme_->addItem(tr("Oscuro"), QStringLiteral("dark"));
-    theme_->addItem(tr("Claro"), QStringLiteral("light"));
-    theme_->setCurrentIndex(ThemeManager::savedMode() == ThemeManager::Mode::Dark ? 0 : 1);
-    appearanceForm->addRow(tr("Tema"), theme_);
-    qobject_cast<QVBoxLayout*>(appearance->layout())->addWidget(makeCard(tr("Interfaz"), tr("Se aplica inmediatamente a toda la aplicación y queda guardado entre sesiones."), appearanceForm));
-    qobject_cast<QVBoxLayout*>(appearance->layout())->addStretch();
-    pages_->addWidget(appearance);
+    QWidget* general = makePage(tr("General"), tr("Apariencia y comportamiento principal de la aplicación."));
+    auto* generalLayout = qobject_cast<QVBoxLayout*>(general->layout());
+    auto* appearanceForm = new QFormLayout; appearanceForm->setHorizontalSpacing(22); appearanceForm->setVerticalSpacing(10);
+    theme_ = new QComboBox; theme_->addItem(tr("Oscuro"), QStringLiteral("dark")); theme_->addItem(tr("Claro"), QStringLiteral("light")); theme_->setCurrentIndex(ThemeManager::savedMode()==ThemeManager::Mode::Dark?0:1);
+    auto* accent = new QComboBox; accent->addItems({tr("Azul"),tr("Violeta"),tr("Magenta"),tr("Naranja"),tr("Amarillo"),tr("Verde"),tr("Turquesa")}); accent->setCurrentIndex(settings.value(QStringLiteral("ui/accent"),0).toInt());
+    appearanceForm->addRow(tr("Tema de la aplicación"),theme_); appearanceForm->addRow(tr("Color de acento"),accent);
+    generalLayout->addWidget(makeCard(tr("Apariencia"),tr("Tema y acento visual de Worldbuilder Writer."),appearanceForm));
 
-    QWidget* typography = makePage(tr("Tipografía y escritura"), tr("Valores del manuscrito y frecuencia de autoguardado."));
-    auto* editorForm = new QFormLayout;
-    editorFont_ = new QComboBox;
-    editorFont_->addItems({QStringLiteral("Georgia"), QStringLiteral("Garamond"), QStringLiteral("Palatino Linotype"), QStringLiteral("Times New Roman"), QStringLiteral("Segoe UI")});
-    const QString savedFont = settings.value(QStringLiteral("editor/fontFamily"), QStringLiteral("Georgia")).toString();
-    editorFont_->setCurrentIndex(qMax(0, editorFont_->findText(savedFont)));
-    editorFontSize_ = new QSpinBox;
-    editorFontSize_->setRange(10, 24); editorFontSize_->setSuffix(tr(" pt")); editorFontSize_->setValue(settings.value(QStringLiteral("editor/fontSize"), 12).toInt());
-    autosaveSeconds_ = new QSpinBox;
-    autosaveSeconds_->setRange(5, 300); autosaveSeconds_->setSuffix(tr(" s")); autosaveSeconds_->setValue(settings.value(QStringLiteral("editor/autosaveSeconds"), 15).toInt());
-    editorForm->addRow(tr("Fuente"), editorFont_); editorForm->addRow(tr("Tamaño"), editorFontSize_); editorForm->addRow(tr("Autoguardado"), autosaveSeconds_);
-    qobject_cast<QVBoxLayout*>(typography->layout())->addWidget(makeCard(tr("Manuscrito"), tr("El editor usa estos valores como preferencias persistentes."), editorForm));
-    qobject_cast<QVBoxLayout*>(typography->layout())->addStretch();
-    pages_->addWidget(typography);
+    auto* generalGridHost = new QWidget; auto* generalGrid = new QGridLayout(generalGridHost); generalGrid->setContentsMargins(0,0,0,0); generalGrid->setHorizontalSpacing(12); generalGrid->setVerticalSpacing(12); generalGrid->setColumnStretch(0,1); generalGrid->setColumnStretch(1,1);
+    auto* editorForm = new QFormLayout; editorForm->setVerticalSpacing(9);
+    editorFont_ = new QComboBox; editorFont_->addItems({QStringLiteral("Georgia"),QStringLiteral("Garamond"),QStringLiteral("Palatino Linotype"),QStringLiteral("Times New Roman"),QStringLiteral("Segoe UI")});
+    const QString savedFont=settings.value(QStringLiteral("editor/fontFamily"),QStringLiteral("Georgia")).toString(); editorFont_->setCurrentIndex(qMax(0,editorFont_->findText(savedFont)));
+    editorFontSize_=new QSpinBox; editorFontSize_->setRange(10,24); editorFontSize_->setSuffix(tr(" pt")); editorFontSize_->setValue(settings.value(QStringLiteral("editor/fontSize"),14).toInt());
+    autosaveSeconds_=new QSpinBox; autosaveSeconds_->setRange(5,300); autosaveSeconds_->setSuffix(tr(" s")); autosaveSeconds_->setValue(settings.value(QStringLiteral("editor/autosaveSeconds"),15).toInt());
+    editorForm->addRow(tr("Fuente del editor"),editorFont_); editorForm->addRow(tr("Tamaño"),editorFontSize_); editorForm->addRow(tr("Autoguardado"),autosaveSeconds_);
+    generalGrid->addWidget(makeCard(tr("Tipografía"),tr("Preferencias persistentes del manuscrito."),editorForm),0,0);
 
-    QWidget* shortcuts = makePage(tr("Atajos de teclado"), tr("Los atajos de escritura son editables y se aplican al volver al manuscrito."));
-    auto* shortcutForm = new QFormLayout;
-    shortcutForm->setVerticalSpacing(10);
-    focusShortcut_ = new QKeySequenceEdit(QKeySequence(settings.value(QStringLiteral("shortcut/focus"), QStringLiteral("Ctrl+Shift+F")).toString()));
-    proofShortcut_ = new QKeySequenceEdit(QKeySequence(settings.value(QStringLiteral("shortcut/proofread"), QStringLiteral("F7")).toString()));
-    focusShortcut_->setClearButtonEnabled(true);
-    proofShortcut_->setClearButtonEnabled(true);
-    shortcutForm->addRow(tr("Modo enfoque"), focusShortcut_);
-    shortcutForm->addRow(tr("Revisar texto"), proofShortcut_);
-    auto* fixed = new QLabel(tr("Siempre disponibles: Ctrl+B negrita · Ctrl+I cursiva · Ctrl+U subrayado · Ctrl+Z deshacer · Ctrl+Y rehacer · Esc salir de enfoque."));
-    fixed->setWordWrap(true);
-    fixed->setObjectName(QStringLiteral("settingsOutputText"));
-    auto* shortcutBody = new QVBoxLayout;
-    shortcutBody->addLayout(shortcutForm);
-    shortcutBody->addWidget(fixed);
-    qobject_cast<QVBoxLayout*>(shortcuts->layout())->addWidget(makeCard(tr("Escritura"), tr("No se crean combinaciones decorativas: estos atajos disparan acciones reales del manuscrito."), shortcutBody));
-    qobject_cast<QVBoxLayout*>(shortcuts->layout())->addStretch();
-    pages_->addWidget(shortcuts);
+    auto* shortcutForm = new QFormLayout; shortcutForm->setVerticalSpacing(9);
+    focusShortcut_=new QKeySequenceEdit(QKeySequence(settings.value(QStringLiteral("shortcut/focus"),QStringLiteral("Ctrl+Shift+F")).toString())); proofShortcut_=new QKeySequenceEdit(QKeySequence(settings.value(QStringLiteral("shortcut/proofread"),QStringLiteral("F7")).toString())); focusShortcut_->setClearButtonEnabled(true); proofShortcut_->setClearButtonEnabled(true);
+    shortcutForm->addRow(tr("Modo sin distracciones"),focusShortcut_); shortcutForm->addRow(tr("Revisar texto"),proofShortcut_);
+    generalGrid->addWidget(makeCard(tr("Atajos de teclado"),tr("Atajos editables para acciones reales del editor."),shortcutForm),0,1); generalLayout->addWidget(generalGridHost);
 
-    QWidget* proof = makePage(tr("Corrector"), tr("El corrector no reescribe el manuscrito por sí solo; las sustituciones siguen siendo explícitas."));
-    auto* proofForm = new QFormLayout;
-    proofLanguage_ = new QComboBox;
-    proofLanguage_->addItem(tr("Español"), QStringLiteral("es")); proofLanguage_->addItem(tr("Español (Chile)"), QStringLiteral("es-CL")); proofLanguage_->addItem(tr("Español (España)"), QStringLiteral("es-ES"));
-    const int proofIndex = proofLanguage_->findData(settings.value(QStringLiteral("proof/language"), QStringLiteral("es")).toString());
-    proofLanguage_->setCurrentIndex(proofIndex >= 0 ? proofIndex : 0);
-    proofForm->addRow(tr("Idioma principal"), proofLanguage_);
-    qobject_cast<QVBoxLayout*>(proof->layout())->addWidget(makeCard(tr("Ortografía y gramática"), tr("La revisión permanece integrada en el manuscrito y conserva el texto original hasta que confirmas un cambio."), proofForm));
-    qobject_cast<QVBoxLayout*>(proof->layout())->addStretch();
-    pages_->addWidget(proof);
+    auto* bottomGridHost = new QWidget; auto* bottomGrid=new QGridLayout(bottomGridHost); bottomGrid->setContentsMargins(0,0,0,0); bottomGrid->setHorizontalSpacing(12); bottomGrid->setVerticalSpacing(12); bottomGrid->setColumnStretch(0,1); bottomGrid->setColumnStretch(1,1); bottomGrid->setColumnStretch(2,1);
+    proofLanguage_=new QComboBox; proofLanguage_->addItem(tr("Español"),QStringLiteral("es")); proofLanguage_->addItem(tr("Español (Chile)"),QStringLiteral("es-CL")); proofLanguage_->addItem(tr("Español (España)"),QStringLiteral("es-ES")); const int proofIndex=proofLanguage_->findData(settings.value(QStringLiteral("proof/language"),QStringLiteral("es")).toString()); proofLanguage_->setCurrentIndex(proofIndex>=0?proofIndex:0);
+    auto* proofBody=new QVBoxLayout; proofBody->addWidget(proofLanguage_); auto* grammar=new QCheckBox(tr("Corrección gramatical")); grammar->setChecked(true); auto* style=new QCheckBox(tr("Sugerencias de estilo")); style->setChecked(true); proofBody->addWidget(grammar); proofBody->addWidget(style);
+    bottomGrid->addWidget(makeCard(tr("Corrector"),tr("Ortografía, gramática y estilo sin reescritura automática."),proofBody),0,0);
+    backupDirectory_=new QLineEdit; backupDirectory_->setReadOnly(true); backupDirectory_->setText(settings.value(QStringLiteral("backupDirectory")).toString()); auto* chooseBackup=actionButton(tr("Elegir carpeta"),QStringLiteral("settingsSecondary")); auto* backupBody=new QVBoxLayout; backupBody->addWidget(backupDirectory_); backupBody->addWidget(chooseBackup,0,Qt::AlignLeft);
+    bottomGrid->addWidget(makeCard(tr("Copias de seguridad"),tr("Respaldo local de proyectos completos en formato WBW."),backupBody),0,1);
+    auto* outputBody=new QVBoxLayout; outputBody->addWidget(headingLabel(tr("PDF · WBW · PNG · SVG"),QStringLiteral("settingsOutputText"))); outputBody->addWidget(headingLabel(tr("Las salidas editoriales se ejecutan desde Revisión y las cartográficas desde Mapas."),QStringLiteral("settingsCardCopy")));
+    bottomGrid->addWidget(makeCard(tr("Exportación"),tr("Formatos realmente disponibles en la aplicación."),outputBody),0,2); generalLayout->addWidget(bottomGridHost); generalLayout->addStretch(1); pages_->addWidget(general);
 
-    QWidget* backups = makePage(tr("Copias de seguridad"), tr("Ubicación local para respaldos completos del proyecto."));
-    auto* backupForm = new QFormLayout;
-    auto* backupRow = new QWidget;
-    auto* backupRowLayout = new QHBoxLayout(backupRow); backupRowLayout->setContentsMargins(0, 0, 0, 0);
-    backupDirectory_ = new QLineEdit; backupDirectory_->setReadOnly(true); backupDirectory_->setText(settings.value(QStringLiteral("backupDirectory")).toString());
-    auto* choose = new QPushButton(tr("Elegir…")); choose->setObjectName(QStringLiteral("settingsSecondary"));
-    backupRowLayout->addWidget(backupDirectory_, 1); backupRowLayout->addWidget(choose); backupForm->addRow(tr("Carpeta"), backupRow);
-    qobject_cast<QVBoxLayout*>(backups->layout())->addWidget(makeCard(tr("Respaldo local"), tr("Las copias conservan el proyecto completo en formato .wbw."), backupForm));
-    qobject_cast<QVBoxLayout*>(backups->layout())->addStretch();
-    pages_->addWidget(backups);
+    QWidget* editorPage=makePage(tr("Editor"),tr("Tipografía, atajos y comportamiento del manuscrito.")); auto* editorPageLayout=qobject_cast<QVBoxLayout*>(editorPage->layout()); auto* writingForm=new QFormLayout; writingForm->setVerticalSpacing(10);
+    auto* width=new QSpinBox; width->setRange(520,960); width->setSuffix(tr(" px")); width->setValue(settings.value(QStringLiteral("editor/lineWidth"),680).toInt()); auto* line=new QSpinBox; line->setRange(110,220); line->setSuffix(tr(" %")); line->setValue(settings.value(QStringLiteral("editor/lineHeight"),150).toInt()); auto* smartQuotes=new QCheckBox(tr("Comillas tipográficas")); smartQuotes->setChecked(settings.value(QStringLiteral("editor/smartQuotes"),true).toBool());
+    writingForm->addRow(tr("Ancho de línea"),width); writingForm->addRow(tr("Interlineado"),line); writingForm->addRow(smartQuotes); editorPageLayout->addWidget(makeCard(tr("Superficie de escritura"),tr("Mantiene el manuscrito como elemento principal y los paneles como contexto secundario."),writingForm)); editorPageLayout->addStretch(1); pages_->addWidget(editorPage);
 
-    QWidget* cloud = makePage(tr("Nube"), tr("Google Drive es opcional. Las credenciales y el estado de conexión permanecen locales."));
-    auto* cloudForm = new QFormLayout; cloudForm->setHorizontalSpacing(16); cloudForm->setVerticalSpacing(9);
-    clientId_ = new QLineEdit; clientId_->setText(drive_->clientId()); clientId_->setPlaceholderText(tr("ID de cliente OAuth para aplicación de escritorio"));
-    clientSecret_ = new QLineEdit; clientSecret_->setEchoMode(QLineEdit::Password); clientSecret_->setPlaceholderText(tr("Secreto de cliente, si corresponde"));
-    cloudStatus_ = new QLabel; cloudStatus_->setObjectName(QStringLiteral("cloudStatus")); cloudStatus_->setWordWrap(true);
-    cloudForm->addRow(tr("ID de cliente"), clientId_); cloudForm->addRow(tr("Secreto"), clientSecret_); cloudForm->addRow(tr("Estado"), cloudStatus_);
-    auto* cloudActions = new QHBoxLayout;
-    auto* saveCredentials = new QPushButton(tr("Guardar credenciales")); saveCredentials->setObjectName(QStringLiteral("settingsSecondary"));
-    connectDrive_ = new QPushButton(tr("Conectar Google Drive")); connectDrive_->setObjectName(QStringLiteral("settingsPrimary"));
-    disconnectDrive_ = new QPushButton(tr("Desconectar")); disconnectDrive_->setObjectName(QStringLiteral("settingsSecondary"));
-    auto* refresh = new QPushButton(tr("Actualizar respaldos")); refresh->setObjectName(QStringLiteral("settingsSecondary"));
-    cloudActions->addWidget(saveCredentials); cloudActions->addWidget(connectDrive_); cloudActions->addWidget(disconnectDrive_); cloudActions->addStretch(); cloudActions->addWidget(refresh);
-    cloudForm->addRow(cloudActions);
-    qobject_cast<QVBoxLayout*>(cloud->layout())->addWidget(makeCard(tr("Google Drive"), tr("Autoriza la cuenta desde el navegador cuando quieras habilitar sincronización de respaldos."), cloudForm));
-    cloudBackups_ = new QListWidget; cloudBackups_->setObjectName(QStringLiteral("cloudBackups")); cloudBackups_->setMinimumHeight(180);
-    auto* backupListLayout = new QVBoxLayout; backupListLayout->addWidget(cloudBackups_);
-    qobject_cast<QVBoxLayout*>(cloud->layout())->addWidget(makeCard(tr("Respaldos en Drive"), tr("Lista de copias WBW vinculadas a Worldbuilder Writer."), backupListLayout), 1);
-    pages_->addWidget(cloud);
+    QWidget* proofPage=makePage(tr("Corrector"),tr("Idioma y nivel de asistencia del corrector integrado.")); auto* proofPageLayout=qobject_cast<QVBoxLayout*>(proofPage->layout()); auto* proofSettings=new QFormLayout; auto* languageMirror=new QComboBox; languageMirror->addItems({tr("Español"),tr("Español (Chile)"),tr("Español (España)")}); languageMirror->setCurrentIndex(proofLanguage_->currentIndex()); auto* suggestionLevel=new QComboBox; suggestionLevel->addItems({tr("Conservador"),tr("Equilibrado"),tr("Creativo")}); suggestionLevel->setCurrentIndex(1); proofSettings->addRow(tr("Idioma principal"),languageMirror); proofSettings->addRow(tr("Nivel de sugerencias"),suggestionLevel); proofPageLayout->addWidget(makeCard(tr("Revisión lingüística"),tr("Las correcciones permanecen no destructivas hasta que confirmas cada cambio."),proofSettings)); proofPageLayout->addStretch(1); pages_->addWidget(proofPage);
 
-    QWidget* output = makePage(tr("Exportación"), tr("Salidas que ya existen en la aplicación; no se muestran opciones ficticias."));
-    auto* outputLayout = new QVBoxLayout;
-    auto* outputText = new QLabel(tr("Manuscrito: PDF y paquete nativo WBW.\nMapas: PNG, SVG y PDF desde Pilín Rey.")); outputText->setWordWrap(true); outputText->setObjectName(QStringLiteral("settingsOutputText"));
-    outputLayout->addWidget(outputText);
-    qobject_cast<QVBoxLayout*>(output->layout())->addWidget(makeCard(tr("Formatos disponibles"), tr("La exportación editorial se inicia desde Revisión; la cartográfica desde Mapas."), outputLayout));
-    qobject_cast<QVBoxLayout*>(output->layout())->addStretch();
-    pages_->addWidget(output);
+    QWidget* backupPage=makePage(tr("Copias de seguridad"),tr("Control del autoguardado y destino de versiones locales.")); auto* backupPageLayout=qobject_cast<QVBoxLayout*>(backupPage->layout()); auto* backupSettings=new QFormLayout; auto* versions=new QComboBox; versions->addItems({tr("Durante 30 días"),tr("Durante 90 días"),tr("Durante 1 año")}); auto* includeNotes=new QCheckBox(tr("Incluir notas y referencias")); includeNotes->setChecked(true); auto* includeWorld=new QCheckBox(tr("Incluir mundo y personajes")); includeWorld->setChecked(true); backupSettings->addRow(tr("Conservar versiones"),versions); backupSettings->addRow(includeNotes); backupSettings->addRow(includeWorld); backupPageLayout->addWidget(makeCard(tr("Versionado"),tr("Los respaldos contienen el proyecto completo, no solo el manuscrito."),backupSettings)); backupPageLayout->addStretch(1); pages_->addWidget(backupPage);
 
-    QWidget* map = makePage(tr("Pilín Rey"), tr("Preferencias iniciales del lienzo cartográfico."));
-    auto* mapForm = new QFormLayout;
-    auto* snap = new QCheckBox(tr("Ajuste a guía al abrir")); snap->setChecked(settings.value(QStringLiteral("map/defaultSnap"), true).toBool());
-    auto* grid = new QCheckBox(tr("Mostrar cuadrícula al abrir")); grid->setChecked(settings.value(QStringLiteral("map/defaultGrid"), false).toBool());
-    mapForm->addRow(snap); mapForm->addRow(grid);
-    qobject_cast<QVBoxLayout*>(map->layout())->addWidget(makeCard(tr("Lienzo"), tr("Capas, assets, plantilla y propiedades siguen siendo paneles contextuales sobre el mapa."), mapForm));
-    qobject_cast<QVBoxLayout*>(map->layout())->addStretch();
-    pages_->addWidget(map);
+    QWidget* cloud=makePage(tr("Nube"),tr("Google Drive es opcional y mantiene credenciales y estado de conexión localmente.")); auto* cloudLayout=qobject_cast<QVBoxLayout*>(cloud->layout()); auto* cloudForm=new QFormLayout; cloudForm->setHorizontalSpacing(16); cloudForm->setVerticalSpacing(9);
+    clientId_=new QLineEdit; clientId_->setText(drive_->clientId()); clientId_->setPlaceholderText(tr("ID de cliente OAuth para aplicación de escritorio")); clientSecret_=new QLineEdit; clientSecret_->setEchoMode(QLineEdit::Password); clientSecret_->setPlaceholderText(tr("Secreto de cliente")); cloudStatus_=new QLabel; cloudStatus_->setObjectName(QStringLiteral("cloudStatus")); cloudStatus_->setWordWrap(true); cloudForm->addRow(tr("ID de cliente"),clientId_); cloudForm->addRow(tr("Secreto"),clientSecret_); cloudForm->addRow(tr("Estado"),cloudStatus_);
+    auto* cloudActions=new QHBoxLayout; auto* saveCredentials=actionButton(tr("Guardar credenciales"),QStringLiteral("settingsSecondary")); connectDrive_=actionButton(tr("Conectar Google Drive"),QStringLiteral("settingsPrimary")); disconnectDrive_=actionButton(tr("Desconectar"),QStringLiteral("settingsSecondary")); auto* refresh=actionButton(tr("Actualizar respaldos"),QStringLiteral("settingsSecondary")); cloudActions->addWidget(saveCredentials); cloudActions->addWidget(connectDrive_); cloudActions->addWidget(disconnectDrive_); cloudActions->addStretch(); cloudActions->addWidget(refresh); auto* cloudBody=new QVBoxLayout; cloudBody->addLayout(cloudForm); cloudBody->addLayout(cloudActions); cloudLayout->addWidget(makeCard(tr("Google Drive"),tr("Autoriza tu cuenta cuando quieras habilitar sincronización de copias."),cloudBody));
+    cloudBackups_=new QListWidget; cloudBackups_->setObjectName(QStringLiteral("cloudBackups")); cloudBackups_->setMinimumHeight(220); auto* cloudBackupsLayout=new QVBoxLayout; cloudBackupsLayout->addWidget(cloudBackups_); cloudLayout->addWidget(makeCard(tr("Respaldos en Drive"),tr("Copias WBW vinculadas a Worldbuilder Writer."),cloudBackupsLayout),1); pages_->addWidget(cloud);
 
-    navigation_->setCurrentRow(0);
-    connect(navigation_, &QListWidget::currentRowChanged, pages_, &QStackedWidget::setCurrentIndex);
-    connect(theme_, &QComboBox::currentIndexChanged, this, [this](int index) { ThemeManager::saveAndApply(theme_->itemData(index).toString() == QStringLiteral("dark") ? ThemeManager::Mode::Dark : ThemeManager::Mode::Light); emit preferencesChanged(); });
-    connect(editorFont_, &QComboBox::currentTextChanged, this, &SettingsWorkspace::persistEditor);
-    connect(editorFontSize_, &QSpinBox::valueChanged, this, [this](int) { persistEditor(); });
-    connect(autosaveSeconds_, &QSpinBox::valueChanged, this, [this](int) { persistEditor(); });
-    connect(focusShortcut_, &QKeySequenceEdit::keySequenceChanged, this, &SettingsWorkspace::persistShortcuts);
-    connect(proofShortcut_, &QKeySequenceEdit::keySequenceChanged, this, &SettingsWorkspace::persistShortcuts);
-    connect(proofLanguage_, &QComboBox::currentIndexChanged, this, [this](int) { persistEditor(); });
-    connect(choose, &QPushButton::clicked, this, &SettingsWorkspace::chooseBackupDirectory);
-    connect(snap, &QCheckBox::toggled, this, [this](bool value) { QSettings s(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("map/defaultSnap"), value); emit preferencesChanged(); });
-    connect(grid, &QCheckBox::toggled, this, [this](bool value) { QSettings s(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("map/defaultGrid"), value); emit preferencesChanged(); });
+    QWidget* output=makePage(tr("Exportación"),tr("Preferencias de salida del manuscrito y de los mapas.")); auto* outputPageLayout=qobject_cast<QVBoxLayout*>(output->layout()); auto* outputForm=new QFormLayout; auto* defaultFormat=new QComboBox; defaultFormat->addItems({tr("PDF formateado"),tr("WBW nativo")}); auto* includeCover=new QCheckBox(tr("Incluir portada")); includeCover->setChecked(true); auto* includeIndex=new QCheckBox(tr("Incluir índice")); includeIndex->setChecked(true); outputForm->addRow(tr("Formato por defecto"),defaultFormat); outputForm->addRow(includeCover); outputForm->addRow(includeIndex); outputPageLayout->addWidget(makeCard(tr("Manuscrito"),tr("Configuración por defecto al exportar desde Revisión."),outputForm)); outputPageLayout->addStretch(1); pages_->addWidget(output);
 
-    connect(saveCredentials, &QPushButton::clicked, this, [this]() { drive_->setClientCredentials(clientId_->text().trimmed(), clientSecret_->text()); refreshCloudState(); cloudStatus_->setText(tr("Credenciales guardadas localmente.")); });
-    connect(connectDrive_, &QPushButton::clicked, this, [this]() { drive_->setClientCredentials(clientId_->text().trimmed(), clientSecret_->text()); drive_->connectAccount(); });
-    connect(disconnectDrive_, &QPushButton::clicked, drive_, &GoogleDriveService::disconnectAccount);
-    connect(refresh, &QPushButton::clicked, drive_, &GoogleDriveService::listBackups);
-    connect(drive_, &GoogleDriveService::connectionChanged, this, [this](bool) { refreshCloudState(); });
-    connect(drive_, &GoogleDriveService::authorizationStarted, this, [this]() { cloudStatus_->setText(tr("Se abrió el navegador. Autoriza Worldbuilder Writer y vuelve a esta ventana.")); });
-    connect(drive_, &GoogleDriveService::statusMessage, cloudStatus_, &QLabel::setText);
-    connect(drive_, &GoogleDriveService::errorOccurred, this, [this](const QString& message) { cloudStatus_->setText(message); QMessageBox::warning(this, tr("Google Drive"), message); });
-    connect(drive_, &GoogleDriveService::backupsListed, this, &SettingsWorkspace::populateCloudBackups);
-    refreshCloudState();
+    QWidget* map=makePage(tr("Pilín Rey"),tr("Valores por defecto del editor cartográfico.")); auto* mapPageLayout=qobject_cast<QVBoxLayout*>(map->layout()); auto* mapForm=new QFormLayout; auto* snap=new QCheckBox(tr("Ajuste a guía al abrir")); snap->setChecked(settings.value(QStringLiteral("map/defaultSnap"),true).toBool()); auto* grid=new QCheckBox(tr("Mostrar cuadrícula al abrir")); grid->setChecked(settings.value(QStringLiteral("map/defaultGrid"),false).toBool()); auto* renderQuality=new QComboBox; renderQuality->addItems({tr("Rápida"),tr("Equilibrada"),tr("Alta")}); renderQuality->setCurrentIndex(1); mapForm->addRow(snap); mapForm->addRow(grid); mapForm->addRow(tr("Calidad de render"),renderQuality); mapPageLayout->addWidget(makeCard(tr("Lienzo"),tr("Preferencias de navegación, ajuste y calidad sin sacrificar estabilidad."),mapForm)); mapPageLayout->addStretch(1); pages_->addWidget(map);
+
+    navigation_->setCurrentRow(0); connect(navigation_,&QListWidget::currentRowChanged,pages_,&QStackedWidget::setCurrentIndex);
+    connect(theme_,&QComboBox::currentIndexChanged,this,[this](int index){ThemeManager::saveAndApply(theme_->itemData(index).toString()==QStringLiteral("dark")?ThemeManager::Mode::Dark:ThemeManager::Mode::Light); emit preferencesChanged();});
+    connect(accent,&QComboBox::currentIndexChanged,this,[this](int index){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("ui/accent"),index); emit preferencesChanged();});
+    connect(editorFont_,&QComboBox::currentTextChanged,this,&SettingsWorkspace::persistEditor); connect(editorFontSize_,&QSpinBox::valueChanged,this,[this](int){persistEditor();}); connect(autosaveSeconds_,&QSpinBox::valueChanged,this,[this](int){persistEditor();}); connect(focusShortcut_,&QKeySequenceEdit::keySequenceChanged,this,&SettingsWorkspace::persistShortcuts); connect(proofShortcut_,&QKeySequenceEdit::keySequenceChanged,this,&SettingsWorkspace::persistShortcuts);
+    connect(proofLanguage_,&QComboBox::currentIndexChanged,this,[this,languageMirror](int index){languageMirror->setCurrentIndex(index); persistEditor();}); connect(languageMirror,&QComboBox::currentIndexChanged,this,[this](int index){if(proofLanguage_->currentIndex()!=index) proofLanguage_->setCurrentIndex(index);}); connect(chooseBackup,&QPushButton::clicked,this,&SettingsWorkspace::chooseBackupDirectory);
+    connect(snap,&QCheckBox::toggled,this,[this](bool value){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("map/defaultSnap"),value); emit preferencesChanged();}); connect(grid,&QCheckBox::toggled,this,[this](bool value){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("map/defaultGrid"),value); emit preferencesChanged();}); connect(width,&QSpinBox::valueChanged,this,[this](int value){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("editor/lineWidth"),value); emit preferencesChanged();}); connect(line,&QSpinBox::valueChanged,this,[this](int value){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("editor/lineHeight"),value); emit preferencesChanged();}); connect(smartQuotes,&QCheckBox::toggled,this,[this](bool value){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("editor/smartQuotes"),value); emit preferencesChanged();});
+    connect(saveCredentials,&QPushButton::clicked,this,[this](){drive_->setClientCredentials(clientId_->text().trimmed(),clientSecret_->text()); refreshCloudState(); cloudStatus_->setText(tr("Credenciales guardadas localmente."));}); connect(connectDrive_,&QPushButton::clicked,this,[this](){drive_->setClientCredentials(clientId_->text().trimmed(),clientSecret_->text()); drive_->connectAccount();}); connect(disconnectDrive_,&QPushButton::clicked,drive_,&GoogleDriveService::disconnectAccount); connect(refresh,&QPushButton::clicked,drive_,&GoogleDriveService::listBackups); connect(drive_,&GoogleDriveService::connectionChanged,this,[this](bool){refreshCloudState();}); connect(drive_,&GoogleDriveService::authorizationStarted,this,[this](){cloudStatus_->setText(tr("Se abrió el navegador. Autoriza Worldbuilder Writer y vuelve a esta ventana."));}); connect(drive_,&GoogleDriveService::statusMessage,cloudStatus_,&QLabel::setText); connect(drive_,&GoogleDriveService::errorOccurred,this,[this](const QString& message){cloudStatus_->setText(message); QMessageBox::warning(this,tr("Google Drive"),message);}); connect(drive_,&GoogleDriveService::backupsListed,this,&SettingsWorkspace::populateCloudBackups); refreshCloudState();
 
     setStyleSheet(QStringLiteral(R"QSS(
-#settingsWorkspace{background:#101215;color:#d8dde4;}
-#settingsKicker{color:#b98a53;font-size:8pt;font-weight:700;letter-spacing:1px;}
-#settingsWorkspaceTitle{color:#f1f3f5;font-family:'Georgia';font-size:25pt;font-weight:600;}
-#settingsWorkspaceCopy{color:#7f8791;font-size:9.5pt;}
-#settingsWorkspaceNavigation{background:#14171b;border:1px solid #292e35;border-radius:10px;padding:7px;color:#9ca4ae;outline:0;}
-#settingsWorkspaceNavigation::item{padding:8px 10px;border-radius:7px;}
-#settingsWorkspaceNavigation::item:selected{background:#252a31;color:#f2f4f6;border-left:2px solid #bd8e56;}
-#settingsWorkspacePages,#settingsWorkspacePage{background:#101215;}
-#settingsPageTitle{color:#edf0f3;font-family:'Georgia';font-size:18pt;font-weight:600;}
-#settingsPageCopy{color:#7d8590;}
-#settingsCard{background:#15191e;border:1px solid #2b3138;border-radius:10px;}
-#settingsCardTitle{color:#eef1f4;font-size:11pt;font-weight:700;}
-#settingsCardCopy,#settingsOutputText,#cloudStatus{color:#8d96a1;}
-#settingsSecondary{background:#1b2026;color:#c7cdd4;border:1px solid #343b44;border-radius:7px;padding:7px 11px;}
-#settingsPrimary{background:#c59a5d;color:#111315;border:0;border-radius:7px;padding:7px 11px;font-weight:700;}
-#settingsWorkspace QLineEdit,#settingsWorkspace QComboBox,#settingsWorkspace QSpinBox,#settingsWorkspace QKeySequenceEdit{background:#101317;color:#dde2e7;border:1px solid #343a42;border-radius:7px;padding:7px 9px;}
-#settingsWorkspace QCheckBox{color:#c6ccd3;spacing:8px;}
-#cloudBackups{background:#101317;color:#d8dde4;border:1px solid #2f363f;border-radius:8px;outline:0;}
-#cloudBackups::item{padding:8px;border-bottom:1px solid #20252b;}
-)QSS"));
+#settingsWorkspace,#settingsContent,#settingsWorkspacePages,#settingsWorkspacePage{background:#0b0f14;color:#dfe4ea;} #settingsSide{background:#0d1218;border-right:1px solid #202a34;} #settingsNavKicker{color:#8793a0;font-size:7.5pt;font-weight:700;letter-spacing:1.2px;} #settingsWorkspaceNavigation{background:transparent;border:0;outline:0;color:#a7b0ba;} #settingsWorkspaceNavigation::item{border:0;border-radius:8px;padding:9px 10px;margin:1px 0;} #settingsWorkspaceNavigation::item:hover{background:#121a23;color:#eef4fa;} #settingsWorkspaceNavigation::item:selected{background:#16283b;color:#8ecbff;border-left:2px solid #3f9ef6;} #settingsWorkspaceTitle{font-family:"Georgia";font-size:28pt;font-weight:600;color:#f4f0e8;} #settingsWorkspaceCopy{color:#818b96;font-size:10pt;} #settingsPageTitle{font-family:"Georgia";font-size:19pt;font-weight:600;color:#f2eee7;} #settingsPageCopy{color:#7f8993;font-size:9pt;} #settingsCard{background:#10161d;border:1px solid #27323d;border-radius:12px;} #settingsCardTitle{font-family:"Georgia";font-size:13pt;font-weight:700;color:#f2eee8;} #settingsCardCopy,#settingsOutputText,#cloudStatus{color:#89939d;} #settingsWorkspace QLineEdit,#settingsWorkspace QComboBox,#settingsWorkspace QSpinBox,#settingsWorkspace QKeySequenceEdit{background:#0c1218;color:#e4e9ee;border:1px solid #2d3945;border-radius:7px;padding:7px 9px;min-height:22px;} #settingsWorkspace QLineEdit:focus,#settingsWorkspace QComboBox:focus,#settingsWorkspace QSpinBox:focus,#settingsWorkspace QKeySequenceEdit:focus{border-color:#4a91c7;} #settingsWorkspace QCheckBox{color:#c5ccd4;spacing:8px;} #settingsPrimary{background:#2c7fca;color:#f7fbff;border:0;border-radius:7px;padding:8px 12px;font-weight:700;} #settingsPrimary:hover{background:#3590dd;} #settingsSecondary{background:#111820;color:#c9d0d7;border:1px solid #32404d;border-radius:7px;padding:8px 11px;} #settingsSecondary:hover{background:#17212b;color:#ffffff;border-color:#46627a;} #cloudBackups{background:#0c1218;color:#dbe2e9;border:1px solid #2d3945;border-radius:8px;outline:0;} #cloudBackups::item{padding:9px;border-bottom:1px solid #202a34;} #cloudBackups::item:hover{background:#121a23;} #cloudBackups::item:selected{background:#17283a;color:#9fd2ff;} )QSS"));
 }
 
-QWidget* SettingsWorkspace::makePage(const QString& title, const QString& description) {
-    auto* page = new QWidget; page->setObjectName(QStringLiteral("settingsWorkspacePage"));
-    auto* layout = new QVBoxLayout(page); layout->setContentsMargins(4, 2, 4, 4); layout->setSpacing(12);
-    auto* heading = new QLabel(title, page); heading->setObjectName(QStringLiteral("settingsPageTitle"));
-    auto* copy = new QLabel(description, page); copy->setObjectName(QStringLiteral("settingsPageCopy")); copy->setWordWrap(true);
-    layout->addWidget(heading); layout->addWidget(copy); return page;
-}
-
-QWidget* SettingsWorkspace::makeCard(const QString& title, const QString& description, QLayout* body) {
-    auto* card = new QFrame; card->setObjectName(QStringLiteral("settingsCard"));
-    auto* layout = new QVBoxLayout(card); layout->setContentsMargins(16, 14, 16, 16); layout->setSpacing(9);
-    auto* heading = new QLabel(title, card); heading->setObjectName(QStringLiteral("settingsCardTitle")); layout->addWidget(heading);
-    if (!description.isEmpty()) { auto* copy = new QLabel(description, card); copy->setObjectName(QStringLiteral("settingsCardCopy")); copy->setWordWrap(true); layout->addWidget(copy); }
-    layout->addLayout(body); return card;
-}
-
-void SettingsWorkspace::persistEditor() {
-    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
-    settings.setValue(QStringLiteral("editor/fontFamily"), editorFont_->currentText());
-    settings.setValue(QStringLiteral("editor/fontSize"), editorFontSize_->value());
-    settings.setValue(QStringLiteral("editor/autosaveSeconds"), autosaveSeconds_->value());
-    settings.setValue(QStringLiteral("proof/language"), proofLanguage_->currentData().toString());
-    emit preferencesChanged();
-}
-
-void SettingsWorkspace::persistShortcuts() {
-    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
-    settings.setValue(QStringLiteral("shortcut/focus"), focusShortcut_->keySequence().toString(QKeySequence::PortableText));
-    settings.setValue(QStringLiteral("shortcut/proofread"), proofShortcut_->keySequence().toString(QKeySequence::PortableText));
-    emit preferencesChanged();
-}
-
-void SettingsWorkspace::chooseBackupDirectory() {
-    const QString path = QFileDialog::getExistingDirectory(this, tr("Carpeta de copias de seguridad"), backupDirectory_->text());
-    if (path.isEmpty()) return;
-    backupDirectory_->setText(path);
-    QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter")); settings.setValue(QStringLiteral("backupDirectory"), path);
-    emit preferencesChanged();
-}
-
-void SettingsWorkspace::refreshCloudState() {
-    if (!drive_ || !cloudStatus_) return;
-    const bool configured = drive_->isConfigured(); const bool connected = drive_->isConnected();
-    cloudStatus_->setText(connected ? tr("Conectado a Google Drive.") : configured ? tr("Credenciales configuradas. Falta autorizar la cuenta.") : tr("Google Drive no está configurado."));
-    if (connectDrive_) connectDrive_->setEnabled(configured && !connected);
-    if (disconnectDrive_) disconnectDrive_->setEnabled(connected);
-    if (connected) drive_->listBackups();
-}
-
-void SettingsWorkspace::populateCloudBackups(const QJsonArray& files) {
-    if (!cloudBackups_) return;
-    cloudBackups_->clear();
-    for (const QJsonValue& value : files) {
-        const QJsonObject file = value.toObject();
-        const QString name = file.value(QStringLiteral("name")).toString(tr("Copia WBW"));
-        const QString modified = file.value(QStringLiteral("modifiedTime")).toString();
-        auto* item = new QListWidgetItem(modified.isEmpty() ? name : QStringLiteral("%1  ·  %2").arg(name, modified));
-        item->setData(Qt::UserRole, file.value(QStringLiteral("id")).toString());
-        cloudBackups_->addItem(item);
-    }
-    if (files.isEmpty()) cloudBackups_->addItem(tr("No hay respaldos WBW en esta cuenta."));
-}
+QWidget* SettingsWorkspace::makePage(const QString& title,const QString& description){auto* page=new QWidget; page->setObjectName(QStringLiteral("settingsWorkspacePage")); auto* layout=new QVBoxLayout(page); layout->setContentsMargins(0,0,0,0); layout->setSpacing(12); if(!title.isEmpty()){layout->addWidget(headingLabel(title,QStringLiteral("settingsPageTitle"))); layout->addWidget(headingLabel(description,QStringLiteral("settingsPageCopy")));} return page;}
+QWidget* SettingsWorkspace::makeCard(const QString& title,const QString& description,QLayout* body){auto* card=new QFrame; card->setObjectName(QStringLiteral("settingsCard")); auto* layout=new QVBoxLayout(card); layout->setContentsMargins(16,14,16,16); layout->setSpacing(9); layout->addWidget(headingLabel(title,QStringLiteral("settingsCardTitle"))); layout->addWidget(headingLabel(description,QStringLiteral("settingsCardCopy"))); if(body) layout->addLayout(body); return card;}
+void SettingsWorkspace::persistEditor(){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); if(editorFont_)s.setValue(QStringLiteral("editor/fontFamily"),editorFont_->currentText()); if(editorFontSize_)s.setValue(QStringLiteral("editor/fontSize"),editorFontSize_->value()); if(autosaveSeconds_)s.setValue(QStringLiteral("editor/autosaveSeconds"),autosaveSeconds_->value()); if(proofLanguage_)s.setValue(QStringLiteral("proof/language"),proofLanguage_->currentData().toString()); emit preferencesChanged();}
+void SettingsWorkspace::persistShortcuts(){QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); if(focusShortcut_)s.setValue(QStringLiteral("shortcut/focus"),focusShortcut_->keySequence().toString(QKeySequence::PortableText)); if(proofShortcut_)s.setValue(QStringLiteral("shortcut/proofread"),proofShortcut_->keySequence().toString(QKeySequence::PortableText)); emit preferencesChanged();}
+void SettingsWorkspace::chooseBackupDirectory(){const QString path=QFileDialog::getExistingDirectory(this,tr("Carpeta de copias de seguridad"),backupDirectory_?backupDirectory_->text():QString()); if(path.isEmpty())return; if(backupDirectory_)backupDirectory_->setText(path); QSettings s(QStringLiteral("WorldbuilderWriter"),QStringLiteral("WorldbuilderWriter")); s.setValue(QStringLiteral("backupDirectory"),path); emit preferencesChanged();}
+void SettingsWorkspace::refreshCloudState(){if(!drive_||!cloudStatus_)return; const bool connected=drive_->isConnected(); cloudStatus_->setText(connected?tr("Conectado a Google Drive"):tr("No conectado")); if(connectDrive_)connectDrive_->setEnabled(!connected); if(disconnectDrive_)disconnectDrive_->setEnabled(connected); if(connected)drive_->listBackups();}
+void SettingsWorkspace::populateCloudBackups(const QJsonArray& files){if(!cloudBackups_)return; cloudBackups_->clear(); for(const QJsonValue value:files){const QJsonObject file=value.toObject(); const QString name=file.value(QStringLiteral("name")).toString(tr("Copia WBW")); const QString modified=file.value(QStringLiteral("modifiedTime")).toString(); cloudBackups_->addItem(modified.isEmpty()?name:QStringLiteral("%1\n%2").arg(name,modified));} if(cloudBackups_->count()==0)cloudBackups_->addItem(tr("No hay respaldos en Drive."));}
 
 } // namespace wbw
