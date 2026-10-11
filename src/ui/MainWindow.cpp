@@ -39,6 +39,7 @@
 #include <QTextCharFormat>
 #include <QTextCursor>
 #include <QTextDocument>
+#include <QTextEdit>
 #include <QTextFormat>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -108,6 +109,25 @@ int savedAutosaveIntervalMs() {
     return qBound(5, settings.value(QStringLiteral("editor/autosaveSeconds"), 15).toInt(), 300) * 1000;
 }
 
+QWidget* navigationCell(const QString& glyph, const QString& text, QWidget* parent) {
+    auto* cell = new QWidget(parent);
+    cell->setObjectName(QStringLiteral("navigationCell"));
+    cell->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    auto* box = new QVBoxLayout(cell);
+    box->setContentsMargins(2, 7, 2, 6);
+    box->setSpacing(3);
+    auto* icon = new QLabel(glyph, cell);
+    icon->setObjectName(QStringLiteral("navigationGlyph"));
+    icon->setAlignment(Qt::AlignCenter);
+    auto* label = new QLabel(text, cell);
+    label->setObjectName(QStringLiteral("navigationLabel"));
+    label->setAlignment(Qt::AlignCenter);
+    label->setWordWrap(true);
+    box->addWidget(icon);
+    box->addWidget(label);
+    return cell;
+}
+
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -141,24 +161,22 @@ void MainWindow::createShell() {
 
     auto* rail = new QWidget;
     rail->setObjectName(QStringLiteral("sideRail"));
-    rail->setFixedWidth(124);
+    rail->setFixedWidth(104);
     auto* railLayout = new QVBoxLayout(rail);
-    railLayout->setContentsMargins(8, 12, 8, 10);
-    railLayout->setSpacing(7);
+    railLayout->setContentsMargins(8, 10, 8, 10);
+    railLayout->setSpacing(4);
 
     auto* brand = new QWidget;
     brand->setObjectName(QStringLiteral("appIdentity"));
     brand->setFixedHeight(58);
-    auto* brandLayout = new QHBoxLayout(brand);
+    auto* brandLayout = new QVBoxLayout(brand);
     brandLayout->setContentsMargins(0, 2, 0, 8);
     brandLayout->setSpacing(0);
-    auto* mark = new QLabel(QStringLiteral("WW"));
+    auto* mark = new QLabel(QStringLiteral("W"));
     mark->setObjectName(QStringLiteral("appMark"));
     mark->setAlignment(Qt::AlignCenter);
     mark->setFixedSize(42, 42);
-    brandLayout->addStretch();
-    brandLayout->addWidget(mark);
-    brandLayout->addStretch();
+    brandLayout->addWidget(mark, 0, Qt::AlignHCenter);
     railLayout->addWidget(brand);
 
     navigation_ = new QListWidget;
@@ -166,18 +184,17 @@ void MainWindow::createShell() {
     navigation_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     navigation_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     navigation_->setSpacing(2);
-    navigation_->addItems({
-        tr("Biblioteca"),
-        tr("Escritura"),
-        tr("Tablero de escenas"),
-        tr("Atlas / documentación"),
-        tr("Mapas"),
-        tr("Revisión"),
-        tr("Configuración / salida")
-    });
-    for (int i = 0; i < navigation_->count(); ++i) {
-        navigation_->item(i)->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-        navigation_->item(i)->setSizeHint(QSize(108, 62));
+    const QStringList labels{
+        tr("Biblioteca"), tr("Escritura"), tr("Tablero de escenas"), tr("Atlas / documentación"),
+        tr("Mapas"), tr("Revisión"), tr("Configuración / salida")
+    };
+    const QStringList glyphs{QStringLiteral("▥"), QStringLiteral("▤"), QStringLiteral("▦"), QStringLiteral("◎"), QStringLiteral("⌘"), QStringLiteral("▥"), QStringLiteral("⚙")};
+    for (int i = 0; i < labels.size(); ++i) {
+        auto* item = new QListWidgetItem(labels.at(i), navigation_);
+        item->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+        item->setSizeHint(QSize(88, i == 6 ? 72 : 66));
+        item->setToolTip(labels.at(i));
+        navigation_->setItemWidget(item, navigationCell(glyphs.at(i), labels.at(i), navigation_));
     }
     navigation_->setCurrentRow(0);
     railLayout->addWidget(navigation_, 1);
@@ -191,14 +208,14 @@ void MainWindow::createShell() {
 
     auto* top = new QWidget;
     top->setObjectName(QStringLiteral("topShell"));
-    top->setFixedHeight(54);
+    top->setFixedHeight(62);
     auto* topLayout = new QHBoxLayout(top);
-    topLayout->setContentsMargins(18, 0, 18, 0);
-    topLayout->setSpacing(10);
+    topLayout->setContentsMargins(22, 0, 20, 0);
+    topLayout->setSpacing(14);
 
     auto* projectInfo = new QVBoxLayout;
     projectInfo->setContentsMargins(0, 0, 0, 0);
-    projectInfo->setSpacing(0);
+    projectInfo->setSpacing(1);
     projectTitle_ = new QLabel(tr("Biblioteca"));
     projectTitle_->setObjectName(QStringLiteral("projectTitle"));
     saveState_ = new QLabel(tr("Tus historias"));
@@ -206,6 +223,15 @@ void MainWindow::createShell() {
     projectInfo->addWidget(projectTitle_);
     projectInfo->addWidget(saveState_);
     topLayout->addLayout(projectInfo);
+    topLayout->addStretch(1);
+
+    auto* globalSearch = new QLineEdit(top);
+    globalSearch->setObjectName(QStringLiteral("globalSearch"));
+    globalSearch->setPlaceholderText(tr("Buscar en el proyecto…   Ctrl K"));
+    globalSearch->setClearButtonEnabled(true);
+    globalSearch->setMaximumWidth(440);
+    globalSearch->setMinimumWidth(320);
+    topLayout->addWidget(globalSearch);
     topLayout->addStretch(1);
 
     auto* focus = makeButton(tr("Enfoque"));
@@ -254,14 +280,21 @@ void MainWindow::createShell() {
 #appRoot,#workspaceShell,#contentShell{background:#0b0f14;}
 #sideRail{background:#090d12;border-right:1px solid #202934;}
 #appIdentity{background:transparent;border:0;}
-#appMark{background:#142235;color:#9fd1ff;border:1px solid #315a7e;border-radius:8px;font-family:'Georgia';font-size:11pt;font-weight:700;}
-#sideNavigation{background:transparent;border:0;outline:0;color:#8d99a6;font-size:8pt;}
-#sideNavigation::item{border:0;border-left:2px solid transparent;border-radius:7px;padding:6px 4px;margin:1px 0;}
-#sideNavigation::item:hover{background:#121a23;color:#dbe5ee;}
-#sideNavigation::item:selected{background:#16283b;color:#8ecbff;border-left:2px solid #3f9ef6;}
+#appMark{background:#111b27;color:#a9d3ff;border:1px solid #315a7e;border-radius:9px;font-family:'Georgia';font-size:14pt;font-weight:700;}
+#sideNavigation{background:transparent;border:0;outline:0;color:#8d99a6;}
+#sideNavigation::item{border:0;border-left:2px solid transparent;border-radius:8px;padding:0;margin:1px 0;}
+#sideNavigation::item:hover{background:#121a23;}
+#sideNavigation::item:selected{background:#16283b;border-left:2px solid #3f9ef6;}
+#navigationCell{background:transparent;border:0;}
+#navigationGlyph{color:#9aa8b7;font-size:16pt;font-weight:500;}
+#navigationLabel{color:#8d99a6;font-size:7.5pt;}
+#sideNavigation::item:selected #navigationGlyph{color:#79bfff;}
+#sideNavigation::item:selected #navigationLabel{color:#d9ebfb;}
 #topShell{background:#0c1117;border-bottom:1px solid #202a34;}
-#projectTitle{color:#f0ece4;font-family:'Georgia';font-size:11pt;font-weight:600;}
+#projectTitle{color:#f0ece4;font-family:'Georgia';font-size:12pt;font-weight:600;}
 #saveState{color:#78838e;font-size:8pt;}
+#globalSearch{background:#0a1016;color:#cbd4dc;border:1px solid #273440;border-radius:8px;padding:8px 11px;}
+#globalSearch:focus{border-color:#3c6f9a;background:#0d151d;}
 #primarySave{background:#2d7fc8;color:#f8fbff;border:0;border-radius:7px;padding:8px 14px;font-weight:700;}
 #primarySave:hover{background:#388fd9;}
 #secondaryAction{background:#111820;color:#c8d0d8;border:1px solid #34414d;border-radius:7px;padding:7px 12px;}
@@ -270,6 +303,7 @@ void MainWindow::createShell() {
 
     connect(navigation_, &QListWidget::currentRowChanged, this, &MainWindow::routeProductModule);
     connect(quickSave, &QPushButton::clicked, this, [this]() { saveProject(); });
+
     auto* saveShortcut = new QShortcut(QKeySequence::Save, this);
     saveShortcut->setObjectName(QStringLiteral("wbwSaveShortcut"));
     saveShortcut->setContext(Qt::WindowShortcut);
@@ -277,6 +311,33 @@ void MainWindow::createShell() {
     connect(saveShortcut, &QShortcut::activated, this, [this]() {
         if (!document_.sourcePath().isEmpty()) saveProject();
     });
+
+    auto* searchShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+K")), this);
+    searchShortcut->setObjectName(QStringLiteral("wbwGlobalSearchShortcut"));
+    searchShortcut->setContext(Qt::WindowShortcut);
+    connect(searchShortcut, &QShortcut::activated, globalSearch, [globalSearch]() {
+        globalSearch->setFocus(Qt::ShortcutFocusReason);
+        globalSearch->selectAll();
+    });
+    connect(globalSearch, &QLineEdit::returnPressed, this, [this, globalSearch]() {
+        const QString query = globalSearch->text().trimmed();
+        if (query.isEmpty()) return;
+        if (navigation_->currentRow() == 1 || navigation_->currentRow() == 2) {
+            if (auto* sceneSearch = writingPage_->findChild<QLineEdit*>(QStringLiteral("writingSceneSearch"))) {
+                sceneSearch->setText(query);
+                sceneSearch->setFocus();
+            } else if (auto* editor = writingPage_->findChild<QTextEdit*>(QStringLiteral("sceneEditor"))) {
+                editor->find(query);
+                editor->setFocus();
+            }
+        } else if (navigation_->currentRow() == 3) {
+            if (auto* atlasSearch = worldPage_->findChild<QLineEdit*>(QStringLiteral("atlasSearch"))) {
+                atlasSearch->setText(query);
+                atlasSearch->setFocus();
+            }
+        }
+    });
+
     connect(focus, &QPushButton::clicked, writingPage_, &WritingPage::openFocusMode);
     connect(hubPage_, &ProjectHubPage::newProjectRequested, this, &MainWindow::newProject);
     connect(hubPage_, &ProjectHubPage::importProjectRequested, this, &MainWindow::importWbw);
