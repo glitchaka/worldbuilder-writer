@@ -1,4 +1,5 @@
 #include "ui/MapWorkflowController.h"
+#include "ui/PilinReyEditor.h"
 
 #include <QEvent>
 #include <QFrame>
@@ -29,14 +30,12 @@ QToolButton* makeWorkflowButton(QWidget* parent, const QString& text, const QStr
     button->setCheckable(true);
     button->setAutoExclusive(true);
     button->setCursor(Qt::PointingHandCursor);
-    button->setMinimumHeight(30);
+    button->setMinimumHeight(32);
     if (target) {
         QObject::connect(button, &QToolButton::clicked, target, &QToolButton::click);
         QObject::connect(target, &QToolButton::toggled, button, &QToolButton::setChecked);
         button->setChecked(target->isChecked());
-    } else {
-        button->setEnabled(false);
-    }
+    } else button->setEnabled(false);
     return button;
 }
 
@@ -46,15 +45,14 @@ public:
 
     bool eventFilter(QObject* watched, QEvent* event) override {
         Q_UNUSED(watched);
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)
-            schedule();
+        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest) schedule();
         return QObject::eventFilter(watched, event);
     }
 
     void apply() {
         pending_ = false;
         if (!window_) return;
-        QWidget* editor = window_->findChild<QWidget*>(QStringLiteral("pilinReyEditor"));
+        auto* editor = window_->findChild<PilinReyEditor*>(QStringLiteral("pilinReyEditor"));
         QWidget* canvas = editor ? editor->findChild<QWidget*>(QStringLiteral("pilinCanvasHost")) : nullptr;
         if (!editor || !canvas) return;
 
@@ -63,13 +61,18 @@ public:
             strip = new QFrame(canvas);
             strip->setObjectName(QStringLiteral("mapWorkflowStrip"));
             auto* row = new QHBoxLayout(strip);
-            row->setContentsMargins(10, 8, 10, 8);
-            row->setSpacing(5);
+            row->setContentsMargins(10, 7, 10, 7);
+            row->setSpacing(4);
 
-            auto* label = new QLabel(QObject::tr("FLUJO CARTOGRÁFICO"), strip);
-            label->setObjectName(QStringLiteral("mapWorkflowLabel"));
-            row->addWidget(label);
-            row->addSpacing(4);
+            auto* generate = new QToolButton(strip);
+            generate->setObjectName(QStringLiteral("mapGenerateWorld"));
+            generate->setText(QObject::tr("✦ Generar mundo"));
+            generate->setToolTip(QObject::tr("Crear heightmap, costas y red fluvial editables"));
+            generate->setCursor(Qt::PointingHandCursor);
+            generate->setMinimumHeight(32);
+            QObject::connect(generate, &QToolButton::clicked, editor, &PilinReyEditor::generateProceduralWorld);
+            row->addWidget(generate);
+            row->addSpacing(6);
 
             row->addWidget(makeWorkflowButton(strip, QObject::tr("Terreno"), QObject::tr("Dibujar tierra y costa"), findMapTool(editor, QObject::tr("Pintar tierra"))));
             row->addWidget(makeWorkflowButton(strip, QObject::tr("Agua"), QObject::tr("Recortar costa / volver a mar"), findMapTool(editor, QObject::tr("Recortar tierra"))));
@@ -83,11 +86,12 @@ public:
             row->addStretch(1);
 
             strip->setStyleSheet(QStringLiteral(R"QSS(
-#mapWorkflowStrip{background:rgba(16,17,17,244);border:1px solid #3a372f;border-radius:10px;}
-#mapWorkflowLabel{color:#a78e6f;font-size:7pt;font-weight:700;letter-spacing:1.1px;padding:0 4px;}
-#mapWorkflowButton{background:transparent;color:#bfb9ae;border:1px solid transparent;border-radius:7px;padding:5px 9px;}
-#mapWorkflowButton:hover{background:#24221d;color:#fff8eb;}
-#mapWorkflowButton:checked{background:#3a2f23;color:#edc68d;border-color:#76573a;font-weight:700;}
+#mapWorkflowStrip{background:rgba(11,15,20,246);border:1px solid #2d3945;border-radius:10px;}
+#mapGenerateWorld{background:#245f96;color:#f6fbff;border:1px solid #397fba;border-radius:7px;padding:6px 11px;font-weight:700;}
+#mapGenerateWorld:hover{background:#2f78b8;}
+#mapWorkflowButton{background:transparent;color:#aeb9c4;border:1px solid transparent;border-radius:7px;padding:5px 9px;}
+#mapWorkflowButton:hover{background:#17212b;color:#f7fbff;}
+#mapWorkflowButton:checked{background:#162b40;color:#8fd0ff;border-color:#315e83;font-weight:700;}
 )QSS"));
         }
 
@@ -107,7 +111,6 @@ private:
         pending_ = true;
         QTimer::singleShot(0, this, [this]() { apply(); });
     }
-
     QPointer<QMainWindow> window_;
     bool pending_ = false;
 };
@@ -115,8 +118,8 @@ private:
 } // namespace
 
 void installMapWorkflowController(QMainWindow* window) {
-    if (!window || window->property("wbwMapWorkflowControllerV1").toBool()) return;
-    window->setProperty("wbwMapWorkflowControllerV1", true);
+    if (!window || window->property("wbwMapWorkflowControllerV2").toBool()) return;
+    window->setProperty("wbwMapWorkflowControllerV2", true);
     auto* filter = new MapWorkflowFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
