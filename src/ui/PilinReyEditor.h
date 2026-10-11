@@ -50,6 +50,7 @@ public:
     void setMap(const QJsonObject& map);
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
+    void applyBakedTerrainMap(const QJsonObject& map);
     void selectObjectIds(const QStringList& ids);
     void nudgeSelection(double dx, double dy);
     void transformSelectedPathGeometry(double scaleFactor, double rotationDegrees);
