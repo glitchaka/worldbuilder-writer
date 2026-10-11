@@ -5,6 +5,9 @@
 #include <QEvent>
 #include <QFont>
 #include <QFrame>
+#include <QGraphicsItem>
+#include <QGraphicsRectItem>
+#include <QGraphicsSimpleTextItem>
 #include <QGraphicsView>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -13,6 +16,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QTabBar>
 #include <QTabWidget>
@@ -91,8 +95,7 @@ void buildMetadata(QWidget* metadata) {
     auto* sceneHeader = new QWidget(metadata);
     auto* sceneHeaderLayout = new QHBoxLayout(sceneHeader);
     sceneHeaderLayout->setContentsMargins(0, 0, 0, 0);
-    auto* dot = makeLabel(QStringLiteral("●"), QStringLiteral("writingSceneDot"), sceneHeader);
-    sceneHeaderLayout->addWidget(dot);
+    sceneHeaderLayout->addWidget(makeLabel(QStringLiteral("●"), QStringLiteral("writingSceneDot"), sceneHeader));
     sceneHeaderLayout->addWidget(makeLabel(QObject::tr("Escena actual"), QStringLiteral("writingSceneHeader"), sceneHeader));
     sceneHeaderLayout->addStretch(1);
     layout->addWidget(sceneHeader);
@@ -150,8 +153,8 @@ void buildIndexHeader(QWidget* index) {
     auto* projectLayout = new QVBoxLayout(project);
     projectLayout->setContentsMargins(6, 8, 6, 10);
     projectLayout->setSpacing(3);
-    projectLayout->addWidget(makeLabel(QObject::tr("LA CAÍDA DEL IDILIO"), QStringLiteral("writingProjectName"), project));
-    projectLayout->addWidget(makeLabel(QObject::tr("Manuscrito"), QStringLiteral("writingProjectSection"), project));
+    projectLayout->addWidget(makeLabel(QObject::tr("MANUSCRITO"), QStringLiteral("writingProjectName"), project));
+    projectLayout->addWidget(makeLabel(QObject::tr("Capítulos y escenas"), QStringLiteral("writingProjectSection"), project));
     layout->insertWidget(0, project);
 
     auto* search = new QLineEdit(index);
@@ -194,7 +197,6 @@ void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
     auto* stageLayout = new QVBoxLayout(stage);
     stageLayout->setContentsMargins(0, 0, 0, 0);
     stageLayout->setSpacing(0);
-
     auto* header = new QFrame(stage);
     header->setObjectName(QStringLiteral("writingDocumentHeader"));
     auto* headerLayout = new QVBoxLayout(header);
@@ -204,9 +206,9 @@ void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
     auto* breadcrumb = new QHBoxLayout;
     breadcrumb->setSpacing(8);
     breadcrumb->addWidget(makeLabel(QStringLiteral("⌂"), QStringLiteral("writingBreadcrumbIcon"), header));
-    breadcrumb->addWidget(makeLabel(QObject::tr("Acto 1"), QStringLiteral("writingBreadcrumb"), header));
+    breadcrumb->addWidget(makeLabel(QObject::tr("Manuscrito"), QStringLiteral("writingBreadcrumb"), header));
     breadcrumb->addWidget(makeLabel(QStringLiteral("›"), QStringLiteral("writingBreadcrumbDim"), header));
-    breadcrumb->addWidget(makeLabel(QObject::tr("1 - Sangre"), QStringLiteral("writingBreadcrumb"), header));
+    breadcrumb->addWidget(makeLabel(QObject::tr("Escena actual"), QStringLiteral("writingBreadcrumb"), header));
     breadcrumb->addStretch(1);
     breadcrumb->addWidget(makeLabel(QObject::tr("Guardado automáticamente"), QStringLiteral("writingSavedState"), header));
     headerLayout->addLayout(breadcrumb);
@@ -232,17 +234,102 @@ void buildDocumentStage(QWidget* editorPanel, QTextEdit* editor) {
     editorPanel->setProperty("wbwEditorialStageV2", true);
 }
 
+void populateSceneBoardFacets(QWidget* board) {
+    if (!board) return;
+    auto* outlinePanel = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"));
+    auto* view = board->findChild<QGraphicsView*>(QStringLiteral("sceneBoardCanvas"));
+    auto* sourceSearch = board->findChild<QLineEdit*>(QStringLiteral("sceneBoardSearch"));
+    auto* sourceStatus = board->findChild<QComboBox*>(QStringLiteral("sceneBoardStatus"));
+    if (!outlinePanel || !view || !sourceSearch || !sourceStatus) return;
+
+    auto* layout = qobject_cast<QVBoxLayout*>(outlinePanel->layout());
+    if (!layout) return;
+
+    QWidget* filters = outlinePanel->findChild<QWidget*>(QStringLiteral("sceneBoardFilters"), Qt::FindDirectChildrenOnly);
+    QComboBox* pov = nullptr;
+    QComboBox* location = nullptr;
+    if (!filters) {
+        filters = new QFrame(outlinePanel);
+        filters->setObjectName(QStringLiteral("sceneBoardFilters"));
+        auto* box = new QVBoxLayout(filters);
+        box->setContentsMargins(8, 8, 8, 10);
+        box->setSpacing(8);
+        box->addWidget(makeLabel(QObject::tr("FILTROS"), QStringLiteral("sceneBoardFilterKicker"), filters));
+
+        if (QLayout* old = sourceSearch->parentWidget() ? sourceSearch->parentWidget()->layout() : nullptr) old->removeWidget(sourceSearch);
+        sourceSearch->setParent(filters);
+        sourceSearch->setPlaceholderText(QObject::tr("Buscar escenas…"));
+        box->addWidget(sourceSearch);
+
+        auto addFilter = [box, filters](const QString& label, QComboBox* combo) {
+            box->addWidget(makeLabel(label, QStringLiteral("sceneBoardFilterLabel"), filters));
+            combo->setParent(filters);
+            combo->setMinimumHeight(34);
+            box->addWidget(combo);
+        };
+        if (QLayout* old = sourceStatus->parentWidget() ? sourceStatus->parentWidget()->layout() : nullptr) old->removeWidget(sourceStatus);
+        addFilter(QObject::tr("ESTADO"), sourceStatus);
+
+        pov = new QComboBox(filters);
+        pov->setObjectName(QStringLiteral("sceneBoardPovFilter"));
+        pov->addItem(QObject::tr("Todos los POV"));
+        addFilter(QObject::tr("PUNTO DE VISTA"), pov);
+
+        location = new QComboBox(filters);
+        location->setObjectName(QStringLiteral("sceneBoardLocationFilter"));
+        location->addItem(QObject::tr("Todas las ubicaciones"));
+        addFilter(QObject::tr("UBICACIÓN"), location);
+
+        layout->insertWidget(0, filters);
+        QObject::connect(pov, &QComboBox::currentTextChanged, sourceSearch, [sourceSearch, location](const QString& text) {
+            if (text == QObject::tr("Todos los POV")) { if (location->currentIndex() == 0) sourceSearch->clear(); return; }
+            { QSignalBlocker blocker(location); location->setCurrentIndex(0); }
+            sourceSearch->setText(text);
+        });
+        QObject::connect(location, &QComboBox::currentTextChanged, sourceSearch, [sourceSearch, pov](const QString& text) {
+            if (text == QObject::tr("Todas las ubicaciones")) { if (pov->currentIndex() == 0) sourceSearch->clear(); return; }
+            { QSignalBlocker blocker(pov); pov->setCurrentIndex(0); }
+            sourceSearch->setText(text);
+        });
+    } else {
+        pov = filters->findChild<QComboBox*>(QStringLiteral("sceneBoardPovFilter"));
+        location = filters->findChild<QComboBox*>(QStringLiteral("sceneBoardLocationFilter"));
+    }
+
+    if (!pov || !location || !view->scene()) return;
+    QStringList povs, locations;
+    for (QGraphicsItem* item : view->scene()->items()) {
+        if (item->data(0).toString() != QStringLiteral("scene-card")) continue;
+        for (QGraphicsItem* child : item->childItems()) {
+            auto* text = dynamic_cast<QGraphicsSimpleTextItem*>(child);
+            if (!text) continue;
+            const QString value = text->text().trimmed();
+            if (!value.startsWith(QStringLiteral("POV:"), Qt::CaseInsensitive)) continue;
+            const QString meta = value.mid(4).trimmed();
+            const QStringList parts = meta.split(QStringLiteral(" · "), Qt::SkipEmptyParts);
+            if (!parts.isEmpty() && !povs.contains(parts.at(0), Qt::CaseInsensitive)) povs.append(parts.at(0));
+            if (parts.size() > 1 && !locations.contains(parts.at(1), Qt::CaseInsensitive)) locations.append(parts.at(1));
+        }
+    }
+    povs.sort(Qt::CaseInsensitive);
+    locations.sort(Qt::CaseInsensitive);
+    const QString currentPov = pov->currentText(), currentLocation = location->currentText();
+    { QSignalBlocker blocker(pov); pov->clear(); pov->addItem(QObject::tr("Todos los POV")); pov->addItems(povs); const int i=pov->findText(currentPov); if(i>=0)pov->setCurrentIndex(i); }
+    { QSignalBlocker blocker(location); location->clear(); location->addItem(QObject::tr("Todas las ubicaciones")); location->addItems(locations); const int i=location->findText(currentLocation); if(i>=0)location->setCurrentIndex(i); }
+}
+
 class WritingWorkspaceFilter final : public QObject {
 public:
     explicit WritingWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
 
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize))
-            QTimer::singleShot(0, this, [this]() { apply(); });
+        if (watched == window_ && (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest))
+            schedule();
         return QObject::eventFilter(watched, event);
     }
 
     void apply() {
+        pending_ = false;
         if (!window_) return;
         QWidget* page = window_->findChild<QWidget*>(QStringLiteral("writingPage"));
         if (!page) return;
@@ -280,9 +367,10 @@ public:
             editor->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         }
         if (QWidget* board = page->findChild<QWidget*>(QStringLiteral("sceneBoardTab"))) {
-            if (QWidget* toolbar = board->findChild<QWidget*>(QStringLiteral("sceneBoardToolbar"))) { toolbar->setMinimumHeight(66); toolbar->setMaximumHeight(72); }
-            if (QWidget* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) { outline->setMinimumWidth(250); outline->setMaximumWidth(310); }
+            if (QWidget* toolbar = board->findChild<QWidget*>(QStringLiteral("sceneBoardToolbar"))) { toolbar->setMinimumHeight(72); toolbar->setMaximumHeight(78); }
+            if (QWidget* outline = board->findChild<QWidget*>(QStringLiteral("sceneBoardOutlinePanel"))) { outline->setMinimumWidth(272); outline->setMaximumWidth(318); }
             if (auto* view = board->findChild<QGraphicsView*>(QStringLiteral("sceneBoardCanvas"))) view->setFrameShape(QFrame::NoFrame);
+            populateSceneBoardFacets(board);
         }
 
         page->setStyleSheet(QStringLiteral(R"QSS(
@@ -330,19 +418,33 @@ public:
 #sceneBoardOutlinePanel{background:#0c1219;border:0;border-right:1px solid #25303b;}
 #sceneBoardHeading{color:#eef2f4;font-family:'Georgia';font-size:18pt;font-weight:600;}
 #sceneBoardCanvas{background:#0a0f15;border:0;}
+#sceneBoardFilters{background:#101720;border:1px solid #27333f;border-radius:9px;margin:4px 0 8px 0;}
+#sceneBoardFilterKicker{color:#7f8c99;font-size:7.5pt;font-weight:700;letter-spacing:1px;}
+#sceneBoardFilterLabel{color:#8d98a3;font-size:7.5pt;font-weight:700;letter-spacing:.5px;}
+#sceneBoardFilters QLineEdit,#sceneBoardFilters QComboBox{background:#0c131a;color:#d9e2e9;border:1px solid #2b3945;border-radius:6px;padding:7px 8px;}
+#sceneBoardFilters QLineEdit:focus,#sceneBoardFilters QComboBox:focus{border-color:#3d7fae;}
+#sceneBoardOutline{background:transparent;color:#bfc9d2;border:0;outline:0;}
+#sceneBoardOutline::item{padding:6px;border-radius:5px;}
+#sceneBoardOutline::item:selected{background:#172b3d;color:#90cfff;}
 QSplitter::handle{background:#25303b;}
 )QSS"));
     }
 
 private:
+    void schedule() {
+        if (pending_) return;
+        pending_ = true;
+        QTimer::singleShot(0, this, [this]() { apply(); });
+    }
     QPointer<QMainWindow> window_;
+    bool pending_ = false;
 };
 
 } // namespace
 
 void installWritingMockupController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingMockupControllerV4").toBool()) return;
-    window->setProperty("wbwWritingMockupControllerV4", true);
+    if (!window || window->property("wbwWritingMockupControllerV5").toBool()) return;
+    window->setProperty("wbwWritingMockupControllerV5", true);
     auto* filter = new WritingWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
