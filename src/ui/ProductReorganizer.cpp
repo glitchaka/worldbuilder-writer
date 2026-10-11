@@ -1,19 +1,33 @@
 #include "ui/ProductReorganizer.h"
 
+#include <QLabel>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QObject>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QVBoxLayout>
 #include <QWidget>
 
 namespace wbw {
 
+namespace {
+
+void rebuildNavigationItem(QListWidget* navigation, int row, const QString& symbol, const QString& label) {
+    if (!navigation || row < 0 || row >= navigation->count()) return;
+    auto* item = navigation->item(row);
+    item->setText(symbol + QStringLiteral("\n") + label);
+    item->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    item->setSizeHint(QSize(108, 72));
+}
+
+} // namespace
+
 void applyProductReorganization(QMainWindow* window) {
-    if (!window || window->property("wbwProductReorganizedV4").toBool()) return;
-    window->setProperty("wbwProductReorganizedV4", true);
-    window->setMinimumSize(960, 640);
+    if (!window || window->property("wbwProductReorganizedV5").toBool()) return;
+    window->setProperty("wbwProductReorganizedV5", true);
+    window->setMinimumSize(1040, 680);
 
     auto* navigation = window->findChild<QListWidget*>(QStringLiteral("sideNavigation"));
     auto* pages = window->findChild<QStackedWidget*>(QStringLiteral("pageStack"));
@@ -28,8 +42,6 @@ void applyProductReorganization(QMainWindow* window) {
 
     if (!navigation || !pages || !hub || !writing || !world || !review || !worldTabs) return;
 
-    // MainWindow's original five-page route is intentionally detached before the product
-    // tree is reorganized. NavigationConsistencyController becomes the only route owner.
     QObject::disconnect(navigation, &QListWidget::currentRowChanged, nullptr, nullptr);
 
     if (planning && planning->parentWidget() == pages) {
@@ -58,16 +70,49 @@ void applyProductReorganization(QMainWindow* window) {
     navigation->addItems({
         QObject::tr("Biblioteca"),
         QObject::tr("Escritura"),
-        QObject::tr("Tablero de escenas"),
-        QObject::tr("Atlas / documentación"),
+        QObject::tr("Tablero"),
+        QObject::tr("Atlas"),
         QObject::tr("Mapas"),
         QObject::tr("Revisión")
     });
-    for (int i = 0; i < navigation->count(); ++i) {
-        navigation->item(i)->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-        navigation->item(i)->setSizeHint(QSize(176, 43));
-    }
+    navigation->setWordWrap(true);
+    navigation->setSpacing(2);
+    navigation->setIconSize(QSize(20, 20));
+    navigation->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    navigation->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    rebuildNavigationItem(navigation, 0, QStringLiteral("▥"), QObject::tr("Biblioteca"));
+    rebuildNavigationItem(navigation, 1, QStringLiteral("▤"), QObject::tr("Escritura"));
+    rebuildNavigationItem(navigation, 2, QStringLiteral("▦"), QObject::tr("Tablero"));
+    rebuildNavigationItem(navigation, 3, QStringLiteral("◎"), QObject::tr("Atlas"));
+    rebuildNavigationItem(navigation, 4, QStringLiteral("▧"), QObject::tr("Mapas"));
+    rebuildNavigationItem(navigation, 5, QStringLiteral("▥"), QObject::tr("Revisión"));
     navigation->setCurrentRow(0);
+
+    if (QWidget* rail = window->findChild<QWidget*>(QStringLiteral("sideRail"))) {
+        rail->setFixedWidth(124);
+        if (auto* layout = qobject_cast<QVBoxLayout*>(rail->layout())) {
+            layout->setContentsMargins(8, 12, 8, 10);
+            layout->setSpacing(7);
+        }
+    }
+    if (QWidget* identity = window->findChild<QWidget*>(QStringLiteral("appIdentity"))) {
+        identity->setMinimumHeight(60);
+        identity->setMaximumHeight(60);
+    }
+    if (QLabel* name = window->findChild<QLabel*>(QStringLiteral("appName"))) name->hide();
+    if (QLabel* mode = window->findChild<QLabel*>(QStringLiteral("appMode"))) mode->hide();
+    if (QLabel* mark = window->findChild<QLabel*>(QStringLiteral("appMark"))) {
+        mark->setFixedSize(42, 42);
+        mark->setText(QStringLiteral("WW"));
+    }
+
+    navigation->setStyleSheet(QStringLiteral(R"QSS(
+QListWidget#sideNavigation{background:transparent;border:0;outline:0;color:#8e9aa7;font-size:8pt;}
+QListWidget#sideNavigation::item{border:0;border-radius:7px;padding:6px 3px;margin:1px 0;}
+QListWidget#sideNavigation::item:hover{background:#111a24;color:#d7e2eb;}
+QListWidget#sideNavigation::item:selected{background:#14263a;color:#8dcbff;border-left:2px solid #3d9df4;}
+)QSS"));
 
     const int mapIndex = mapsTab ? worldTabs->indexOf(mapsTab) : -1;
     for (int i = 0; i < worldTabs->count(); ++i) worldTabs->setTabVisible(i, i != mapIndex);
