@@ -1,0 +1,285 @@
+diff --git a/app/archive-client.tsx b/app/archive-client.tsx
+index be2480e..38b1d37 100644
+--- a/app/archive-client.tsx
++++ b/app/archive-client.tsx
+@@ -40,6 +40,7 @@ import { chaptersFromImportedManuscript, structuredTextFromMammothHtml } from ".
+ import { getLocalProject, saveLocalProject } from "./local-project-store";
+ import GoogleDriveBackup from "./google-drive-backup";
+ import { createWbwPackage } from "./wbw-project";
++import WbwDownloadDialog, { type PreparedWbwDownload } from "./wbw-download-dialog";
+ 
+ type Section = "planificacion" | "escritura" | "mundo" | "revision";
+ type SaveState = "Cargando" | "Guardado" | "Guardando" | "Sin guardar";
+@@ -1304,6 +1305,8 @@ export default function ArchiveClient({
+   const [textEditor, setTextEditor] = useState<{ scope: TextScope; text: ImportedTextRecord } | null>(null);
+   const [pdfExporting, setPdfExporting] = useState<PdfSection | null>(null);
+   const [wbwExporting, setWbwExporting] = useState(false);
++  const [wbwDownload, setWbwDownload] = useState<PreparedWbwDownload | null>(null);
++  const wbwExportingRef = useRef(false);
+   const [convertingLegacy, setConvertingLegacy] = useState<TextScope | null>(null);
+   const [projectEditor, setProjectEditor] = useState(false);
+   const [ambienceEditor, setAmbienceEditor] = useState(false);
+@@ -1675,21 +1678,21 @@ export default function ArchiveClient({
+   };
+ 
+   const exportProjectPackage = async () => {
+-    if (wbwExporting) return;
++    if (wbwExportingRef.current) return;
++    wbwExportingRef.current = true;
+     setWbwExporting(true);
+-    setNotice("Empaquetando datos, imágenes y recursos del proyecto…");
++    setWbwDownload(null);
+     try {
+-      const blob = await createWbwPackage(archiveRef.current, projectId);
+-      const url = URL.createObjectURL(blob);
+-      const anchor = document.createElement("a");
+-      anchor.href = url;
+-      anchor.download = `${safeDownloadName(archiveRef.current.profile.archiveTitle)}.wbw`;
+-      anchor.click();
+-      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+-      setNotice("Proyecto completo exportado como .wbw");
++      if (!await saveProjectNow("Proyecto guardado antes de exportar")) return;
++      setNotice("Empaquetando datos, imágenes y recursos del proyecto…");
++      const snapshot = structuredClone(archiveRef.current);
++      const blob = await createWbwPackage(snapshot, projectId);
++      setWbwDownload({ blob, fileName: `${safeDownloadName(snapshot.profile.archiveTitle)}.wbw` });
++      setNotice("Proyecto preparado. Pulsa Descargar .wbw para guardar el archivo en tu equipo.");
+     } catch (error) {
+       setNotice(error instanceof Error ? error.message : "No se pudo crear el paquete .wbw.");
+     } finally {
++      wbwExportingRef.current = false;
+       setWbwExporting(false);
+     }
+   };
+@@ -1732,7 +1735,7 @@ export default function ArchiveClient({
+         <nav className="ribbon-tabs" aria-label="Menú principal">
+           <div className="ribbon-menu-wrap ribbon-file-wrap">
+             <button type="button" className={openTopMenu === "archivo" ? "active" : ""} onClick={() => setOpenTopMenu((current) => current === "archivo" ? null : "archivo")} aria-expanded={openTopMenu === "archivo"}>Archivo</button>
+-            {openTopMenu === "archivo" && <div className="ribbon-popup ribbon-file-popup"><button type="button" onClick={() => { setOpenTopMenu(null); void saveProjectNow("Proyecto guardado antes de volver a la biblioteca").then((saved) => { if (saved) returnToLibrary(); }); }}><span>←</span><b>Todas las obras</b><small>Guardar y volver a la biblioteca local</small></button><button type="button" onClick={() => { setOpenTopMenu(null); void saveProjectNow(); }}><span>▣</span><b>Guardar</b><small>Conservar los avances sin descargar</small></button><button type="button" disabled={wbwExporting} onClick={() => { setOpenTopMenu(null); void saveProjectNow("Proyecto guardado antes de exportar").then((saved) => { if (saved) void exportProjectPackage(); }); }}><span>⇩</span><b>Proyecto editable (.wbw)</b><small>Copia completa y transportable</small></button><button type="button" disabled={Boolean(pdfExporting)} onClick={() => { setOpenTopMenu(null); void saveProjectNow("Proyecto guardado antes de generar el dossier").then((saved) => { if (saved) void runPdfExport("proyecto"); }); }}><span>PDF</span><b>Dossier de consulta</b><small>Documento para leer o imprimir</small></button></div>}
++            {openTopMenu === "archivo" && <div className="ribbon-popup ribbon-file-popup"><button type="button" onClick={() => { setOpenTopMenu(null); void saveProjectNow("Proyecto guardado antes de volver a la biblioteca").then((saved) => { if (saved) returnToLibrary(); }); }}><span>←</span><b>Todas las obras</b><small>Guardar y volver a la biblioteca local</small></button><button type="button" onClick={() => { setOpenTopMenu(null); void saveProjectNow(); }}><span>▣</span><b>Guardar</b><small>Conservar los avances sin descargar</small></button><button type="button" disabled={wbwExporting || saveState === "Cargando"} onClick={() => { setOpenTopMenu(null); void exportProjectPackage(); }}><span>⇩</span><b>Proyecto editable (.wbw)</b><small>{wbwExporting ? "Preparando copia…" : "Copia completa y transportable"}</small></button><button type="button" disabled={Boolean(pdfExporting)} onClick={() => { setOpenTopMenu(null); void saveProjectNow("Proyecto guardado antes de generar el dossier").then((saved) => { if (saved) void runPdfExport("proyecto"); }); }}><span>PDF</span><b>Dossier de consulta</b><small>Documento para leer o imprimir</small></button></div>}
+           </div>
+           {sectionLabels.map(({ id, label }) => <button type="button" className={activeSection === id ? "active" : ""} key={id} onClick={() => {
+             setOpenTopMenu(null);
+@@ -1783,6 +1786,8 @@ export default function ArchiveClient({
+ 
+       <AmbienceDock projectId={projectId} spotifyUrl={archive.profile.spotifyPlaylistUrl ?? ""} youtubeUrl={archive.profile.youtubeAmbientUrl ?? ""} onConfigure={() => setOpenTopMenu("configuracion")} />
+ 
++      {wbwDownload && <WbwDownloadDialog download={wbwDownload} onClose={() => setWbwDownload(null)} onDownload={() => setNotice(`Descarga solicitada: ${wbwDownload.fileName}. Revisa las descargas de tu navegador.`)} />}
++
+       {dossierId && dossierCharacter && (
+         <DossierDrawer
+           character={dossierCharacter}
+diff --git a/app/globals.css b/app/globals.css
+index 0819496..63c659c 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -199,6 +199,12 @@ html.portable-desktop .hub-user a { display: none; }
+ .view-intro > div > span { display: block; max-width: 650px; margin-top: 10px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+ .primary-action { border: 1px solid #292824; color: #f0e8da; background: #292824; padding: 11px 16px; cursor: pointer; font-size: 10px; white-space: nowrap; }
+ .primary-action:hover { background: #9d332f; border-color: #9d332f; }
++.wbw-download-details { display: grid; gap: 14px; padding: 24px; }
++.wbw-download-details p { margin: 0; line-height: 1.6; }
++.wbw-download-details strong { overflow-wrap: anywhere; }
++.wbw-download-details span { color: #64748b; font-size: 13px; }
++.wbw-download-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
++.wbw-download-link:focus-visible { outline: 3px solid #185abd; outline-offset: 3px; }
+ 
+ /* Character library */
+ .filter-bar { display: grid; grid-template-columns: minmax(260px, 1fr) 160px 160px; gap: 10px; margin-bottom: 18px; }
+diff --git a/app/wbw-download-dialog.tsx b/app/wbw-download-dialog.tsx
+new file mode 100644
+index 0000000..8257d42
+--- /dev/null
++++ b/app/wbw-download-dialog.tsx
+@@ -0,0 +1,56 @@
++"use client";
++
++import { useEffect, useRef, useState, type KeyboardEvent } from "react";
++
++export type PreparedWbwDownload = { blob: Blob; fileName: string };
++
++export default function WbwDownloadDialog({ download, onClose, onDownload }: {
++  download: PreparedWbwDownload;
++  onClose: () => void;
++  onDownload: () => void;
++}) {
++  const [url, setUrl] = useState("");
++  const panelRef = useRef<HTMLElement>(null);
++  const linkRef = useRef<HTMLAnchorElement>(null);
++
++  useEffect(() => {
++    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
++    const objectUrl = URL.createObjectURL(download.blob);
++    setUrl(objectUrl);
++    return () => {
++      // Closing just after a click must not invalidate a download still starting.
++      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
++      if (previousFocus?.isConnected) previousFocus.focus();
++    };
++  }, [download.blob]);
++
++  useEffect(() => {
++    if (url) linkRef.current?.focus();
++  }, [url]);
++
++  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
++    if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
++    if (event.key !== "Tab") return;
++    const controls = panelRef.current?.querySelectorAll<HTMLElement>("button, a[href]");
++    if (!controls?.length) return;
++    const first = controls[0];
++    const last = controls[controls.length - 1];
++    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
++    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
++  };
++
++  return (
++    <div className="editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
++      <section ref={panelRef} className="editor-modal compact wbw-download-dialog" role="dialog" aria-modal="true" aria-labelledby="wbw-download-title" aria-describedby="wbw-download-instructions" onKeyDown={handleKeyDown}>
++        <div className="editor-head"><div><span>COPIA EDITABLE</span><h2 id="wbw-download-title">Descargar proyecto</h2></div><button type="button" onClick={onClose} aria-label="Cerrar descarga">×</button></div>
++        <div className="wbw-download-details">
++          <p id="wbw-download-instructions">El archivo está preparado. Pulsa Descargar .wbw para guardarlo en tu equipo.</p>
++          <strong>{download.fileName}</strong>
++          <span>{new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(download.blob.size / 1024 / 1024)} MB · Manuscrito, fichas y recursos del proyecto</span>
++          <p>El enlace permanece disponible mientras esta ventana esté abierta. Si la descarga no aparece, puedes volver a pulsarlo.</p>
++        </div>
++        <footer className="editor-actions"><button type="button" onClick={onClose}>Cerrar</button>{url ? <a ref={linkRef} className="primary-action wbw-download-link" href={url} download={download.fileName} onClick={onDownload}>Descargar .wbw</a> : <span role="status">Preparando enlace…</span>}</footer>
++      </section>
++    </div>
++  );
++}
+diff --git a/app/wbw-project.ts b/app/wbw-project.ts
+index 9944cf9..eeec042 100644
+--- a/app/wbw-project.ts
++++ b/app/wbw-project.ts
+@@ -131,7 +131,7 @@ export async function createWbwPackage(state: ArchiveState, projectId: string) {
+     const blob = await fetchAsset(character.imageUrl, `fotografía de ${character.name}`);
+     const mimeType = blob.type || "image/jpeg";
+     const path = `media/personajes/${cleanSegment(character.id)}.${extensionFor(mimeType)}`;
+-    zip.file(path, blob);
++    zip.file(path, await blob.arrayBuffer());
+     assets.push({ kind: "character-photo", path, characterId: character.id, name: `${character.name}.${extensionFor(mimeType)}`, mimeType });
+   }
+ 
+@@ -146,7 +146,7 @@ export async function createWbwPackage(state: ArchiveState, projectId: string) {
+         const blob = await fetchAsset(source, attachment.name);
+         const mimeType = blob.type || attachment.mimeType || "application/octet-stream";
+         const path = `media/${group.scope}/${cleanSegment(record.id)}/${cleanSegment(attachment.id)}-${cleanSegment(attachment.name)}.${extensionFor(mimeType, attachment.name)}`;
+-        zip.file(path, blob);
++        zip.file(path, await blob.arrayBuffer());
+         assets.push({ kind: "attachment", path, scope: group.scope, recordId: record.id, attachmentId: attachment.id, name: attachment.name, mimeType });
+       }
+     }
+@@ -184,7 +184,7 @@ export async function readWbwPackage(file: File): Promise<ImportedWbwProject> {
+   if (!file.name.toLocaleLowerCase("es").endsWith(".wbw")) throw new Error("Selecciona un proyecto con extensión .wbw.");
+   if (file.size > 300 * 1024 * 1024) throw new Error("El paquete supera el límite de 300 MB.");
+   const { default: JSZip } = await import("jszip");
+-  const zip = await JSZip.loadAsync(file, { checkCRC32: true });
++  const zip = await JSZip.loadAsync(await file.arrayBuffer(), { checkCRC32: true });
+   const manifestEntry = zip.file("manifest.json");
+   const projectEntry = zip.file("project.json");
+   if (!manifestEntry || !projectEntry) throw new Error("El paquete .wbw está incompleto.");
+diff --git a/package.json b/package.json
+index 97174e1..68f023d 100644
+--- a/package.json
++++ b/package.json
+@@ -10,7 +10,7 @@
+     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
+     "build": "bash scripts/build-verified.sh",
+     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
+-    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/manuscript-import.test.ts",
++    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs tests/manuscript-import.test.ts tests/wbw-export.test.mjs",
+     "validate:artifact": "bash scripts/validate-artifact.sh",
+     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
+     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+diff --git a/tests/wbw-export.test.mjs b/tests/wbw-export.test.mjs
+new file mode 100644
+index 0000000..0b94d3f
+--- /dev/null
++++ b/tests/wbw-export.test.mjs
+@@ -0,0 +1,85 @@
++import assert from "node:assert/strict";
++import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
++import path from "node:path";
++import { pathToFileURL, fileURLToPath } from "node:url";
++import test, { after } from "node:test";
++import ts from "typescript";
++import JSZip from "jszip";
++
++// Run the production TypeScript modules in Node without changing their browser imports.
++const projectRoot = fileURLToPath(new URL("..", import.meta.url));
++await mkdir(path.join(projectRoot, ".sites-runtime"), { recursive: true });
++const compiled = await mkdtemp(path.join(projectRoot, ".sites-runtime", "wbw-export-"));
++after(() => rm(compiled, { recursive: true, force: true }));
++for (const [sourcePath, name] of [["lib/archive-data.ts", "archive-data"], ["app/wbw-project.ts", "wbw-project"]]) {
++  const source = (await readFile(path.join(projectRoot, sourcePath), "utf8")).replace('"../lib/archive-data"', '"./archive-data.mjs"');
++  const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } });
++  await writeFile(path.join(compiled, `${name}.mjs`), outputText);
++}
++const { createBlankArchive } = await import(pathToFileURL(path.join(compiled, "archive-data.mjs")).href);
++const { createWbwPackage, readWbwPackage, WBW_MIME } = await import(pathToFileURL(path.join(compiled, "wbw-project.mjs")).href);
++
++function existingProject() {
++  const state = createBlankArchive({ archiveTitle: "Proyecto existente", storyTitle: "Obra con doce capítulos" });
++  state.writingChapters = Array.from({ length: 12 }, (_, i) => ({
++    id: `chapter-${i}`, label: `Capítulo ${i + 1}`, title: `Título ${i + 1}`, order: i,
++    scenes: [{ id: `scene-${i}`, title: `Escena ${i + 1}`, status: "Borrador", order: 0, content: `<p>Texto del capítulo ${i + 1}.</p><p><strong>Cambios conservados.</strong></p>` }],
++  }));
++  state.manuscript = { ...state.manuscript, chapters: 12, words: 35352 };
++  state.profile.synopsis = "Sinopsis modificada antes de exportar.";
++  return state;
++}
++
++test("exported copy reopens all twelve chapters, manuscript formatting and project data", async () => {
++  const state = existingProject();
++  const before = structuredClone(state);
++  const blob = await createWbwPackage(state, "project-existing");
++  assert.equal(blob.type, WBW_MIME);
++  assert.ok(blob.size > 0);
++  const zip = await JSZip.loadAsync(await blob.arrayBuffer(), { checkCRC32: true });
++  const manifest = JSON.parse(await zip.file("manifest.json").async("string"));
++  assert.equal(manifest.format, "worldbuilder-writer-project");
++  assert.equal(manifest.projectFile, "project.json");
++  const imported = await readWbwPackage(new File([blob], "Proyecto-existente.wbw", { type: WBW_MIME }));
++  assert.deepEqual(imported.state.writingChapters, before.writingChapters);
++  assert.equal(imported.state.manuscript.words, 35352);
++  assert.equal(imported.state.profile.synopsis, before.profile.synopsis);
++  assert.deepEqual(imported.state.maps, before.maps);
++  assert.deepEqual(imported.state.relationships, before.relationships);
++  assert.deepEqual(state, before, "export never mutates the open project");
++});
++
++test("portable copy includes character photos and attachments from World and Magic", async () => {
++  const state = existingProject();
++  const photo = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 42]);
++  const worldText = Buffer.from("Texto de documentación con tildes: Ámbar.");
++  const magicText = Buffer.from("Notas del sistema de magia.");
++  state.characters = [{ id: "character-one", name: "Personaje de prueba", imageUrl: `data:image/png;base64,${photo.toString("base64")}` }];
++  state.world = [{ id: "world-one", name: "Puerto de prueba", attachments: [{ id: "world-attachment", name: "notas.txt", mimeType: "text/plain", size: worldText.length, kind: "text", dataUrl: `data:text/plain;base64,${worldText.toString("base64")}` }] }];
++  state.magicSystems = [{ id: "magic-one", name: "Sistema de prueba", attachments: [{ id: "magic-attachment", name: "magia.txt", mimeType: "text/plain", size: magicText.length, kind: "text", dataUrl: `data:text/plain;base64,${magicText.toString("base64")}` }] }];
++  const before = structuredClone(state);
++  const blob = await createWbwPackage(state, "project-existing");
++  const imported = await readWbwPackage(new File([blob], "Recursos.wbw", { type: WBW_MIME }));
++  assert.equal(imported.assets.length, 3);
++  const expected = new Map([["character-photo", photo], ["world", worldText], ["magic", magicText]]);
++  for (const asset of imported.assets) {
++    const key = asset.descriptor.kind === "character-photo" ? "character-photo" : asset.descriptor.scope;
++    assert.deepEqual(Buffer.from(await asset.file.arrayBuffer()), expected.get(key));
++  }
++  assert.deepEqual(imported.state.writingChapters, before.writingChapters);
++  assert.deepEqual(state, before);
++});
++
++test("a missing resource rejects export and leaves the existing project untouched", async () => {
++  const state = existingProject();
++  state.characters = [{ id: "missing-character", name: "Foto faltante", imageUrl: "/missing-photo.png" }];
++  const before = structuredClone(state);
++  const originalFetch = globalThis.fetch;
++  globalThis.fetch = async () => new Response("Missing", { status: 404 });
++  try {
++    await assert.rejects(createWbwPackage(state, "project-existing"), /No se pudo incorporar/u);
++    assert.deepEqual(state, before);
++  } finally {
++    globalThis.fetch = originalFetch;
++  }
++});
