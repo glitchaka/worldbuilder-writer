@@ -11,6 +11,7 @@
 #include "ui/ThemeManager.h"
 #include "ui/WritingMockupController.h"
 #include "ui/WritingShortcutBridge.h"
+#include "ui/WritingPerformanceController.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -55,6 +56,7 @@ void applyProductUi(wbw::MainWindow& window) {
     wbw::installTerrainModelSyncController(&window);
     wbw::installCartographicCanvasController(&window);
     wbw::installWritingMockupController(&window);
+    wbw::installWritingPerformanceController(&window);
     wbw::installWritingShortcutBridge(&window);
     wbw::installPlanningMockupController(&window);
     wbw::installAtlasWorkspaceController(&window);
