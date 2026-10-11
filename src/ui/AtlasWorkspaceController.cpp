@@ -20,14 +20,15 @@ namespace {
 
 QPushButton* buttonByText(QWidget* root, const QString& text) {
     if (!root) return nullptr;
-    for (QPushButton* button : root->findChildren<QPushButton*>()) if (button->text() == text) return button;
+    for (QPushButton* button : root->findChildren<QPushButton*>())
+        if (button->text() == text) return button;
     return nullptr;
 }
 
 void installAtlasIndexNavigation(QWidget* atlas) {
     if (!atlas) return;
     auto* index = atlas->findChild<QWidget*>(QStringLiteral("worldIndexPanel"));
-    if (!index || index->property("wbwAtlasIndexV3").toBool()) return;
+    if (!index || index->property("wbwAtlasIndexV4").toBool()) return;
     auto* layout = qobject_cast<QVBoxLayout*>(index->layout());
     auto* list = index->findChild<QListWidget*>();
     if (!layout || !list) return;
@@ -84,7 +85,12 @@ void installAtlasIndexNavigation(QWidget* atlas) {
 
     QObject::connect(search, &QLineEdit::textChanged, list, [list, filters](const QString& query) {
         QString category;
-        for (QToolButton* button : filters->findChildren<QToolButton*>()) if (button->isChecked()) { category = button->property("filter").toString(); break; }
+        for (QToolButton* button : filters->findChildren<QToolButton*>()) {
+            if (button->isChecked()) {
+                category = button->property("filter").toString();
+                break;
+            }
+        }
         const QString needle = query.trimmed();
         for (int row = 0; row < list->count(); ++row) {
             QListWidgetItem* item = list->item(row);
@@ -95,26 +101,21 @@ void installAtlasIndexNavigation(QWidget* atlas) {
         }
     });
 
-    index->setProperty("wbwAtlasIndexV3", true);
+    index->setProperty("wbwAtlasIndexV4", true);
 }
 
 class AtlasWorkspaceFilter final : public QObject {
 public:
-    explicit AtlasWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {}
+    explicit AtlasWorkspaceFilter(QMainWindow* window) : QObject(window), window_(window) {
+        resizeTimer_.setSingleShot(true);
+        resizeTimer_.setInterval(70);
+        connect(&resizeTimer_, &QTimer::timeout, this, [this]() { apply(); });
+    }
 
-    bool eventFilter(QObject* watched, QEvent* event) override {
-        Q_UNUSED(watched);
-        switch (event->type()) {
-            case QEvent::Show:
-            case QEvent::Resize:
-            case QEvent::LayoutRequest:
-            case QEvent::ParentChange:
-                schedule();
-                break;
-            default:
-                break;
-        }
-        return QObject::eventFilter(watched, event);
+    bool eventFilter(QObject*, QEvent* event) override {
+        if (event->type() == QEvent::Show) schedule(0);
+        else if (event->type() == QEvent::Resize) schedule(70);
+        return false;
     }
 
     void apply() {
@@ -124,10 +125,13 @@ public:
 
         QWidget* world = window_->findChild<QWidget*>(QStringLiteral("worldPage"));
         QWidget* atlas = window_->findChild<QWidget*>(QStringLiteral("atlasTab"));
-        if (!world || !atlas) { applying_ = false; return; }
+        if (!world || !atlas) {
+            applying_ = false;
+            return;
+        }
 
-        if (!world->property("wbwAtlasObserved").toBool()) {
-            world->setProperty("wbwAtlasObserved", true);
+        if (!world->property("wbwAtlasObservedV4").toBool()) {
+            world->setProperty("wbwAtlasObservedV4", true);
             world->installEventFilter(this);
             atlas->installEventFilter(this);
         }
@@ -135,10 +139,9 @@ public:
         installAtlasIndexNavigation(atlas);
 
         QFrame* context = window_->findChild<QFrame*>(QStringLiteral("atlasContextRail"));
-        if (!context) { applying_ = false; return; }
-        if (!context->property("wbwAtlasContextObserved").toBool()) {
-            context->setProperty("wbwAtlasContextObserved", true);
-            context->installEventFilter(this);
+        if (!context) {
+            applying_ = false;
+            return;
         }
 
         QPushButton* oldAdd = buttonByText(atlas, QObject::tr("Añadir adjunto…"));
@@ -162,8 +165,12 @@ public:
             auto* add = new QPushButton(QObject::tr("+ Adjuntar"), card);
             auto* remove = new QPushButton(QObject::tr("Quitar"), card);
             auto* exportButton = new QPushButton(QObject::tr("Exportar"), card);
-            actions->addWidget(add); actions->addWidget(remove); actions->addWidget(exportButton);
-            box->addWidget(heading); box->addLayout(actions); contextLayout->insertWidget(2, card);
+            actions->addWidget(add);
+            actions->addWidget(remove);
+            actions->addWidget(exportButton);
+            box->addWidget(heading);
+            box->addLayout(actions);
+            contextLayout->insertWidget(2, card);
             QObject::connect(add, &QPushButton::clicked, oldAdd, &QPushButton::click);
             QObject::connect(remove, &QPushButton::clicked, oldRemove, &QPushButton::click);
             QObject::connect(exportButton, &QPushButton::clicked, oldExport, &QPushButton::click);
@@ -173,9 +180,16 @@ public:
             QWidget* parent = edit->parentWidget();
             const QString role = parent ? parent->objectName() : QString();
             edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-            if (role == QStringLiteral("atlasSummaryField")) { edit->setMinimumHeight(72); edit->setMaximumHeight(108); }
-            else if (role == QStringLiteral("atlasEditorialSection")) { edit->setMinimumHeight(50); edit->setMaximumHeight(78); }
-            else if (role == QStringLiteral("atlasContextCard")) { edit->setMinimumHeight(48); edit->setMaximumHeight(72); }
+            if (role == QStringLiteral("atlasSummaryField")) {
+                edit->setMinimumHeight(72);
+                edit->setMaximumHeight(108);
+            } else if (role == QStringLiteral("atlasEditorialSection")) {
+                edit->setMinimumHeight(50);
+                edit->setMaximumHeight(78);
+            } else if (role == QStringLiteral("atlasContextCard")) {
+                edit->setMinimumHeight(48);
+                edit->setMaximumHeight(72);
+            }
         }
 
         if (auto* index = atlas->findChild<QWidget*>(QStringLiteral("worldIndexPanel"))) {
@@ -186,7 +200,9 @@ public:
         context->setMinimumWidth(atlas->width() >= 1180 ? 280 : 240);
         context->setMaximumWidth(atlas->width() >= 1180 ? 330 : 282);
 
-        atlas->setStyleSheet(atlas->styleSheet() + QStringLiteral(R"QSS(
+        if (!atlas->property("wbwAtlasStyleV4").toBool()) {
+            atlas->setProperty("wbwAtlasStyleV4", true);
+            atlas->setStyleSheet(atlas->styleSheet() + QStringLiteral(R"QSS(
 #atlasIndexHeading{background:transparent;border:0;}
 #atlasIndexTitle{font-family:'Georgia';font-size:16pt;font-weight:600;color:#f0ece4;}
 #atlasIndexCopy{color:#7d8994;font-size:8.5pt;}
@@ -201,13 +217,25 @@ public:
 #atlasReferenceActions QPushButton:hover{background:#192735;color:#ffffff;border-color:#48677e;}
 #atlasSummaryField QTextEdit,#atlasEditorialSection QTextEdit,#atlasContextCard QTextEdit{background:transparent;border:0;padding:2px 0;font-family:'Georgia';}
 )QSS"));
+        }
 
         applying_ = false;
     }
 
 private:
-    void schedule() { if (pending_) return; pending_ = true; QTimer::singleShot(0, this, [this]() { apply(); }); }
+    void schedule(int delay) {
+        if (delay <= 0) {
+            if (pending_) return;
+            pending_ = true;
+            QTimer::singleShot(0, this, [this]() { apply(); });
+            return;
+        }
+        pending_ = true;
+        resizeTimer_.start(delay);
+    }
+
     QPointer<QMainWindow> window_;
+    QTimer resizeTimer_;
     bool pending_ = false;
     bool applying_ = false;
 };
@@ -215,8 +243,8 @@ private:
 } // namespace
 
 void installAtlasWorkspaceController(QMainWindow* window) {
-    if (!window || window->property("wbwAtlasWorkspaceControllerV3").toBool()) return;
-    window->setProperty("wbwAtlasWorkspaceControllerV3", true);
+    if (!window || window->property("wbwAtlasWorkspaceControllerV4").toBool()) return;
+    window->setProperty("wbwAtlasWorkspaceControllerV4", true);
     auto* filter = new AtlasWorkspaceFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
