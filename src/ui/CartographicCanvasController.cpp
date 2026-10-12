@@ -16,17 +16,20 @@ class CartographicCanvasFilter final : public QObject {
 public:
     explicit CartographicCanvasFilter(QMainWindow* window) : QObject(window), window_(window) {
         renderTimer_.setSingleShot(true);
-        renderTimer_.setInterval(85);
+        renderTimer_.setInterval(180);
         connect(&renderTimer_, &QTimer::timeout, this, [this]() {
-            if (!canvas_ || pendingMap_.isEmpty()) return;
-            if (!canvas_->isVisible()) return;
+            if (!canvas_ || !editor_ || !canvas_->isVisible()) {
+                pendingMap_ = QJsonObject();
+                return;
+            }
+            if (pendingMap_.isEmpty()) pendingMap_ = editor_->map();
             canvas_->setMap(pendingMap_);
             pendingMap_ = QJsonObject();
         });
     }
 
     bool eventFilter(QObject*, QEvent* event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::ParentChange)
+        if (event->type() == QEvent::Show || event->type() == QEvent::Resize)
             scheduleLayout();
         return false;
     }
@@ -34,8 +37,11 @@ public:
     void apply() {
         layoutPending_ = false;
         if (!window_) return;
+
         auto* editor = window_->findChild<PilinReyEditor*>(QStringLiteral("pilinReyEditor"));
         if (!editor) return;
+        editor_ = editor;
+
         auto* input = editor->findChild<QWidget*>(QStringLiteral("pilinQtViewport"));
         if (!input || !input->parentWidget()) return;
 
@@ -55,20 +61,29 @@ public:
             canvas_ = canvas;
 
             QObject::connect(editor, &PilinReyEditor::mapEdited, this, [this](const QJsonObject& map) {
-                // Keep only the newest document while dragging/editing. The renderer already has
-                // its own cache; feeding every intermediate JSON snapshot just burns CPU and RAM.
+                // El mapa completo puede ser grande. Si el módulo no está visible no mantenemos
+                // snapshots intermedios. Cuando vuelve a mostrarse se toma el estado actual.
+                if (!canvas_ || !canvas_->isVisible()) {
+                    pendingMap_ = QJsonObject();
+                    renderTimer_.stop();
+                    return;
+                }
                 pendingMap_ = map;
                 renderTimer_.start();
             });
 
             input->parentWidget()->installEventFilter(this);
-            editor->installEventFilter(this);
         } else {
             canvas_ = canvas;
         }
 
         canvas_->setGeometry(input->geometry());
         canvas_->raise();
+
+        if (canvas_->isVisible()) {
+            pendingMap_ = editor->map();
+            renderTimer_.start();
+        }
     }
 
 private:
@@ -79,6 +94,7 @@ private:
     }
 
     QPointer<QMainWindow> window_;
+    QPointer<PilinReyEditor> editor_;
     QPointer<CartographicCanvasV3> canvas_;
     QTimer renderTimer_;
     QJsonObject pendingMap_;
@@ -88,8 +104,8 @@ private:
 } // namespace
 
 void installCartographicCanvasController(QMainWindow* window) {
-    if (!window || window->property("wbwCartographicCanvasV4").toBool()) return;
-    window->setProperty("wbwCartographicCanvasV4", true);
+    if (!window || window->property("wbwCartographicCanvasV5").toBool()) return;
+    window->setProperty("wbwCartographicCanvasV5", true);
     auto* filter = new CartographicCanvasFilter(window);
     window->installEventFilter(filter);
     QTimer::singleShot(0, filter, [filter]() { filter->apply(); });
