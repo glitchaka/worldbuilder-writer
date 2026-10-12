@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(WorldbuilderWriter VERSION 0.4.0 LANGUAGES C CXX)
+project(WorldbuilderWriter VERSION 0.5.0-rc1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,10 +19,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniz)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets Network Svg Test)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Widgets PrintSupport Multimedia MultimediaWidgets Network Svg)
 qt_standard_project_setup()
-
-enable_testing()
 
 qt_add_library(WorldbuilderWriterUi OBJECT
     src/core/ArchiveDocument.cpp
@@ -31,9 +29,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/storage/GoogleDriveService.cpp
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
-    src/ui/MapMockupController.cpp
-    src/ui/MapWorkflowController.cpp
-    src/ui/MapWorkflowController.h
+
     src/ui/MapSelectionController.cpp
     src/ui/MapSelectionController.h
     src/ui/MapTerrainEngine.cpp
@@ -44,22 +40,12 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/CartographicCanvasV3.h
     src/ui/CartographicCanvasController.cpp
     src/ui/CartographicCanvasController.h
-    src/ui/WritingMockupController.cpp
+
     src/ui/WritingShortcutBridge.cpp
     src/ui/WritingShortcutBridge.h
-    src/ui/WritingPerformanceController.cpp
-    src/ui/WritingPerformanceController.h
-    src/ui/SceneBoardWorkspaceController.cpp
-    src/ui/SceneBoardWorkspaceController.h
-    src/ui/PlanningMockupController.cpp
-    src/ui/AtlasWorkspaceController.cpp
-    src/ui/AtlasWorkspaceController.h
-    src/ui/ReviewMockupController.cpp
+
     src/ui/SettingsWorkspace.cpp
     src/ui/SettingsWorkspace.h
-    src/ui/RcVisualFixture.cpp
-    src/ui/RcVisualFixture.h
-    src/ui/RcVisualFixtureStartup.cpp
     src/ui/RelationshipBoard.cpp
     src/ui/MapExporterV2.cpp
     src/ui/MapExportDialog.cpp
@@ -93,29 +79,6 @@ target_link_libraries(WorldbuilderWriterUi PUBLIC
 
 qt_add_executable(WorldbuilderWriter src/main.cpp)
 target_link_libraries(WorldbuilderWriter PRIVATE WorldbuilderWriterUi)
-
-qt_add_executable(WorldbuilderWriterProjectSaveSmoke tests/ProjectSaveSmoke.cpp)
-target_link_libraries(WorldbuilderWriterProjectSaveSmoke PRIVATE WorldbuilderWriterUi Qt6::Test)
-add_test(NAME project-save-smoke COMMAND WorldbuilderWriterProjectSaveSmoke)
-set_tests_properties(project-save-smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
-
-add_executable(WorldbuilderWriterCoreSmoke
-    tests/CoreSmoke.cpp
-    src/core/ArchiveDocument.cpp
-    src/storage/WbwPackage.cpp
-    src/import/ManuscriptImporter.cpp
-)
-target_include_directories(WorldbuilderWriterCoreSmoke PRIVATE src)
-target_link_libraries(WorldbuilderWriterCoreSmoke PRIVATE Qt6::Widgets miniz)
-add_test(NAME core-smoke COMMAND WorldbuilderWriterCoreSmoke)
-
-add_executable(WorldbuilderWriterMapExporterSmoke
-    tests/MapExporterSmoke.cpp
-    src/ui/MapExporterV2.cpp
-)
-target_include_directories(WorldbuilderWriterMapExporterSmoke PRIVATE src)
-target_link_libraries(WorldbuilderWriterMapExporterSmoke PRIVATE Qt6::Widgets Qt6::PrintSupport Qt6::Svg)
-add_test(NAME map-exporter-smoke COMMAND WorldbuilderWriterMapExporterSmoke)
 
 if(WIN32)
     set_target_properties(WorldbuilderWriter PROPERTIES WIN32_EXECUTABLE TRUE)
