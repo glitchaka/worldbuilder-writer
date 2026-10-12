@@ -15,9 +15,6 @@ namespace wbw {
 
 void PilinReyEditor::applyBakedTerrainMap(const QJsonObject& updated) {
     if (updated.isEmpty()) return;
-
-    // Terrain baking changes only the document model and viewport. Do not rebuild every side
-    // panel or write the complete archive while a brush is still moving.
     map_ = updated;
     refreshViewport();
     emit mapEdited(map_);
@@ -28,7 +25,7 @@ void PilinReyEditor::flushBakedTerrainMap() {
 }
 
 void PilinReyEditor::trimUndoHistory(int maximumEntries) {
-    maximumEntries = std::clamp(maximumEntries, 4, 24);
+    maximumEntries = std::clamp(maximumEntries, 3, 16);
     while (undoStack_.size() > maximumEntries) undoStack_.removeFirst();
     while (redoStack_.size() > maximumEntries) redoStack_.removeFirst();
 }
@@ -42,12 +39,12 @@ public:
         if (!editor_) return;
 
         bakeTimer_.setSingleShot(true);
-        bakeTimer_.setInterval(90);
+        bakeTimer_.setInterval(190);
         persistTimer_.setSingleShot(true);
-        persistTimer_.setInterval(650);
+        persistTimer_.setInterval(1400);
 
         connect(&bakeTimer_, &QTimer::timeout, this, [this]() {
-            if (!pending_.isEmpty()) synchronize(pending_);
+            if (editor_ && editor_->isVisible() && !pending_.isEmpty()) synchronize(pending_);
             pending_ = QJsonObject();
         });
         connect(&persistTimer_, &QTimer::timeout, this, [this]() {
@@ -56,12 +53,18 @@ public:
 
         connect(editor_, &PilinReyEditor::mapEdited, this, [this](const QJsonObject& map) {
             if (busy_ || !editor_) return;
-            editor_->trimUndoHistory(10);
+            editor_->trimUndoHistory(6);
 
-            // Coalesce terrain input. The newest snapshot wins; intermediate mouse events are
-            // intentionally discarded to keep CPU/RAM stable on long strokes.
+            // Si Pilín Rey no está visible, no conservar copias completas del mapa en memoria.
+            // El documento ya posee el estado vigente y se retomará al regresar al módulo.
+            if (!editor_->isVisible()) {
+                pending_ = QJsonObject();
+                bakeTimer_.stop();
+                return;
+            }
+
             pending_ = map;
-            bakeTimer_.start(90);
+            bakeTimer_.start();
         });
     }
 
@@ -79,7 +82,7 @@ private:
     }
 
     void synchronize(const QJsonObject& incoming) {
-        if (busy_ || !editor_) return;
+        if (busy_ || !editor_ || !editor_->isVisible()) return;
 
         QJsonObject pilin = incoming.value(QStringLiteral("pilinRey")).toObject();
         QJsonObject terrainJson = pilin.value(QStringLiteral("terrainModel")).toObject();
@@ -95,7 +98,7 @@ private:
 
         for (int li = 0; li < layers.size(); ++li) {
             QJsonObject layer = layers.at(li).toObject();
-            QJsonArray objects = layer.value(QStringLiteral("objects")).toArray();
+            const QJsonArray objects = layer.value(QStringLiteral("objects")).toArray();
             QJsonArray kept;
             bool layerChanged = false;
 
@@ -179,8 +182,8 @@ private:
 } // namespace
 
 void installTerrainModelSyncController(QMainWindow* window) {
-    if (!window || window->property("wbwTerrainModelSyncV5").toBool()) return;
-    window->setProperty("wbwTerrainModelSyncV5", true);
+    if (!window || window->property("wbwTerrainModelSyncV6").toBool()) return;
+    window->setProperty("wbwTerrainModelSyncV6", true);
     new TerrainModelSync(window);
 }
 
