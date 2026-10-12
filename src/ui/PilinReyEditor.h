@@ -50,6 +50,9 @@ public:
     void setMap(const QJsonObject& map);
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
+    void smoothTerrain();
+    void erodeTerrain();
+    void normalizeTerrain();
     void applyBakedTerrainMap(const QJsonObject& map);
     void flushBakedTerrainMap();
     void trimUndoHistory(int maximumEntries = 16);
