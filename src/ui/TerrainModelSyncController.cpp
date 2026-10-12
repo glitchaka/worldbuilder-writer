@@ -12,6 +12,27 @@
 #include <algorithm>
 
 namespace wbw {
+namespace {
+
+QJsonObject terrainOperationResult(const QJsonObject& source, const std::function<void(MapTerrainEngine&)>& operation) {
+    QJsonObject pilin = source.value(QStringLiteral("pilinRey")).toObject();
+    const QJsonObject terrainJson = pilin.value(QStringLiteral("terrainModel")).toObject();
+    if (terrainJson.isEmpty()) return {};
+
+    MapTerrainEngine terrain = MapTerrainEngine::fromJson(terrainJson);
+    operation(terrain);
+    QJsonObject updatedTerrain = terrain.toJson();
+    for (const QString& key : {QStringLiteral("seaLevel"), QStringLiteral("generatedAt"), QStringLiteral("generator"),
+                               QStringLiteral("biomes"), QStringLiteral("regions"), QStringLiteral("regionNames")}) {
+        if (terrainJson.contains(key)) updatedTerrain.insert(key, terrainJson.value(key));
+    }
+    pilin.insert(QStringLiteral("terrainModel"), updatedTerrain);
+    QJsonObject result = source;
+    result.insert(QStringLiteral("pilinRey"), pilin);
+    return result;
+}
+
+} // namespace
 
 void PilinReyEditor::applyBakedTerrainMap(const QJsonObject& updated) {
     if (updated.isEmpty()) return;
@@ -28,6 +49,33 @@ void PilinReyEditor::trimUndoHistory(int maximumEntries) {
     maximumEntries = std::clamp(maximumEntries, 3, 16);
     while (undoStack_.size() > maximumEntries) undoStack_.removeFirst();
     while (redoStack_.size() > maximumEntries) redoStack_.removeFirst();
+}
+
+void PilinReyEditor::smoothTerrain() {
+    if (map_.isEmpty()) return;
+    const QJsonObject updated = terrainOperationResult(map_, [](MapTerrainEngine& terrain) { terrain.smooth(2); });
+    if (updated.isEmpty()) return;
+    pushUndo();
+    applyBakedTerrainMap(updated);
+    persistToArchive();
+}
+
+void PilinReyEditor::erodeTerrain() {
+    if (map_.isEmpty()) return;
+    const QJsonObject updated = terrainOperationResult(map_, [](MapTerrainEngine& terrain) { terrain.erode(2, 0.18f); });
+    if (updated.isEmpty()) return;
+    pushUndo();
+    applyBakedTerrainMap(updated);
+    persistToArchive();
+}
+
+void PilinReyEditor::normalizeTerrain() {
+    if (map_.isEmpty()) return;
+    const QJsonObject updated = terrainOperationResult(map_, [](MapTerrainEngine& terrain) { terrain.normalize(); });
+    if (updated.isEmpty()) return;
+    pushUndo();
+    applyBakedTerrainMap(updated);
+    persistToArchive();
 }
 
 namespace {
@@ -54,15 +102,11 @@ public:
         connect(editor_, &PilinReyEditor::mapEdited, this, [this](const QJsonObject& map) {
             if (busy_ || !editor_) return;
             editor_->trimUndoHistory(6);
-
-            // Si Pilín Rey no está visible, no conservar copias completas del mapa en memoria.
-            // El documento ya posee el estado vigente y se retomará al regresar al módulo.
             if (!editor_->isVisible()) {
                 pending_ = QJsonObject();
                 bakeTimer_.stop();
                 return;
             }
-
             pending_ = map;
             bakeTimer_.start();
         });
@@ -151,7 +195,6 @@ private:
         }
 
         if (!changed) return;
-
         terrain.smooth(1);
 
         QJsonObject newTerrain = terrain.toJson();
@@ -182,8 +225,8 @@ private:
 } // namespace
 
 void installTerrainModelSyncController(QMainWindow* window) {
-    if (!window || window->property("wbwTerrainModelSyncV6").toBool()) return;
-    window->setProperty("wbwTerrainModelSyncV6", true);
+    if (!window || window->property("wbwTerrainModelSyncV7").toBool()) return;
+    window->setProperty("wbwTerrainModelSyncV7", true);
     new TerrainModelSync(window);
 }
 
