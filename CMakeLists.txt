@@ -49,6 +49,8 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/WritingShortcutBridge.h
     src/ui/WritingPerformanceController.cpp
     src/ui/WritingPerformanceController.h
+    src/ui/SceneBoardWorkspaceController.cpp
+    src/ui/SceneBoardWorkspaceController.h
     src/ui/PlanningMockupController.cpp
     src/ui/AtlasWorkspaceController.cpp
     src/ui/AtlasWorkspaceController.h
