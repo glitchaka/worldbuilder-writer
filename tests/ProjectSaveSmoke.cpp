@@ -1,8 +1,6 @@
 #include "core/ArchiveDocument.h"
 #include "storage/ProjectStore.h"
 #include "ui/MainWindow.h"
-#include "ui/NavigationConsistencyController.h"
-#include "ui/ProductReorganizer.h"
 #include "ui/ProjectHubPage.h"
 #include "ui/WritingPage.h"
 
@@ -119,8 +117,6 @@ int main(int argc, char** argv) {
 
     std::cout << "Creating project window" << std::endl;
     wbw::MainWindow window;
-    wbw::applyProductReorganization(&window);
-    wbw::installNavigationConsistencyController(&window);
     window.show();
     window.activateWindow();
     QApplication::setActiveWindow(&window);
