@@ -6,6 +6,7 @@
 #include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
 
+#include <QLineEdit>
 #include <QListWidget>
 #include <QPainter>
 #include <QPushButton>
@@ -21,13 +22,11 @@ namespace {
 class ProductRailDelegate final : public QStyledItemDelegate {
 public:
     explicit ProductRailDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
-
     QSize sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const override { return QSize(112, 66); }
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
-
         const QRect r = option.rect.adjusted(5, 3, -5, -3);
         const bool selected = option.state.testFlag(QStyle::State_Selected);
         const bool hover = option.state.testFlag(QStyle::State_MouseOver);
@@ -41,15 +40,16 @@ public:
             painter->drawRoundedRect(QRectF(r.left(), r.top() + 8, 3, r.height() - 16), 1.5, 1.5);
         }
 
-        const QString label = index.data(Qt::DisplayRole).toString();
+        const QString text = index.data(Qt::DisplayRole).toString();
         QString glyph = QStringLiteral("•");
-        if (label == QObject::tr("Biblioteca")) glyph = QStringLiteral("▥");
-        else if (label == QObject::tr("Escritura")) glyph = QStringLiteral("▤");
-        else if (label == QObject::tr("Tablero de escenas")) glyph = QStringLiteral("▦");
-        else if (label == QObject::tr("Atlas / documentación")) glyph = QStringLiteral("◎");
-        else if (label == QObject::tr("Mapas")) glyph = QStringLiteral("◇");
-        else if (label == QObject::tr("Revisión")) glyph = QStringLiteral("▥");
-        else if (label == QObject::tr("Configuración / salida")) glyph = QStringLiteral("⚙");
+        QString compact = text;
+        if (text == QObject::tr("Biblioteca")) glyph = QStringLiteral("▥");
+        else if (text == QObject::tr("Escritura")) glyph = QStringLiteral("▤");
+        else if (text == QObject::tr("Tablero de escenas")) { glyph = QStringLiteral("▦"); compact = QObject::tr("Escenas"); }
+        else if (text == QObject::tr("Atlas / documentación")) { glyph = QStringLiteral("◎"); compact = QObject::tr("Atlas"); }
+        else if (text == QObject::tr("Mapas")) glyph = QStringLiteral("◇");
+        else if (text == QObject::tr("Revisión")) glyph = QStringLiteral("▥");
+        else if (text == QObject::tr("Configuración / salida")) { glyph = QStringLiteral("⚙"); compact = QObject::tr("Configuración"); }
 
         QFont iconFont = option.font;
         iconFont.setPointSizeF(15.5);
@@ -58,15 +58,11 @@ public:
         painter->setPen(selected ? QColor(QStringLiteral("#79c1ff")) : QColor(QStringLiteral("#9ca9b6")));
         painter->drawText(QRect(r.left(), r.top() + 7, r.width(), 24), Qt::AlignCenter, glyph);
 
-        QFont labelFont = option.font;
-        labelFont.setPointSizeF(7.8);
-        labelFont.setWeight(selected ? QFont::DemiBold : QFont::Normal);
-        painter->setFont(labelFont);
+        QFont textFont = option.font;
+        textFont.setPointSizeF(7.8);
+        textFont.setWeight(selected ? QFont::DemiBold : QFont::Normal);
+        painter->setFont(textFont);
         painter->setPen(selected ? QColor(QStringLiteral("#cfe8ff")) : QColor(QStringLiteral("#929eaa")));
-        QString compact = label;
-        if (label == QObject::tr("Tablero de escenas")) compact = QObject::tr("Escenas");
-        else if (label == QObject::tr("Atlas / documentación")) compact = QObject::tr("Atlas");
-        else if (label == QObject::tr("Configuración / salida")) compact = QObject::tr("Configuración");
         painter->drawText(QRect(r.left() + 2, r.top() + 34, r.width() - 4, 22), Qt::AlignHCenter | Qt::AlignTop, compact);
         painter->restore();
     }
@@ -83,6 +79,19 @@ void installProductRail(QListWidget* navigation) {
         "QListWidget#sideNavigation::item{background:transparent;border:0;padding:0;margin:0;}"));
 }
 
+void polishLibraryControls(ProjectHubPage* hub) {
+    if (!hub || hub->property("wbwLibraryControlsV1").toBool()) return;
+    hub->setProperty("wbwLibraryControlsV1", true);
+    if (auto* search = hub->findChild<QLineEdit*>(QStringLiteral("hubSearch"))) {
+        search->show();
+        search->setMaximumWidth(520);
+    }
+    // El segundo botón era un selector de lista sin implementación. No se deja un control falso
+    // en una interfaz RC: el modo cuadrícula permanece visible y el listado volverá cuando exista.
+    const QList<QPushButton*> viewButtons = hub->findChildren<QPushButton*>(QStringLiteral("hubViewButton"));
+    if (viewButtons.size() > 1) viewButtons.at(1)->hide();
+}
+
 } // namespace
 
 void MainWindow::routeProductModule(int row) {
@@ -93,13 +102,12 @@ void MainWindow::routeProductModule(int row) {
     auto* worldTabs = worldPage_ ? worldPage_->findChild<QTabWidget*>(QStringLiteral("worldTabs")) : nullptr;
     QWidget* mapsTab = worldPage_ ? worldPage_->findChild<QWidget*>(QStringLiteral("mapsTab")) : nullptr;
     QWidget* atlasTab = worldPage_ ? worldPage_->findChild<QWidget*>(QStringLiteral("atlasTab")) : nullptr;
-
     if (writingTabs && writingTabs->tabBar()) writingTabs->tabBar()->hide();
 
     switch (row) {
         case 0:
             pages_->setCurrentWidget(hubPage_);
-            if (hubPage_) hubPage_->refresh();
+            if (hubPage_) { polishLibraryControls(hubPage_); hubPage_->refresh(); }
             projectTitle_->setText(tr("Biblioteca"));
             saveState_->setText(tr("Tus historias"));
             break;
