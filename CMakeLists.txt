@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
-project(WorldbuilderWriter VERSION 0.5.0-rc1 LANGUAGES C CXX)
+project(WorldbuilderWriter VERSION 0.5.0 LANGUAGES C CXX)
+
+set(WORLDBUILDER_WRITER_RELEASE_LABEL "0.5.0-rc1")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
+include(GNUInstallDirs)
 include(FetchContent)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
