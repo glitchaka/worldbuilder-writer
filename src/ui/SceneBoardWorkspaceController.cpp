@@ -13,7 +13,6 @@
 #include <QPointer>
 #include <QSignalBlocker>
 #include <QTimer>
-#include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -65,13 +64,15 @@ public:
 
             if (search->parentWidget() && search->parentWidget()->layout()) search->parentWidget()->layout()->removeWidget(search);
             search->setParent(filters);
-            search->setFixedWidth(QWIDGETSIZE_MAX);
+            search->setMinimumWidth(0);
+            search->setMaximumWidth(QWIDGETSIZE_MAX);
             search->setPlaceholderText(QObject::tr("Buscar escenas…"));
             box->addWidget(search);
 
             if (status->parentWidget() && status->parentWidget()->layout()) status->parentWidget()->layout()->removeWidget(status);
             status->setParent(filters);
-            status->setFixedWidth(QWIDGETSIZE_MAX);
+            status->setMinimumWidth(0);
+            status->setMaximumWidth(QWIDGETSIZE_MAX);
             box->addWidget(section(QObject::tr("ESTADO"), filters));
             box->addWidget(status);
 
@@ -86,24 +87,17 @@ public:
             location_->addItem(QObject::tr("Todas las ubicaciones"));
             box->addWidget(section(QObject::tr("UBICACIÓN"), filters));
             box->addWidget(location_);
-
             layout->insertWidget(0, filters);
 
             connect(pov_, &QComboBox::currentTextChanged, search, [this](const QString& value) {
                 if (!search_ || !location_) return;
-                if (value == QObject::tr("Todos los POV")) {
-                    if (location_->currentIndex() == 0) search_->clear();
-                    return;
-                }
+                if (value == QObject::tr("Todos los POV")) { if (location_->currentIndex() == 0) search_->clear(); return; }
                 { QSignalBlocker block(location_); location_->setCurrentIndex(0); }
                 search_->setText(value);
             });
             connect(location_, &QComboBox::currentTextChanged, search, [this](const QString& value) {
                 if (!search_ || !pov_) return;
-                if (value == QObject::tr("Todas las ubicaciones")) {
-                    if (pov_->currentIndex() == 0) search_->clear();
-                    return;
-                }
+                if (value == QObject::tr("Todas las ubicaciones")) { if (pov_->currentIndex() == 0) search_->clear(); return; }
                 { QSignalBlocker block(pov_); pov_->setCurrentIndex(0); }
                 search_->setText(value);
             });
@@ -118,7 +112,6 @@ public:
 #sceneBoardFilters QLineEdit,#sceneBoardFilters QComboBox{background:#0c131a;color:#d9e2e9;border:1px solid #2b3945;border-radius:6px;padding:7px 8px;min-height:20px;}
 #sceneBoardFilters QLineEdit:focus,#sceneBoardFilters QComboBox:focus{border-color:#3d7fae;}
 )QSS"));
-
             board->installEventFilter(this);
             initialized_ = true;
             refreshFacets();
