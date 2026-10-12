@@ -1,12 +1,12 @@
-name: Windows native build
+name: Windows RC build
 
-# Durante la implementación del producto este workflow NO se ejecuta en cada push.
-# Se volverá a activar para la validación final cuando la interfaz y los módulos estén cerrados.
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 concurrency:
-  group: worldbuilder-writer-windows-${{ github.ref }}
+  group: worldbuilder-writer-rc-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
           cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
             -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64"
 
-      - name: Build
+      - name: Build release candidate
         shell: pwsh
         run: cmake --build build --config Release --parallel
 
@@ -36,9 +36,9 @@ jobs:
         shell: pwsh
         run: cmake --install build --config Release --prefix "$env:GITHUB_WORKSPACE\dist"
 
-      - name: Upload Windows bundle
+      - name: Upload Windows RC
         uses: actions/upload-artifact@v4
         with:
-          name: WorldbuilderWriter-win64
+          name: WorldbuilderWriter-0.5.0-rc1-win64
           path: ${{ github.workspace }}/dist
           if-no-files-found: error
