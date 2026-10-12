@@ -24,15 +24,19 @@ public:
         tree_ = window ? window->findChild<QTreeWidget*>(QStringLiteral("manuscriptTree")) : nullptr;
         if (!page_ || !editor_) return;
 
+        if (QWidget* legacyHero = window_->findChild<QWidget*>(QStringLiteral("writingHero"))) {
+            legacyHero->hide();
+            legacyHero->setMinimumHeight(0);
+            legacyHero->setMaximumHeight(0);
+        }
+
         commitTimer_.setSingleShot(true);
         commitTimer_.setInterval(380);
         marginTimer_.setSingleShot(true);
         marginTimer_.setInterval(60);
 
         QObject::disconnect(editor_, &QTextEdit::textChanged, page_, &WritingPage::applyScene);
-        connect(editor_, &QTextEdit::textChanged, this, [this]() {
-            if (page_) commitTimer_.start();
-        });
+        connect(editor_, &QTextEdit::textChanged, this, [this]() { if (page_) commitTimer_.start(); });
         connect(&commitTimer_, &QTimer::timeout, this, [this]() { flushPendingEdit(); });
         connect(&marginTimer_, &QTimer::timeout, this, [this]() { applyMargins(); });
 
@@ -52,16 +56,12 @@ protected:
             (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
             marginTimer_.start();
         }
-
-        if (watched == window_ && event->type() == QEvent::Close && commitTimer_.isActive())
-            flushPendingEdit();
-
+        if (watched == window_ && event->type() == QEvent::Close && commitTimer_.isActive()) flushPendingEdit();
         const bool onTree = tree_ && (watched == tree_ || watched == tree_->viewport());
         if (onTree && commitTimer_.isActive() &&
             (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::KeyPress || event->type() == QEvent::FocusOut)) {
             flushPendingEdit();
         }
-
         return QObject::eventFilter(watched, event);
     }
 
@@ -74,7 +74,6 @@ private:
 
     void applyMargins() {
         if (!editor_ || !editor_->document() || !editor_->document()->rootFrame()) return;
-
         const int viewportWidth = editor_->viewport() ? editor_->viewport()->width() : editor_->width();
         if (viewportWidth <= 0) return;
 
@@ -107,8 +106,8 @@ private:
 } // namespace
 
 void installWritingPerformanceController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingPerformanceV6").toBool()) return;
-    window->setProperty("wbwWritingPerformanceV6", true);
+    if (!window || window->property("wbwWritingPerformanceV7").toBool()) return;
+    window->setProperty("wbwWritingPerformanceV7", true);
     new ManuscriptGuard(window);
 }
 
