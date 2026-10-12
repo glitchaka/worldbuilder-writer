@@ -6,7 +6,6 @@
 #include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
 
-#include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
 #include <QStackedWidget>
@@ -17,6 +16,7 @@ namespace wbw {
 
 void MainWindow::routeProductModule(int row) {
     if (!pages_ || !navigation_) return;
+
     auto* writingTabs = writingPage_ ? writingPage_->findChild<QTabWidget*>(QStringLiteral("writingTabs")) : nullptr;
     auto* worldTabs = worldPage_ ? worldPage_->findChild<QTabWidget*>(QStringLiteral("worldTabs")) : nullptr;
     QWidget* mapsTab = worldPage_ ? worldPage_->findChild<QWidget*>(QStringLiteral("mapsTab")) : nullptr;
@@ -47,8 +47,8 @@ void MainWindow::routeProductModule(int row) {
             pages_->setCurrentWidget(worldPage_);
             if (worldTabs) {
                 if (atlasTab && worldTabs->indexOf(atlasTab) >= 0) worldTabs->setCurrentWidget(atlasTab);
-                if (worldTabs->tabBar()) worldTabs->tabBar()->show();
                 for (int i = 0; i < worldTabs->count(); ++i) worldTabs->setTabVisible(i, worldTabs->widget(i) != mapsTab);
+                if (worldTabs->tabBar()) worldTabs->tabBar()->show();
             }
             projectTitle_->setText(tr("Atlas / documentación"));
             saveState_->setText(tr("Mundo, personajes y referencias"));
@@ -79,13 +79,13 @@ void MainWindow::routeProductModule(int row) {
             return;
     }
 
-    if (auto* save = findChild<QPushButton*>(QStringLiteral("primarySave"))) save->setVisible(false);
-    if (auto* focus = findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->setVisible(false);
+    if (auto* save = findChild<QPushButton*>(QStringLiteral("primarySave"))) save->hide();
+    if (auto* focus = findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->hide();
 
-    // Biblioteca, escritura, tablero y Pilín Rey poseen ya una cabecera propia. Mantener además
-    // el encabezado genérico duplicaba jerarquías y alejaba la composición de los mockups.
-    const bool useGenericHeader = row == 3 || row == 5 || row == 6;
-    if (auto* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->setVisible(useGenericHeader);
+    // Cada módulo aprobado tiene su propia cabecera y jerarquía. La antigua barra genérica
+    // duplicaba títulos, robaba altura útil y hacía que todas las pantallas parecieran el mismo
+    // formulario Qt. Se conserva el widget para compatibilidad interna, pero no participa en UI.
+    if (auto* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->hide();
 }
 
 } // namespace wbw
