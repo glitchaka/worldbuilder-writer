@@ -6,6 +6,7 @@
 #include <QEvent>
 #include <QMainWindow>
 #include <QPointer>
+#include <QSettings>
 #include <QTextDocument>
 #include <QTextFrame>
 #include <QTextFrameFormat>
@@ -28,8 +29,6 @@ public:
         marginTimer_.setSingleShot(true);
         marginTimer_.setInterval(60);
 
-        // No persistir/reconstruir una escena completa por cada carácter. El editor conserva el
-        // QTextDocument vivo y el modelo se sincroniza sólo después de una pausa breve.
         QObject::disconnect(editor_, &QTextEdit::textChanged, page_, &WritingPage::applyScene);
         connect(editor_, &QTextEdit::textChanged, this, [this]() {
             if (page_) commitTimer_.start();
@@ -49,9 +48,6 @@ public:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
-        // LayoutRequest se dispara en cascada cuando Qt recalcula textos y splitters. Escucharlo
-        // aquí generaba ciclos de maquetación. Sólo recalculamos la columna cuando cambia realmente
-        // el tamaño o cuando el editor vuelve a mostrarse.
         if ((watched == window_ || watched == editor_ || watched == editor_->viewport()) &&
             (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
             marginTimer_.start();
@@ -82,9 +78,9 @@ private:
         const int viewportWidth = editor_->viewport() ? editor_->viewport()->width() : editor_->width();
         if (viewportWidth <= 0) return;
 
-        // Columna editorial estable: similar al mockup de escritura, sin líneas pegadas a los
-        // bordes aunque se abran/cierre el índice o el panel contextual.
-        const int targetTextWidth = qBound(640, viewportWidth - 104, 780);
+        QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+        const int preferredWidth = qBound(520, settings.value(QStringLiteral("editor/lineWidth"), 680).toInt(), 960);
+        const int targetTextWidth = qBound(520, qMin(preferredWidth, viewportWidth - 72), 960);
         const int side = qMax(32, (viewportWidth - targetTextWidth) / 2);
 
         editor_->document()->setDocumentMargin(0.0);
@@ -111,8 +107,8 @@ private:
 } // namespace
 
 void installWritingPerformanceController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingPerformanceV5").toBool()) return;
-    window->setProperty("wbwWritingPerformanceV5", true);
+    if (!window || window->property("wbwWritingPerformanceV6").toBool()) return;
+    window->setProperty("wbwWritingPerformanceV6", true);
     new ManuscriptGuard(window);
 }
 
