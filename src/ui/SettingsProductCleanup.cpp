@@ -4,6 +4,7 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QListWidget>
+#include <QStringList>
 
 namespace wbw {
 
