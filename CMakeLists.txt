@@ -42,7 +42,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/SettingsWorkspace.cpp
     src/ui/SettingsWorkspace.h
     src/ui/RelationshipBoard.cpp
-    src/ui/MapExporterV2.cpp
+    src/ui/MapExporterProduct.cpp
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.h
     src/ui/PilinReyEditorProduct.cpp
