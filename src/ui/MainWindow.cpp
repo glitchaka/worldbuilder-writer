@@ -21,9 +21,11 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListView>
 #include <QListWidget>
 #include <QMarginsF>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QPageLayout>
 #include <QPageSize>
 #include <QPrinter>
@@ -42,13 +44,52 @@
 #include <QTextEdit>
 #include <QTextFormat>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
+#include <QWindow>
 
 namespace wbw {
 namespace {
 
+class ProductTopBar final : public QWidget {
+public:
+    explicit ProductTopBar(QWidget* parent = nullptr) : QWidget(parent) {
+        setObjectName(QStringLiteral("productTopBar"));
+        setFixedHeight(54);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override {
+        if (event->button() == Qt::LeftButton && window() && window()->windowHandle()) {
+            window()->windowHandle()->startSystemMove();
+            event->accept();
+            return;
+        }
+        QWidget::mousePressEvent(event);
+    }
+
+    void mouseDoubleClickEvent(QMouseEvent* event) override {
+        if (event->button() == Qt::LeftButton && window()) {
+            window()->isMaximized() ? window()->showNormal() : window()->showMaximized();
+            event->accept();
+            return;
+        }
+        QWidget::mouseDoubleClickEvent(event);
+    }
+};
+
 QPushButton* makeButton(const QString& text) {
     auto* button = new QPushButton(text);
+    button->setCursor(Qt::PointingHandCursor);
+    return button;
+}
+
+QToolButton* windowButton(const QString& text, const QString& objectName, QWidget* parent) {
+    auto* button = new QToolButton(parent);
+    button->setObjectName(objectName);
+    button->setText(text);
+    button->setFixedSize(44, 54);
+    button->setFocusPolicy(Qt::NoFocus);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
@@ -109,25 +150,6 @@ int savedAutosaveIntervalMs() {
     return qBound(5, settings.value(QStringLiteral("editor/autosaveSeconds"), 15).toInt(), 300) * 1000;
 }
 
-QWidget* navigationCell(const QString& glyph, const QString& text, QWidget* parent) {
-    auto* cell = new QWidget(parent);
-    cell->setObjectName(QStringLiteral("navigationCell"));
-    cell->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-    auto* box = new QVBoxLayout(cell);
-    box->setContentsMargins(2, 7, 2, 6);
-    box->setSpacing(3);
-    auto* icon = new QLabel(glyph, cell);
-    icon->setObjectName(QStringLiteral("navigationGlyph"));
-    icon->setAlignment(Qt::AlignCenter);
-    auto* label = new QLabel(text, cell);
-    label->setObjectName(QStringLiteral("navigationLabel"));
-    label->setAlignment(Qt::AlignCenter);
-    label->setWordWrap(true);
-    box->addWidget(icon);
-    box->addWidget(label);
-    return cell;
-}
-
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -147,104 +169,90 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 }
 
 void MainWindow::createShell() {
-    auto* central = new QWidget;
+    auto* central = new QWidget(this);
     central->setObjectName(QStringLiteral("appRoot"));
     auto* root = new QVBoxLayout(central);
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    auto* workspace = new QWidget;
-    workspace->setObjectName(QStringLiteral("workspaceShell"));
-    auto* workspaceLayout = new QHBoxLayout(workspace);
-    workspaceLayout->setContentsMargins(0, 0, 0, 0);
-    workspaceLayout->setSpacing(0);
+    auto* top = new ProductTopBar(central);
+    auto* topLayout = new QHBoxLayout(top);
+    topLayout->setContentsMargins(14, 0, 0, 0);
+    topLayout->setSpacing(8);
 
-    auto* rail = new QWidget;
-    rail->setObjectName(QStringLiteral("sideRail"));
-    rail->setFixedWidth(104);
-    auto* railLayout = new QVBoxLayout(rail);
-    railLayout->setContentsMargins(8, 10, 8, 10);
-    railLayout->setSpacing(4);
+    auto* appMark = new QLabel(QStringLiteral("W"), top);
+    appMark->setObjectName(QStringLiteral("appMark"));
+    appMark->setAlignment(Qt::AlignCenter);
+    appMark->setFixedSize(30, 30);
+    topLayout->addWidget(appMark);
 
-    auto* brand = new QWidget;
-    brand->setObjectName(QStringLiteral("appIdentity"));
-    brand->setFixedHeight(58);
-    auto* brandLayout = new QVBoxLayout(brand);
-    brandLayout->setContentsMargins(0, 2, 0, 8);
-    brandLayout->setSpacing(0);
-    auto* mark = new QLabel(QStringLiteral("W"));
-    mark->setObjectName(QStringLiteral("appMark"));
-    mark->setAlignment(Qt::AlignCenter);
-    mark->setFixedSize(42, 42);
-    brandLayout->addWidget(mark, 0, Qt::AlignHCenter);
-    railLayout->addWidget(brand);
+    auto* brand = new QLabel(QStringLiteral("Worldbuilder Writer"), top);
+    brand->setObjectName(QStringLiteral("appBrand"));
+    brand->setMinimumWidth(142);
+    topLayout->addWidget(brand);
 
-    navigation_ = new QListWidget;
-    navigation_->setObjectName(QStringLiteral("sideNavigation"));
+    auto* divider = new QFrame(top);
+    divider->setObjectName(QStringLiteral("topDivider"));
+    divider->setFrameShape(QFrame::VLine);
+    divider->setFixedHeight(26);
+    topLayout->addWidget(divider);
+
+    navigation_ = new QListWidget(top);
+    navigation_->setObjectName(QStringLiteral("productNavigation"));
+    navigation_->setFlow(QListView::LeftToRight);
+    navigation_->setWrapping(false);
     navigation_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     navigation_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    navigation_->setSpacing(2);
+    navigation_->setSelectionMode(QAbstractItemView::SingleSelection);
+    navigation_->setFocusPolicy(Qt::NoFocus);
+    navigation_->setFixedHeight(52);
+    navigation_->setMinimumWidth(680);
+    navigation_->setMaximumWidth(790);
     const QStringList labels{
-        tr("Biblioteca"), tr("Escritura"), tr("Tablero de escenas"), tr("Atlas / documentación"),
-        tr("Mapas"), tr("Revisión"), tr("Configuración / salida")
+        tr("Biblioteca"), tr("Escritura"), tr("Planificación"), tr("Mundo"),
+        tr("Mapas"), tr("Revisión"), tr("Configuración")
     };
-    const QStringList glyphs{QStringLiteral("▥"), QStringLiteral("▤"), QStringLiteral("▦"), QStringLiteral("◎"), QStringLiteral("⌘"), QStringLiteral("▥"), QStringLiteral("⚙")};
-    for (int i = 0; i < labels.size(); ++i) {
-        auto* item = new QListWidgetItem(labels.at(i), navigation_);
-        item->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-        item->setSizeHint(QSize(88, i == 6 ? 72 : 66));
-        item->setToolTip(labels.at(i));
-        navigation_->setItemWidget(item, navigationCell(glyphs.at(i), labels.at(i), navigation_));
+    for (const QString& label : labels) {
+        auto* item = new QListWidgetItem(label, navigation_);
+        item->setTextAlignment(Qt::AlignCenter);
+        item->setSizeHint(QSize(label == tr("Planificación") || label == tr("Configuración") ? 118 : 94, 50));
+        item->setToolTip(label);
     }
     navigation_->setCurrentRow(0);
-    railLayout->addWidget(navigation_, 1);
-    workspaceLayout->addWidget(rail);
-
-    auto* contentShell = new QWidget;
-    contentShell->setObjectName(QStringLiteral("contentShell"));
-    auto* contentLayout = new QVBoxLayout(contentShell);
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(0);
-
-    auto* top = new QWidget;
-    top->setObjectName(QStringLiteral("topShell"));
-    top->setFixedHeight(62);
-    auto* topLayout = new QHBoxLayout(top);
-    topLayout->setContentsMargins(22, 0, 20, 0);
-    topLayout->setSpacing(14);
-
-    auto* projectInfo = new QVBoxLayout;
-    projectInfo->setContentsMargins(0, 0, 0, 0);
-    projectInfo->setSpacing(1);
-    projectTitle_ = new QLabel(tr("Biblioteca"));
-    projectTitle_->setObjectName(QStringLiteral("projectTitle"));
-    saveState_ = new QLabel(tr("Tus historias"));
-    saveState_->setObjectName(QStringLiteral("saveState"));
-    projectInfo->addWidget(projectTitle_);
-    projectInfo->addWidget(saveState_);
-    topLayout->addLayout(projectInfo);
+    topLayout->addWidget(navigation_);
     topLayout->addStretch(1);
 
     auto* globalSearch = new QLineEdit(top);
     globalSearch->setObjectName(QStringLiteral("globalSearch"));
     globalSearch->setPlaceholderText(tr("Buscar en el proyecto…   Ctrl K"));
     globalSearch->setClearButtonEnabled(true);
-    globalSearch->setMaximumWidth(440);
-    globalSearch->setMinimumWidth(320);
-    topLayout->addWidget(globalSearch);
-    topLayout->addStretch(1);
+    globalSearch->setMaximumWidth(370);
+    globalSearch->setMinimumWidth(220);
+    topLayout->addWidget(globalSearch, 1);
 
-    auto* focus = makeButton(tr("Enfoque"));
-    focus->setObjectName(QStringLiteral("secondaryAction"));
-    auto* quickSave = makeButton(tr("Guardar"));
-    quickSave->setObjectName(QStringLiteral("primarySave"));
-    focus->hide();
-    quickSave->hide();
-    topLayout->addWidget(focus);
-    topLayout->addWidget(quickSave);
-    contentLayout->addWidget(top);
+    saveState_ = new QLabel(tr("Tus historias"), top);
+    saveState_->setObjectName(QStringLiteral("saveState"));
+    saveState_->setMinimumWidth(108);
+    saveState_->setAlignment(Qt::AlignCenter);
+    topLayout->addWidget(saveState_);
 
-    pages_ = new QStackedWidget;
+    projectTitle_ = new QLabel(tr("Biblioteca"), top);
+    projectTitle_->setObjectName(QStringLiteral("projectTitle"));
+    projectTitle_->hide();
+
+    auto* minimize = windowButton(QStringLiteral("—"), QStringLiteral("windowMinimize"), top);
+    auto* maximize = windowButton(QStringLiteral("□"), QStringLiteral("windowMaximize"), top);
+    auto* close = windowButton(QStringLiteral("×"), QStringLiteral("windowClose"), top);
+    topLayout->addWidget(minimize);
+    topLayout->addWidget(maximize);
+    topLayout->addWidget(close);
+
+    connect(minimize, &QToolButton::clicked, this, &QWidget::showMinimized);
+    connect(maximize, &QToolButton::clicked, this, [this]() { isMaximized() ? showNormal() : showMaximized(); });
+    connect(close, &QToolButton::clicked, this, &QWidget::close);
+    root->addWidget(top);
+
+    pages_ = new QStackedWidget(central);
     pages_->setObjectName(QStringLiteral("pageStack"));
     hubPage_ = new ProjectHubPage;
     planningPage_ = new PlanningPage;
@@ -271,38 +279,29 @@ void MainWindow::createShell() {
     pages_->addWidget(reviewPage_);
     pages_->addWidget(settingsPage_);
     pages_->setCurrentWidget(hubPage_);
-    contentLayout->addWidget(pages_, 1);
-    workspaceLayout->addWidget(contentShell, 1);
-    root->addWidget(workspace, 1);
+    root->addWidget(pages_, 1);
     setCentralWidget(central);
 
     setStyleSheet(QStringLiteral(R"QSS(
-#appRoot,#workspaceShell,#contentShell{background:#0b0f14;}
-#sideRail{background:#090d12;border-right:1px solid #202934;}
-#appIdentity{background:transparent;border:0;}
-#appMark{background:#111b27;color:#a9d3ff;border:1px solid #315a7e;border-radius:9px;font-family:'Georgia';font-size:14pt;font-weight:700;}
-#sideNavigation{background:transparent;border:0;outline:0;color:#8d99a6;}
-#sideNavigation::item{border:0;border-left:2px solid transparent;border-radius:8px;padding:0;margin:1px 0;}
-#sideNavigation::item:hover{background:#121a23;}
-#sideNavigation::item:selected{background:#16283b;border-left:2px solid #3f9ef6;}
-#navigationCell{background:transparent;border:0;}
-#navigationGlyph{color:#9aa8b7;font-size:16pt;font-weight:500;}
-#navigationLabel{color:#8d99a6;font-size:7.5pt;}
-#sideNavigation::item:selected #navigationGlyph{color:#79bfff;}
-#sideNavigation::item:selected #navigationLabel{color:#d9ebfb;}
-#topShell{background:#0c1117;border-bottom:1px solid #202a34;}
-#projectTitle{color:#f0ece4;font-family:'Georgia';font-size:12pt;font-weight:600;}
-#saveState{color:#78838e;font-size:8pt;}
-#globalSearch{background:#0a1016;color:#cbd4dc;border:1px solid #273440;border-radius:8px;padding:8px 11px;}
-#globalSearch:focus{border-color:#3c6f9a;background:#0d151d;}
-#primarySave{background:#2d7fc8;color:#f8fbff;border:0;border-radius:7px;padding:8px 14px;font-weight:700;}
-#primarySave:hover{background:#388fd9;}
-#secondaryAction{background:#111820;color:#c8d0d8;border:1px solid #34414d;border-radius:7px;padding:7px 12px;}
-#secondaryAction:hover{background:#18232e;color:#fff;}
+#appRoot,#pageStack{background:#0b0f14;color:#d9e1e8;}
+#productTopBar{background:#0d1218;border-bottom:1px solid #252f39;}
+#appMark{background:#111b27;color:#a9d3ff;border:1px solid #315a7e;border-radius:7px;font-family:'Georgia';font-size:10pt;font-weight:700;}
+#appBrand{color:#eee8df;font-family:'Georgia';font-size:10.5pt;font-weight:600;}
+#topDivider{color:#303943;}
+#productNavigation{background:transparent;border:0;outline:0;color:#929da7;font-size:9pt;}
+#productNavigation::item{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;padding:0 10px;margin:0 1px;}
+#productNavigation::item:hover{background:#121a22;color:#dbe3e9;}
+#productNavigation::item:selected{background:transparent;color:#60d7d8;border-bottom:2px solid #32c7c9;}
+#globalSearch{background:#0a1016;color:#cbd4dc;border:1px solid #2a3540;border-radius:8px;padding:7px 11px;}
+#globalSearch:focus{border-color:#3d738f;background:#0d151d;}
+#saveState{color:#71808c;font-size:8pt;padding:0 5px;}
+#windowMinimize,#windowMaximize,#windowClose{background:transparent;color:#8f99a3;border:0;border-radius:0;padding:0;font-size:10pt;}
+#windowMinimize:hover,#windowMaximize:hover{background:#18212a;color:#ffffff;}
+#windowClose:hover{background:#a83d45;color:#ffffff;}
+QStatusBar{background:#090d12;color:#75818d;border-top:1px solid #202a34;}
 )QSS"));
 
     connect(navigation_, &QListWidget::currentRowChanged, this, &MainWindow::routeProductModule);
-    connect(quickSave, &QPushButton::clicked, this, [this]() { saveProject(); });
 
     auto* saveShortcut = new QShortcut(QKeySequence::Save, this);
     saveShortcut->setObjectName(QStringLiteral("wbwSaveShortcut"));
@@ -338,7 +337,6 @@ void MainWindow::createShell() {
         }
     });
 
-    connect(focus, &QPushButton::clicked, writingPage_, &WritingPage::openFocusMode);
     connect(hubPage_, &ProjectHubPage::newProjectRequested, this, &MainWindow::newProject);
     connect(hubPage_, &ProjectHubPage::importProjectRequested, this, &MainWindow::importWbw);
     connect(hubPage_, &ProjectHubPage::openProjectRequested, this, [this](const QString& path) { loadPath(path); });
@@ -359,9 +357,7 @@ void MainWindow::createShell() {
     routeProductModule(0);
 }
 
-void MainWindow::loadStartupProject() {
-    showLibrary();
-}
+void MainWindow::loadStartupProject() { showLibrary(); }
 
 void MainWindow::showLibrary() {
     hubPage_->refresh();
@@ -624,7 +620,6 @@ void MainWindow::exportPdf() {
                 cursor.insertText(separator, bodyFormat);
                 cursor.insertBlock(bodyBlock, bodyFormat);
             }
-
             const QJsonObject scene = scenes.at(s).toObject();
             const QString text = scenePlainText(scene);
             const int base = cursor.position();
@@ -700,9 +695,9 @@ void MainWindow::updateWindowTitle() {
     if (navigation_ && navigation_->currentRow() == 0) return;
     projectTitle_->setText(title.isEmpty() ? tr("Sin título") : title);
     saveState_->setToolTip(saveError_);
-    if (!saveError_.isEmpty()) saveState_->setText(tr("No se pudo guardar"));
+    if (!saveError_.isEmpty()) saveState_->setText(tr("Error al guardar"));
     else if (document_.isDirty()) saveState_->setText(tr("Cambios pendientes"));
-    else saveState_->setText(document_.sourcePath().isEmpty() ? tr("Sin ubicación local") : tr("Guardado local"));
+    else saveState_->setText(document_.sourcePath().isEmpty() ? tr("Sin ubicación") : tr("Guardado"));
 }
 
 void MainWindow::handleReference(const QString& kind, const QString& id) {
@@ -723,4 +718,3 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 } // namespace wbw
-
