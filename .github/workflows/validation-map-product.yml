@@ -39,17 +39,18 @@ jobs:
           foreach ($dll in @('Qt6Core.dll','Qt6Gui.dll','Qt6Widgets.dll')) {
             if (!(Test-Path (Join-Path (Split-Path $exe) $dll))) { throw "$dll missing from standalone bundle." }
           }
-          if (!(Test-Path (Join-Path (Split-Path $exe) 'platforms\qwindows.dll'))) { throw 'Qt Windows platform plugin missing.' }
+          $platformPlugin = Join-Path $env:GITHUB_WORKSPACE 'dist\plugins\platforms\qwindows.dll'
+          if (!(Test-Path $platformPlugin)) { throw 'Qt Windows platform plugin missing.' }
 
       - name: Native launch smoke test
         shell: pwsh
         run: |
-          $env:QT_QPA_PLATFORM = 'minimal'
-          $env:QT_PLUGIN_PATH = 'C:\Qt\6.8.3\msvc2022_64\plugins'
+          $env:QT_QPA_PLATFORM = 'windows'
+          $env:QT_PLUGIN_PATH = Join-Path $env:GITHUB_WORKSPACE 'dist\plugins'
           $exe = Join-Path $env:GITHUB_WORKSPACE 'dist\bin\WorldbuilderWriter.exe'
-          $process = Start-Process -FilePath $exe -PassThru
+          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
           Start-Sleep -Seconds 6
           if ($process.HasExited) { throw "Worldbuilder Writer exited during startup with code $($process.ExitCode)." }
           Stop-Process -Id $process.Id -Force
 
-      # Validation only. No RC/release artifact is published. Native spelling fix included.
+      # Validation only. No RC/release artifact is published.
