@@ -6,7 +6,10 @@
 namespace wbw {
 
 void MapWorkspace::applyTheme() {
-    if (editor_) editor_->setArchiveDocument(document_);
+    if (editor_) {
+        editor_->setArchiveDocument(document_);
+        editor_->migrateLegacyMarkers();
+    }
 
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
     if (dark) {
