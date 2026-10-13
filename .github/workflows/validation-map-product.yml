@@ -1,6 +1,8 @@
 name: Product validation
 
 on:
+  push:
+    branches: [ validation/map-product ]
   workflow_dispatch:
 
 jobs:
