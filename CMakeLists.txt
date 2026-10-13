@@ -77,7 +77,7 @@ target_link_libraries(WorldbuilderWriterUi PUBLIC
 )
 
 if(WIN32)
-    target_link_libraries(WorldbuilderWriterUi PUBLIC ole32)
+    target_link_libraries(WorldbuilderWriterUi PUBLIC ole32 uuid)
 endif()
 
 qt_add_executable(WorldbuilderWriter src/main.cpp)
