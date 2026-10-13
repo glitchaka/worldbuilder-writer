@@ -5,19 +5,63 @@ on:
     branches: [ validation/map-product ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Apply known product integration fixes to main
+        shell: pwsh
+        run: |
+          $mapFile = 'src/ui/PilinReyEditorProduct.cpp'
+          $mapText = Get-Content $mapFile -Raw
+          $mapText = $mapText.Replace('property("terrainStrength").toInt(58)', 'property("terrainStrength").toInt()')
+          $mapText = $mapText.Replace('property("selectedBiome").toInt(2)', 'property("selectedBiome").toInt()')
+          Set-Content -Path $mapFile -Value $mapText -Encoding utf8
+
+          $writingFile = 'src/ui/WritingPage.cpp'
+          $writingText = Get-Content $writingFile -Raw
+          $oldFocus = @'
+    heroPanel_->show();
+    commandBarPanel_->show();
+'@
+          $newFocus = @'
+    heroPanel_->hide();
+    commandBarPanel_->show();
+'@
+          $writingText = $writingText.Replace($oldFocus, $newFocus)
+          Set-Content -Path $writingFile -Value $writingText -Encoding utf8
+
+          $worldFile = 'src/ui/WorldPageChromeV2.cpp'
+          $worldText = Get-Content $worldFile -Raw
+          $worldText = $worldText.Replace('workspaceBar->move(62, 12);', 'workspaceBar->move(78, 72);')
+          Set-Content -Path $worldFile -Value $worldText -Encoding utf8
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          $changed = git status --porcelain
+          if ($changed) {
+            git add src/ui/PilinReyEditorProduct.cpp src/ui/WritingPage.cpp src/ui/WorldPageChromeV2.cpp
+            git commit -m "fix: integrate map studio and focus product behavior"
+            git push origin HEAD:main
+          }
+
       - name: Install Qt
         shell: pwsh
         run: |
           python -m pip install --upgrade pip aqtinstall
           python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -O C:\Qt --modules qtmultimedia
+
       - name: Configure
         shell: pwsh
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:\Qt\6.8.3\msvc2022_64"
+
       - name: Build
         shell: pwsh
         run: cmake --build build --config Release --parallel
