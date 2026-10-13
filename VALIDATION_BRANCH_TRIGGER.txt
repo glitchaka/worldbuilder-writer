@@ -1,0 +1,1 @@
+Manual validation only; this marker is not a product-completion signal.
