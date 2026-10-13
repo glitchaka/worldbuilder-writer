@@ -50,6 +50,7 @@ public:
 
     void setMap(const QJsonObject& map);
     void setArchiveDocument(ArchiveDocument* document);
+    void migrateLegacyMarkers();
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
     void smoothTerrain();
