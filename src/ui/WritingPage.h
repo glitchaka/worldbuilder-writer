@@ -33,6 +33,7 @@ public:
     void refresh();
     void openFocusMode();
     void applyProductChrome();
+    void refreshProductChromeTheme();
 
 public slots:
     // Kept as the single commit path so the UI can debounce manuscript persistence without
