@@ -190,8 +190,8 @@ int main(int argc, char* argv[]) {
     window.setMenuBar(nullptr);
     if (auto* root = qobject_cast<QVBoxLayout*>(window.centralWidget()->layout())) root->insertWidget(0, new AppTitleBar(window.centralWidget()));
 
-    installNativeProductServices(window);
     applyNativeVisualSystem(window);
+    installNativeProductServices(window);
     window.resize(1600, 1000);
     window.show();
     return app.exec();

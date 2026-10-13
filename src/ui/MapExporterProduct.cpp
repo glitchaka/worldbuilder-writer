@@ -249,6 +249,13 @@ void paintObject(QPainter& painter, const QJsonObject& object, double sx, double
         painter.drawPath(path);
         painter.setPen(QPen(river.lighter(150), std::max(1.0, width * .45), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         painter.drawPath(path);
+    } else if (type == QStringLiteral("lake")) {
+        const QColor water = themeColor(pilin, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));
+        QColor fill = water.lighter(145);
+        fill.setAlphaF(std::clamp(object.value(QStringLiteral("fillOpacity")).toDouble(.82), 0.0, 1.0));
+        painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter.setBrush(fill);
+        painter.drawPath(path);
     } else if (type == QStringLiteral("road")) {
         const QColor road = themeColor(pilin, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));
         painter.setPen(QPen(road.darker(140), width + 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));

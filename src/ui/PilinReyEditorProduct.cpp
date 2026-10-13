@@ -115,6 +115,7 @@ QString typeForTool(PilinReyEditor::Tool tool) {
         case PilinReyEditor::Tool::Mountain: return QStringLiteral("terrainRidge");
         case PilinReyEditor::Tool::Forest: return QStringLiteral("biomePaint");
         case PilinReyEditor::Tool::River: return QStringLiteral("river");
+        case PilinReyEditor::Tool::Lake: return QStringLiteral("lake");
         case PilinReyEditor::Tool::Road: return QStringLiteral("road");
         case PilinReyEditor::Tool::Border: return QStringLiteral("border");
         case PilinReyEditor::Tool::Region: return QStringLiteral("region");
@@ -128,7 +129,7 @@ bool brushTool(PilinReyEditor::Tool tool) {
 }
 
 bool nodeTool(PilinReyEditor::Tool tool) {
-    return tool == PilinReyEditor::Tool::River || tool == PilinReyEditor::Tool::Road ||
+    return tool == PilinReyEditor::Tool::River || tool == PilinReyEditor::Tool::Lake || tool == PilinReyEditor::Tool::Road ||
            tool == PilinReyEditor::Tool::Border || tool == PilinReyEditor::Tool::Region;
 }
 
@@ -620,6 +621,13 @@ private:
             const QColor c = themeColor(p, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));
             painter.setPen(QPen(c.darker(145), width + 2.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin)); painter.drawPath(path);
             painter.setPen(QPen(c.lighter(150), std::max(1.0, width * .45), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin)); painter.drawPath(path);
+        } else if (type == QStringLiteral("lake")) {
+            const QColor water = themeColor(p, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));
+            QColor fill = water.lighter(145);
+            fill.setAlpha(210);
+            painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            painter.setBrush(fill);
+            painter.drawPath(path);
         } else if (type == QStringLiteral("road")) {
             const QColor c = themeColor(p, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));
             painter.setPen(QPen(c.darker(140), width + 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin)); painter.drawPath(path);
@@ -657,7 +665,7 @@ private:
     void finishNodes() {
         if (nodes_.size() >= 2 && onPath) {
             QJsonArray value = nodes_;
-            if (tool_ == Tool::Region && value.size() >= 3) value.append(value.first());
+            if ((tool_ == Tool::Region || tool_ == Tool::Lake) && value.size() >= 3) value.append(value.first());
             onPath(typeForTool(tool_), value);
         }
         nodes_ = {}; update();
@@ -757,7 +765,7 @@ void PilinReyEditor::buildUi() {
         {Tool::Select, "↖", "Seleccionar y editar"}, {Tool::Pan, "✥", "Mover lienzo"},
         {Tool::Coast, "+", "Elevar terreno"}, {Tool::Eraser, "−", "Hundir terreno"},
         {Tool::Mountain, "⌃", "Modelar cordillera"}, {Tool::Forest, "◐", "Pintar bioma"},
-        {Tool::River, "∿", "Trazar río"}, {Tool::Road, "━", "Trazar ruta"},
+        {Tool::River, "∿", "Trazar río"}, {Tool::Lake, "≈", "Dibujar lago"}, {Tool::Road, "━", "Trazar ruta"},
         {Tool::Border, "┄", "Trazar frontera"}, {Tool::Region, "◇", "Dibujar región"},
         {Tool::Settlement, "●", "Añadir asentamiento"}, {Tool::Label, "T", "Añadir etiqueta"},
         {Tool::Measure, "↔", "Medir"}
@@ -1165,7 +1173,7 @@ void PilinReyEditor::setActiveTool(Tool tool) {
     viewport_->setTool(tool);
     if (QWidget* options = canvasHost_->findChild<QWidget*>(QStringLiteral("pilinToolOptions"))) {
         const bool show = brushTool(tool) || nodeTool(tool); options->setVisible(show);
-        toolOptionsLabel_->setText(tool == Tool::Coast ? tr("Elevar terreno") : tool == Tool::Eraser ? tr("Hundir terreno") : tool == Tool::Mountain ? tr("Cordillera") : tool == Tool::Forest ? tr("Bioma") : tool == Tool::River ? tr("Río") : tool == Tool::Road ? tr("Ruta") : tool == Tool::Border ? tr("Frontera") : tool == Tool::Region ? tr("Región") : tr("Herramienta"));
+        toolOptionsLabel_->setText(tool == Tool::Coast ? tr("Elevar terreno") : tool == Tool::Eraser ? tr("Hundir terreno") : tool == Tool::Mountain ? tr("Cordillera") : tool == Tool::Forest ? tr("Bioma") : tool == Tool::River ? tr("Río") : tool == Tool::Lake ? tr("Lago") : tool == Tool::Road ? tr("Ruta") : tool == Tool::Border ? tr("Frontera") : tool == Tool::Region ? tr("Región") : tr("Herramienta"));
     }
     layoutFloatingPanels();
 }
@@ -1216,7 +1224,7 @@ void PilinReyEditor::addPathObject(const QString& type, const QJsonArray& points
 
     mutateDocument([&](QJsonObject& p) {
         QJsonArray layers = p.value(QStringLiteral("layers")).toArray(); int target = layers_->currentRow(); if (target < 0 || target >= layers.size()) target = 0; QJsonObject layer = layers.at(target).toObject(); if (layer.value(QStringLiteral("locked")).toBool(false)) return;
-        QJsonArray objects = layer.value(QStringLiteral("objects")).toArray(); const QString id = uid(QStringLiteral("mapobj")); QJsonObject object{{QStringLiteral("id"), id}, {QStringLiteral("type"), type}, {QStringLiteral("points"), points}, {QStringLiteral("width"), strokeWidth_}}; if (type == QStringLiteral("region")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), .12); } objects.append(object); layer.insert(QStringLiteral("objects"), objects); layers.replace(target, layer); p.insert(QStringLiteral("layers"), layers); selectedObjectIds_ = {id};
+        QJsonArray objects = layer.value(QStringLiteral("objects")).toArray(); const QString id = uid(QStringLiteral("mapobj")); QJsonObject object{{QStringLiteral("id"), id}, {QStringLiteral("type"), type}, {QStringLiteral("points"), points}, {QStringLiteral("width"), strokeWidth_}}; if (type == QStringLiteral("region") || type == QStringLiteral("lake")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), type == QStringLiteral("lake") ? .82 : .12); } objects.append(object); layer.insert(QStringLiteral("objects"), objects); layers.replace(target, layer); p.insert(QStringLiteral("layers"), layers); selectedObjectIds_ = {id};
     });
 }
 
