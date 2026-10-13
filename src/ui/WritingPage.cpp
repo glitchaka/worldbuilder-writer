@@ -1226,7 +1226,7 @@ void WritingPage::closeFocusMode() {
     editorOuterLayout_->setContentsMargins(16, 12, 16, 16);
     editorOuterLayout_->setSpacing(8);
     editorSplit_->setHandleWidth(5);
-    heroPanel_->show();
+    heroPanel_->hide();
     commandBarPanel_->show();
     tabs_->tabBar()->setVisible(tabBarWasVisible_);
     indexPanel_->setVisible(indexWasVisible_);
@@ -1243,3 +1243,4 @@ void WritingPage::closeFocusMode() {
 }
 
 } // namespace wbw
+

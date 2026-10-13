@@ -327,7 +327,7 @@ void WorldPage::applyMapsChrome() {
     }
 
     workspaceBar->adjustSize();
-    workspaceBar->move(62, 12);
+    workspaceBar->move(78, 72);
     workspaceBar->raise();
     workspaceBar->show();
 
@@ -372,3 +372,4 @@ void WorldPage::syncMapPicker() {
 }
 
 } // namespace wbw
+

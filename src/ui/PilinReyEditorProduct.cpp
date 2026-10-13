@@ -1181,7 +1181,7 @@ void PilinReyEditor::addPathObject(const QString& type, const QJsonArray& points
             MapTerrainEngine terrain = MapTerrainEngine::fromJson(previous);
             const double docW = std::max(1.0, p.value(QStringLiteral("width")).toDouble(4096.0));
             const double docH = std::max(1.0, p.value(QStringLiteral("height")).toDouble(2304.0));
-            const double strength = property("terrainStrength").toInt(58) / 100.0;
+            const double strength = property("terrainStrength").toInt() / 100.0;
             auto terrainPoint = [&](const QJsonValue& value) { const QJsonObject point = value.toObject(); return QPointF(point.value(QStringLiteral("x")).toDouble() / docW * (terrain.width() - 1), point.value(QStringLiteral("y")).toDouble() / docH * (terrain.height() - 1)); };
             auto terrainRadius = [&](const QJsonValue& value) { const double radius = value.toObject().value(QStringLiteral("radius")).toDouble(brushRadius_); return std::max(1.5, radius * .5 * (terrain.width() / docW + terrain.height() / docH)); };
             if (type == QStringLiteral("terrainRidge") && points.size() >= 2) {
@@ -1203,7 +1203,7 @@ void PilinReyEditor::addPathObject(const QString& type, const QJsonArray& points
         mutateDocument([&](QJsonObject& p) {
             QJsonObject model = p.value(QStringLiteral("terrainModel")).toObject(); const int tw = model.value(QStringLiteral("width")).toInt(), th = model.value(QStringLiteral("height")).toInt(); if (tw <= 0 || th <= 0) return;
             QJsonArray biomes = model.value(QStringLiteral("biomes")).toArray(); while (biomes.size() < tw * th) biomes.append(1);
-            const double docW = std::max(1.0, p.value(QStringLiteral("width")).toDouble(4096.0)), docH = std::max(1.0, p.value(QStringLiteral("height")).toDouble(2304.0)); const int biome = property("selectedBiome").toInt(2);
+            const double docW = std::max(1.0, p.value(QStringLiteral("width")).toDouble(4096.0)), docH = std::max(1.0, p.value(QStringLiteral("height")).toDouble(2304.0)); const int biome = property("selectedBiome").toInt();
             for (const QJsonValue& value : points) {
                 const QJsonObject point = value.toObject(); const double gx = point.value(QStringLiteral("x")).toDouble() / docW * (tw - 1), gy = point.value(QStringLiteral("y")).toDouble() / docH * (th - 1); const double radiusDoc = point.value(QStringLiteral("radius")).toDouble(brushRadius_); const double radius = std::max(1.0, radiusDoc * .5 * (tw / docW + th / docH));
                 const int minX = qMax(0, static_cast<int>(std::floor(gx - radius))), maxX = qMin(tw - 1, static_cast<int>(std::ceil(gx + radius))), minY = qMax(0, static_cast<int>(std::floor(gy - radius))), maxY = qMin(th - 1, static_cast<int>(std::ceil(gy + radius)));
@@ -1283,3 +1283,4 @@ void PilinReyEditor::exportMap() { const QJsonObject p = map_.value(QStringLiter
 void PilinReyEditor::persistToArchive() { QWidget* cursor = parentWidget(); WorldPage* world = nullptr; while (cursor) { world = qobject_cast<WorldPage*>(cursor); if (world) break; cursor = cursor->parentWidget(); } if (!world || !world->document_ || !world->mapList_) return; const int row = world->mapList_->currentRow(); QJsonArray maps = world->document_->array(QStringLiteral("maps")); if (row < 0 || row >= maps.size()) return; QJsonObject stored = maps.at(row).toObject(); stored.insert(QStringLiteral("pilinRey"), map_.value(QStringLiteral("pilinRey"))); if (map_.contains(QStringLiteral("backgroundImageDataUrl"))) stored.insert(QStringLiteral("backgroundImageDataUrl"), map_.value(QStringLiteral("backgroundImageDataUrl"))); maps.replace(row, stored); world->document_->setArray(QStringLiteral("maps"), maps); emit world->changed(); }
 
 } // namespace wbw
+
