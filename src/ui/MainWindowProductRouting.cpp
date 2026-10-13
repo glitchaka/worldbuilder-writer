@@ -80,16 +80,21 @@ void installProductRail(QListWidget* navigation) {
 }
 
 void polishLibraryControls(ProjectHubPage* hub) {
-    if (!hub || hub->property("wbwLibraryControlsV1").toBool()) return;
-    hub->setProperty("wbwLibraryControlsV1", true);
+    if (!hub || hub->property("wbwLibraryControlsV2").toBool()) return;
+    hub->setProperty("wbwLibraryControlsV2", true);
     if (auto* search = hub->findChild<QLineEdit*>(QStringLiteral("hubSearch"))) {
         search->show();
         search->setMaximumWidth(520);
     }
-    // El segundo botón era un selector de lista sin implementación. No se deja un control falso
-    // en una interfaz RC: el modo cuadrícula permanece visible y el listado volverá cuando exista.
+
     const QList<QPushButton*> viewButtons = hub->findChildren<QPushButton*>(QStringLiteral("hubViewButton"));
     if (viewButtons.size() > 1) viewButtons.at(1)->hide();
+
+    // “Desde plantilla” ejecutaba exactamente la misma acción que “Obra en blanco”. No se
+    // mantiene un control decorativo hasta que exista un sistema de plantillas real.
+    for (QPushButton* button : hub->findChildren<QPushButton*>(QStringLiteral("newProjectOption"))) {
+        if (button->text().contains(tr("Desde plantilla"), Qt::CaseInsensitive)) button->hide();
+    }
 }
 
 } // namespace
