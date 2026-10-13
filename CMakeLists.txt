@@ -72,6 +72,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/ReviewPageChromeV2.cpp
     src/ui/MainWindow.cpp
     src/ui/MainWindowProductRouting.cpp
+    src/ui/MainWindowTheme.cpp
 )
 
 target_include_directories(WorldbuilderWriterUi PUBLIC src)
