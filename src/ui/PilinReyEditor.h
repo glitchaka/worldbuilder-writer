@@ -34,6 +34,7 @@ public:
         Eraser,
         Region,
         River,
+        Lake,
         Road,
         Border,
         Forest,
