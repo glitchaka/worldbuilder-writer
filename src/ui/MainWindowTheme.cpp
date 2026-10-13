@@ -57,7 +57,7 @@ void MainWindow::refreshProductTheme() {
 #windowMinimize,#windowMaximize,#windowClose{background:transparent;color:#625d56;border:0;border-radius:0;padding:0;font-size:10pt;}
 #windowMinimize:hover,#windowMaximize:hover{background:#e7e1d8;color:#29251f;}
 #windowClose:hover{background:#b84950;color:#ffffff;}
-)QSS");
+)QSS"));
 }
 
 } // namespace wbw
