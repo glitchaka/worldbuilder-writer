@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QEvent>
+#include <QFrame>
 #include <QKeySequence>
 #include <QLineEdit>
 #include <QMainWindow>
