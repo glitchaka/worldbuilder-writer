@@ -1,11 +1,52 @@
 #include "ui/MapWorkspace.h"
+
+#include "core/ArchiveDocument.h"
 #include "ui/PilinReyEditor.h"
 
 #include <QApplication>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QLineEdit>
 
 namespace wbw {
 namespace {
+
+QJsonObject applyCartographicPreset(QJsonObject map) {
+    QJsonObject pilin = map.value(QStringLiteral("pilinRey")).toObject();
+    const QString style = map.value(QStringLiteral("style")).toString(QStringLiteral("Atlas"));
+    if (pilin.value(QStringLiteral("stylePreset")).toString() == style) return map;
+
+    QJsonObject theme = pilin.value(QStringLiteral("theme")).toObject();
+    if (style.compare(QObject::tr("Pergamino"), Qt::CaseInsensitive) == 0 || style.compare(QStringLiteral("Pergamino"), Qt::CaseInsensitive) == 0) {
+        theme.insert(QStringLiteral("sea"), QStringLiteral("#b8b295"));
+        theme.insert(QStringLiteral("river"), QStringLiteral("#546d78"));
+        theme.insert(QStringLiteral("road"), QStringLiteral("#765538"));
+        theme.insert(QStringLiteral("border"), QStringLiteral("#824d54"));
+        theme.insert(QStringLiteral("region"), QStringLiteral("#906a49"));
+        theme.insert(QStringLiteral("symbol"), QStringLiteral("#30281f"));
+        theme.insert(QStringLiteral("text"), QStringLiteral("#30281f"));
+    } else if (style.compare(QObject::tr("Nocturno"), Qt::CaseInsensitive) == 0 || style.compare(QStringLiteral("Nocturno"), Qt::CaseInsensitive) == 0) {
+        theme.insert(QStringLiteral("sea"), QStringLiteral("#284958"));
+        theme.insert(QStringLiteral("river"), QStringLiteral("#72b5d0"));
+        theme.insert(QStringLiteral("road"), QStringLiteral("#b49063"));
+        theme.insert(QStringLiteral("border"), QStringLiteral("#c57482"));
+        theme.insert(QStringLiteral("region"), QStringLiteral("#a88563"));
+        theme.insert(QStringLiteral("symbol"), QStringLiteral("#ece3d2"));
+        theme.insert(QStringLiteral("text"), QStringLiteral("#eee6d7"));
+    } else {
+        theme.insert(QStringLiteral("sea"), QStringLiteral("#789fad"));
+        theme.insert(QStringLiteral("river"), QStringLiteral("#2d6382"));
+        theme.insert(QStringLiteral("road"), QStringLiteral("#75512f"));
+        theme.insert(QStringLiteral("border"), QStringLiteral("#7c4650"));
+        theme.insert(QStringLiteral("region"), QStringLiteral("#8e6547"));
+        theme.insert(QStringLiteral("symbol"), QStringLiteral("#2c2924"));
+        theme.insert(QStringLiteral("text"), QStringLiteral("#29251f"));
+    }
+    pilin.insert(QStringLiteral("theme"), theme);
+    pilin.insert(QStringLiteral("stylePreset"), style);
+    map.insert(QStringLiteral("pilinRey"), pilin);
+    return map;
+}
 
 QString mapEditorChrome(bool dark) {
     if (dark) {
@@ -54,7 +95,7 @@ QToolButton#pilinPrimaryCommand:hover{background:#456f86;}
 #pilinPopover QListWidget::item:selected{background:#dce6ea;color:#315d72;}
 #pilinPopover QPushButton,#pilinGeneratorPopover QPushButton,#pilinTerrainPopover QPushButton,#pilinBiomePopover QPushButton{background:#f4efe7;color:#4a433b;border:1px solid #d4cabc;border-radius:7px;padding:8px 10px;text-align:left;}
 #pilinPopover QPushButton:hover,#pilinGeneratorPopover QPushButton:hover,#pilinTerrainPopover QPushButton:hover,#pilinBiomePopover QPushButton:hover{background:#ebe3d8;color:#29251f;}
-#pilinBiomePopover QPushButton:checked{background:#dbe7ea;color:#315d72;border-color:#92afbD;}
+#pilinBiomePopover QPushButton:checked{background:#dbe7ea;color:#315d72;border-color:#92afbd;}
 #pilinPrimaryAction{background:#557c91;color:#ffffff;border-color:#557c91;font-weight:700;}
 )QSS");
 }
@@ -65,6 +106,10 @@ void MapWorkspace::applyTheme() {
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
 
     if (editor_) {
+        if (document_ && currentRow_ >= 0) {
+            const QJsonArray maps = document_->array(QStringLiteral("maps"));
+            if (currentRow_ < maps.size()) editor_->setMap(applyCartographicPreset(maps.at(currentRow_).toObject()));
+        }
         editor_->setArchiveDocument(document_);
         editor_->migrateLegacyMarkers();
         editor_->installCartographicFurniture();
