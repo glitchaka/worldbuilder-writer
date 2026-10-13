@@ -1,4 +1,5 @@
 #include "ui/MainWindow.h"
+#include "ui/SettingsWorkspace.h"
 #include "ui/ThemeManager.h"
 #include "ui/WritingShortcutBridge.h"
 
@@ -107,6 +108,7 @@ void applyProductStructure(wbw::MainWindow& window) {
     if (auto* top = window.findChild<QWidget*>(QStringLiteral("topShell"))) top->hide();
     if (auto* save = window.findChild<QPushButton*>(QStringLiteral("primarySave"))) save->hide();
     if (auto* focus = window.findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->hide();
+    if (auto* settings = window.findChild<wbw::SettingsWorkspace*>()) settings->finalizeProductControls();
 }
 
 void ensureFirstRunTheme() {
