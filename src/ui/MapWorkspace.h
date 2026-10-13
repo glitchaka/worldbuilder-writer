@@ -21,6 +21,7 @@ public:
 
     void setDocument(ArchiveDocument* document);
     void refresh();
+    void applyTheme();
 
 signals:
     void changed();
