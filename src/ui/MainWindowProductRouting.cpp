@@ -38,6 +38,7 @@ void prepareWritingSurface(WritingPage* writing) {
     if (!writing) return;
     writing->applyProductChrome();
     writing->activatePlanningFilters();
+    writing->activateSceneNotes();
     if (auto* tabs = writing->findChild<QTabWidget*>(QStringLiteral("writingTabs"))) {
         if (tabs->tabBar()) tabs->tabBar()->hide();
     }
