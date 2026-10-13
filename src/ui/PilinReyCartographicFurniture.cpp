@@ -3,12 +3,9 @@
 #include <QApplication>
 #include <QEvent>
 #include <QFont>
-#include <QFontMetrics>
 #include <QPainter>
 #include <QPainterPath>
 #include <QWidget>
-
-#include <algorithm>
 
 namespace wbw {
 namespace {
@@ -46,8 +43,6 @@ protected:
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing, true);
 
-        // A restrained engraved-style frame. It is screen furniture, not a fake map layer,
-        // so zooming and editing the actual cartography remain unobstructed.
         const QRectF outer = rect().adjusted(24, 24, -24, -24);
         painter.setBrush(Qt::NoBrush);
         painter.setPen(QPen(weak, 1.0));
@@ -68,8 +63,9 @@ protected:
         cornerMark(outer.bottomLeft(), 1, -1);
         cornerMark(outer.bottomRight(), -1, -1);
 
+        // Only draw information that is semantically valid without assuming a projection
+        // or world-unit scale. Distance remains the job of the real Measure tool.
         drawCompass(painter, QPointF(outer.right() - 54, outer.top() + 58), strong, weak, plate, dark);
-        drawScale(painter, QRectF(outer.right() - 230, outer.bottom() - 54, 190, 36), strong, weak, plate, dark);
     }
 
 private:
@@ -111,37 +107,6 @@ private:
         painter.setFont(font);
         painter.setPen(strong);
         painter.drawText(QRectF(center.x() - 10, center.y() - 50, 20, 16), Qt::AlignCenter, QStringLiteral("N"));
-        painter.restore();
-    }
-
-    static void drawScale(QPainter& painter, const QRectF& box, const QColor& strong,
-                          const QColor& weak, const QColor& plate, bool dark) {
-        painter.save();
-        painter.setPen(QPen(weak, 1.0));
-        painter.setBrush(plate);
-        painter.drawRoundedRect(box, 6, 6);
-
-        const qreal x = box.left() + 14;
-        const qreal y = box.top() + 16;
-        const qreal segment = 34;
-        const qreal h = 6;
-        for (int i = 0; i < 4; ++i) {
-            painter.setPen(QPen(strong, 1.0));
-            painter.setBrush((i % 2 == 0) ? strong : (dark ? QColor(12, 16, 20, 220) : QColor(248, 244, 234, 230)));
-            painter.drawRect(QRectF(x + i * segment, y, segment, h));
-        }
-        painter.setBrush(Qt::NoBrush);
-        painter.setPen(QPen(strong, 1.0));
-        painter.drawRect(QRectF(x, y, segment * 4, h));
-
-        QFont font(QStringLiteral("Segoe UI"));
-        font.setPointSizeF(7.0);
-        painter.setFont(font);
-        painter.setPen(strong);
-        painter.drawText(QPointF(x, y - 3), QStringLiteral("0"));
-        painter.drawText(QPointF(x + segment * 2 - 8, y - 3), QStringLiteral("250"));
-        painter.drawText(QPointF(x + segment * 4 - 18, y - 3), QStringLiteral("500"));
-        painter.drawText(QPointF(x + segment * 4 + 8, y + h), QObject::tr("km"));
         painter.restore();
     }
 
