@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(WorldbuilderWriter VERSION 0.5.0 LANGUAGES C CXX)
 
-set(WORLDBUILDER_WRITER_RELEASE_LABEL "0.5.0-rc1")
+set(WORLDBUILDER_WRITER_RELEASE_LABEL "0.5.0-dev")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,16 +33,8 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/import/ManuscriptImporter.cpp
     src/ui/ThemeManager.cpp
 
-    src/ui/MapSelectionController.cpp
-    src/ui/MapSelectionController.h
     src/ui/MapTerrainEngine.cpp
     src/ui/MapTerrainEngine.h
-    src/ui/TerrainModelSyncController.cpp
-    src/ui/TerrainModelSyncController.h
-    src/ui/CartographicCanvasV3.cpp
-    src/ui/CartographicCanvasV3.h
-    src/ui/CartographicCanvasController.cpp
-    src/ui/CartographicCanvasController.h
 
     src/ui/WritingShortcutBridge.cpp
     src/ui/WritingShortcutBridge.h
@@ -53,7 +45,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/MapExporterV2.cpp
     src/ui/MapExportDialog.cpp
     src/ui/PilinReyEditor.h
-    src/ui/PilinReyEditorNative.cpp
+    src/ui/PilinReyEditorProduct.cpp
     src/ui/PilinReyWorldGeneration.cpp
     src/ui/PilinReySelectionGeometry.cpp
     src/ui/ProjectHubPage.cpp
