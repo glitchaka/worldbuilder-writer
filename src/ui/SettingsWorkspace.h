@@ -21,6 +21,7 @@ class SettingsWorkspace final : public QWidget {
     Q_OBJECT
 public:
     explicit SettingsWorkspace(QWidget* parent = nullptr);
+    void finalizeProductControls();
 
 signals:
     void preferencesChanged();
