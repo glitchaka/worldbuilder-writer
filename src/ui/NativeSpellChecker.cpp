@@ -1,6 +1,7 @@
 #include "ui/NativeSpellChecker.h"
 
 #include <QJsonObject>
+#include <QObject>
 #include <QStringList>
 
 #ifdef Q_OS_WIN
@@ -54,8 +55,6 @@ bool NativeSpellChecker::check(const QString& text, const QString& language, QJs
     BOOL supported = FALSE;
     hr = factory->IsSupported(wide(locale), &supported);
     if (FAILED(hr) || !supported) {
-        // Chilean Spanish is common for this project; use it when installed before falling
-        // back to the broadly available Spanish dictionary.
         const QStringList fallbacks = locale.startsWith(QStringLiteral("es"), Qt::CaseInsensitive)
             ? QStringList{QStringLiteral("es-CL"), QStringLiteral("es-ES")}
             : QStringList{};
