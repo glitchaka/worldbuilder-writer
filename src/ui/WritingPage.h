@@ -34,6 +34,7 @@ public:
     void openFocusMode();
     void applyProductChrome();
     void refreshProductChromeTheme();
+    void activatePlanningFilters();
 
 public slots:
     // Kept as the single commit path so the UI can debounce manuscript persistence without
