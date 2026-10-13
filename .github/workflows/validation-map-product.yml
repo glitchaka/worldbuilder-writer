@@ -5,9 +5,6 @@ on:
     branches: [ validation/map-product ]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: windows-2022
@@ -15,92 +12,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-
-      - name: Integrate final product source changes
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          @'
-          from pathlib import Path
-
-          def replace_once(text, old, new, label):
-              if old not in text:
-                  raise RuntimeError(f"{label}: source block not found")
-              return text.replace(old, new, 1)
-
-          # Light/dark product surfaces must be applied after the module-local native styling.
-          main = Path('src/main.cpp')
-          text = main.read_text(encoding='utf-8-sig')
-          old = '''    installNativeProductServices(window);\n    applyNativeVisualSystem(window);'''
-          new = '''    applyNativeVisualSystem(window);\n    installNativeProductServices(window);'''
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise RuntimeError('main theme startup order: source block not found')
-          main.write_text(text, encoding='utf-8')
-
-          editor = Path('src/ui/PilinReyEditorProduct.cpp')
-          text = editor.read_text(encoding='utf-8-sig')
-          if 'case PilinReyEditor::Tool::Lake: return QStringLiteral("lake");' not in text:
-              text = replace_once(
-                  text,
-                  '        case PilinReyEditor::Tool::River: return QStringLiteral("river");\n        case PilinReyEditor::Tool::Road: return QStringLiteral("road");',
-                  '        case PilinReyEditor::Tool::River: return QStringLiteral("river");\n        case PilinReyEditor::Tool::Lake: return QStringLiteral("lake");\n        case PilinReyEditor::Tool::Road: return QStringLiteral("road");',
-                  'lake type')
-
-              text = replace_once(
-                  text,
-                  '    return tool == PilinReyEditor::Tool::River || tool == PilinReyEditor::Tool::Road ||\n           tool == PilinReyEditor::Tool::Border || tool == PilinReyEditor::Tool::Region;',
-                  '    return tool == PilinReyEditor::Tool::River || tool == PilinReyEditor::Tool::Lake || tool == PilinReyEditor::Tool::Road ||\n           tool == PilinReyEditor::Tool::Border || tool == PilinReyEditor::Tool::Region;',
-                  'lake node tool')
-
-              text = replace_once(
-                  text,
-                  '        {Tool::River, "∿", "Trazar río"}, {Tool::Road, "━", "Trazar ruta"},',
-                  '        {Tool::River, "∿", "Trazar río"}, {Tool::Lake, "≈", "Dibujar lago"}, {Tool::Road, "━", "Trazar ruta"},',
-                  'lake toolbar')
-
-              text = replace_once(
-                  text,
-                  '            if (tool_ == Tool::Region && value.size() >= 3) value.append(value.first());',
-                  '            if ((tool_ == Tool::Region || tool_ == Tool::Lake) && value.size() >= 3) value.append(value.first());',
-                  'lake polygon closure')
-
-              road_marker = '        } else if (type == QStringLiteral("road")) {\n            const QColor c = themeColor(p, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'
-              lake_draw = '''        } else if (type == QStringLiteral("lake")) {\n            const QColor water = themeColor(p, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));\n            QColor fill = water.lighter(145);\n            fill.setAlpha(210);\n            painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));\n            painter.setBrush(fill);\n            painter.drawPath(path);\n        } else if (type == QStringLiteral("road")) {\n            const QColor c = themeColor(p, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'''
-              text = replace_once(text, road_marker, lake_draw, 'lake viewport rendering')
-
-              text = replace_once(
-                  text,
-                  'tool == Tool::River ? tr("Río") : tool == Tool::Road ? tr("Ruta")',
-                  'tool == Tool::River ? tr("Río") : tool == Tool::Lake ? tr("Lago") : tool == Tool::Road ? tr("Ruta")',
-                  'lake tool label')
-
-              text = replace_once(
-                  text,
-                  'if (type == QStringLiteral("region")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), .12); }',
-                  'if (type == QStringLiteral("region") || type == QStringLiteral("lake")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), type == QStringLiteral("lake") ? .82 : .12); }',
-                  'lake persistence')
-          editor.write_text(text, encoding='utf-8')
-
-          exporter = Path('src/ui/MapExporterProduct.cpp')
-          text = exporter.read_text(encoding='utf-8-sig')
-          if 'type == QStringLiteral("lake")' not in text:
-              road_marker = '    } else if (type == QStringLiteral("road")) {\n        const QColor road = themeColor(pilin, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'
-              lake_draw = '''    } else if (type == QStringLiteral("lake")) {\n        const QColor water = themeColor(pilin, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));\n        QColor fill = water.lighter(145);\n        fill.setAlphaF(std::clamp(object.value(QStringLiteral("fillOpacity")).toDouble(.82), 0.0, 1.0));\n        painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));\n        painter.setBrush(fill);\n        painter.drawPath(path);\n    } else if (type == QStringLiteral("road")) {\n        const QColor road = themeColor(pilin, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'''
-              text = replace_once(text, road_marker, lake_draw, 'lake exporter rendering')
-          exporter.write_text(text, encoding='utf-8')
-          '@ | Set-Content -Path "$env:RUNNER_TEMP\finalize_product.py" -Encoding utf8
-          python "$env:RUNNER_TEMP\finalize_product.py"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if (git status --porcelain) {
-            git add src/main.cpp src/ui/PilinReyEditorProduct.cpp src/ui/MapExporterProduct.cpp
-            git commit -m "product: finish editable lakes and persistent theme startup"
-            git push origin HEAD:main
-          }
 
       - name: Install Qt
         shell: pwsh
