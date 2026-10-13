@@ -106,7 +106,7 @@ void polishLibraryControls(ProjectHubPage* hub) {
     if (auto* genre = hub->findChild<QComboBox*>(QStringLiteral("hubGenreFilter"))) genre->hide();
 
     for (QPushButton* button : hub->findChildren<QPushButton*>(QStringLiteral("newProjectOption"))) {
-        if (button->text().contains(tr("Desde plantilla"), Qt::CaseInsensitive)) button->hide();
+        if (button->text().contains(QObject::tr("Desde plantilla"), Qt::CaseInsensitive)) button->hide();
     }
 }
 
@@ -181,8 +181,6 @@ void MainWindow::routeProductModule(int row) {
     if (auto* focus = findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->hide();
     if (auto* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->hide();
 
-    // Atlas and review apply some of their approved chrome lazily on first show. Reapplying the
-    // saved theme here keeps light mode real instead of letting a lazy dark stylesheet win.
     ThemeManager::applySaved();
     if (navigation_) navigation_->viewport()->update();
 }
