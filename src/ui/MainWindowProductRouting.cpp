@@ -111,6 +111,7 @@ void MainWindow::routeProductModule(int row) {
     }
 
     ThemeManager::applySaved();
+    refreshProductTheme();
     if (row == 4 && mapPage_) mapPage_->applyTheme();
     navigation_->viewport()->update();
 }
