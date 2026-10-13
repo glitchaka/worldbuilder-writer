@@ -323,7 +323,7 @@ void MainWindow::createShell() {
         const QString query = globalSearch->text().trimmed();
         if (query.isEmpty()) return;
         if (navigation_->currentRow() == 1 || navigation_->currentRow() == 2) {
-            if (auto* sceneSearch = writingPage_->findChild<QLineEdit*>(QStringLiteral("writingSceneSearch"))) {
+            if (auto* sceneSearch = writingPage_->findChild<QLineEdit*>(QStringLiteral("sceneBoardSearch"))) {
                 sceneSearch->setText(query);
                 sceneSearch->setFocus();
             } else if (auto* editor = writingPage_->findChild<QTextEdit*>(QStringLiteral("sceneEditor"))) {
@@ -644,10 +644,13 @@ void MainWindow::exportPdf() {
 void MainWindow::createBackup() {
     saveProject(true);
     QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
-    const QString previous = settings.value(QStringLiteral("backupDirectory"), QDir::homePath()).toString();
-    const QString directory = QFileDialog::getExistingDirectory(this, tr("Carpeta de copias de seguridad"), previous);
-    if (directory.isEmpty()) return;
-    settings.setValue(QStringLiteral("backupDirectory"), directory);
+    const QString previous = settings.value(QStringLiteral("backupDirectory"), QString()).toString();
+    QString directory = previous;
+    if (directory.isEmpty() || !QDir(directory).exists()) {
+        directory = QFileDialog::getExistingDirectory(this, tr("Carpeta de copias de seguridad"), QDir::homePath());
+        if (directory.isEmpty()) return;
+        settings.setValue(QStringLiteral("backupDirectory"), directory);
+    }
     const QString base = safeFileName(document_.storyTitle().isEmpty() ? document_.title() : document_.storyTitle());
     const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"));
     const QString path = QDir(directory).filePath(QStringLiteral("%1-%2.wbw").arg(base, stamp));
@@ -720,3 +723,4 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 } // namespace wbw
+

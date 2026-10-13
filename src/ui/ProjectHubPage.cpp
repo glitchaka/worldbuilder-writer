@@ -2,11 +2,13 @@
 
 #include "core/ArchiveDocument.h"
 #include "storage/ProjectStore.h"
+#include "storage/WbwPackage.h"
 
 #include <QComboBox>
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QFileDialog>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHideEvent>
@@ -17,6 +19,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPixmap>
 #include <QPushButton>
@@ -406,7 +409,36 @@ void ProjectHubPage::rebuildCards() {
         footer->addWidget(remove);
         layout->addLayout(footer);
 
-        connect(remove, &QPushButton::clicked, this, [this, path, archiveTitle]() {
+        connect(remove, &QPushButton::clicked, this, [this, path, archiveTitle, remove]() {
+            QMenu menu(this);
+            QAction* openAction = menu.addAction(tr("Abrir proyecto"));
+            QAction* exportAction = menu.addAction(tr("Exportar proyecto .wbw…"));
+            menu.addSeparator();
+            QAction* deleteAction = menu.addAction(tr("Eliminar definitivamente"));
+            QAction* chosen = menu.exec(remove->mapToGlobal(QPoint(0, remove->height())));
+            if (chosen == openAction) {
+                emit openProjectRequested(path);
+                return;
+            }
+            if (chosen == exportAction) {
+                ArchiveDocument source;
+                QString error;
+                if (!ProjectStore::loadJsonFile(path, source, &error)) {
+                    QMessageBox::critical(this, tr("No se pudo abrir"), error);
+                    return;
+                }
+                QString target = QFileDialog::getSaveFileName(this, tr("Exportar proyecto .wbw"),
+                    (archiveTitle.trimmed().isEmpty() ? tr("proyecto") : archiveTitle) + QStringLiteral(".wbw"),
+                    tr("Proyecto Worldbuilder Writer (*.wbw)"));
+                if (target.isEmpty()) return;
+                if (!target.endsWith(QStringLiteral(".wbw"), Qt::CaseInsensitive)) target += QStringLiteral(".wbw");
+                if (!WbwPackage::exportPackage(target, source, &error)) {
+                    QMessageBox::critical(this, tr("No se pudo exportar"), error);
+                    return;
+                }
+                return;
+            }
+            if (chosen != deleteAction) return;
             if (QMessageBox::question(this, tr("Eliminar proyecto"), tr("¿Eliminar definitivamente “%1”? Esta acción no se puede deshacer.").arg(archiveTitle)) != QMessageBox::Yes) return;
             QString error;
             if (!ProjectStore::removeProject(path, &error)) {
@@ -428,3 +460,4 @@ void ProjectHubPage::rebuildCards() {
 }
 
 } // namespace wbw
+
