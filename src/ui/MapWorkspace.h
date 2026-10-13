@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QJsonObject>
 #include <QWidget>
 
 class QComboBox;
