@@ -112,6 +112,7 @@ void MapWorkspace::applyTheme() {
         }
         editor_->setArchiveDocument(document_);
         editor_->migrateLegacyMarkers();
+        editor_->activateAzgaarGenerationPipeline();
         editor_->installCartographicFurniture();
         editor_->setStyleSheet(editor_->styleSheet() + mapEditorChrome(dark));
     }
