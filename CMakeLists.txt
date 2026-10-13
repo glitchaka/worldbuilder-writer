@@ -55,6 +55,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/PilinReyTerrainOperations.cpp
     src/ui/PilinReySettings.cpp
     src/ui/PilinReySelectionGeometry.cpp
+    src/ui/PilinReyArchiveBridge.cpp
     src/ui/ProjectHubPage.cpp
     src/ui/SettingsDialog.cpp
     src/ui/SemanticTextEdit.cpp
