@@ -342,13 +342,14 @@ void PilinReyEditor::installCartographicFurniture() {
     QWidget* viewportWidget = canvasHost_->findChild<QWidget*>(QStringLiteral("pilinQtViewport"));
     if (!viewportWidget) return;
 
-    auto* overlay = viewportWidget->findChild<CartographicFurniture*>(QStringLiteral("pilinCartographicFurniture"), Qt::FindDirectChildrenOnly);
+    QWidget* existing = viewportWidget->findChild<QWidget*>(QStringLiteral("pilinCartographicFurniture"), Qt::FindDirectChildrenOnly);
+    auto* overlay = dynamic_cast<CartographicFurniture*>(existing);
     if (!overlay) {
         overlay = new CartographicFurniture(viewportWidget);
         connect(this, &PilinReyEditor::mapEdited, overlay, [overlay](const QJsonObject& map) { overlay->setMap(map); });
         for (QToolButton* button : findChildren<QToolButton*>()) {
             if (button->toolTip().contains(tr("Encajar mapa"), Qt::CaseInsensitive)) {
-                connect(button, &QToolButton::clicked, overlay, [overlay]() { overlay->fitDocument(); }, Qt::UniqueConnection);
+                connect(button, &QToolButton::clicked, overlay, [overlay]() { overlay->fitDocument(); });
             }
         }
     }
