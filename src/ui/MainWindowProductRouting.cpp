@@ -6,6 +6,7 @@
 #include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
 
+#include <QComboBox>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPainter>
@@ -80,8 +81,8 @@ void installProductRail(QListWidget* navigation) {
 }
 
 void polishLibraryControls(ProjectHubPage* hub) {
-    if (!hub || hub->property("wbwLibraryControlsV2").toBool()) return;
-    hub->setProperty("wbwLibraryControlsV2", true);
+    if (!hub || hub->property("wbwLibraryControlsV3").toBool()) return;
+    hub->setProperty("wbwLibraryControlsV3", true);
     if (auto* search = hub->findChild<QLineEdit*>(QStringLiteral("hubSearch"))) {
         search->show();
         search->setMaximumWidth(520);
@@ -90,8 +91,12 @@ void polishLibraryControls(ProjectHubPage* hub) {
     const QList<QPushButton*> viewButtons = hub->findChildren<QPushButton*>(QStringLiteral("hubViewButton"));
     if (viewButtons.size() > 1) viewButtons.at(1)->hide();
 
-    // “Desde plantilla” ejecutaba exactamente la misma acción que “Obra en blanco”. No se
-    // mantiene un control decorativo hasta que exista un sistema de plantillas real.
+    // The current card library is intentionally single-view until the alternate view has
+    // its own implementation. Likewise, only the status filter is kept because it is the
+    // filter actually consumed by ProjectHubPage::rebuildCards().
+    if (auto* sort = hub->findChild<QComboBox*>(QStringLiteral("hubSort"))) sort->hide();
+    if (auto* genre = hub->findChild<QComboBox*>(QStringLiteral("hubGenreFilter"))) genre->hide();
+
     for (QPushButton* button : hub->findChildren<QPushButton*>(QStringLiteral("newProjectOption"))) {
         if (button->text().contains(tr("Desde plantilla"), Qt::CaseInsensitive)) button->hide();
     }
