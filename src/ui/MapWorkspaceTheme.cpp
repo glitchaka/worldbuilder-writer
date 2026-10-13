@@ -1,10 +1,13 @@
 #include "ui/MapWorkspace.h"
+#include "ui/PilinReyEditor.h"
 
 #include <QApplication>
 
 namespace wbw {
 
 void MapWorkspace::applyTheme() {
+    if (editor_) editor_->setArchiveDocument(document_);
+
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
     if (dark) {
         setStyleSheet(QStringLiteral(R"QSS(
