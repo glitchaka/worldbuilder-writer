@@ -37,6 +37,7 @@ void polishLibraryControls(ProjectHubPage* hub) {
 void prepareWritingSurface(WritingPage* writing) {
     if (!writing) return;
     writing->applyProductChrome();
+    writing->activatePlanningFilters();
     if (auto* tabs = writing->findChild<QTabWidget*>(QStringLiteral("writingTabs"))) {
         if (tabs->tabBar()) tabs->tabBar()->hide();
     }
