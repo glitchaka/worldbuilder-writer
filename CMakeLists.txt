@@ -36,6 +36,8 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/MapTerrainEngine.cpp
     src/ui/MapTerrainEngine.h
 
+    src/ui/NativeSpellChecker.cpp
+    src/ui/NativeSpellChecker.h
     src/ui/WritingShortcutBridge.cpp
     src/ui/WritingShortcutBridge.h
 
@@ -73,6 +75,10 @@ target_link_libraries(WorldbuilderWriterUi PUBLIC
     Qt6::Svg
     miniz
 )
+
+if(WIN32)
+    target_link_libraries(WorldbuilderWriterUi PUBLIC ole32)
+endif()
 
 qt_add_executable(WorldbuilderWriter src/main.cpp)
 target_link_libraries(WorldbuilderWriter PRIVATE WorldbuilderWriterUi)
