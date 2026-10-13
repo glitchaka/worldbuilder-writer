@@ -16,171 +16,89 @@ jobs:
         with:
           ref: main
 
-      - name: Integrate remaining native product behavior to main
+      - name: Integrate final product source changes
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           @'
           from pathlib import Path
-          import re
 
           def replace_once(text, old, new, label):
               if old not in text:
-                  raise SystemExit(f"{label}: source block not found")
+                  raise RuntimeError(f"{label}: source block not found")
               return text.replace(old, new, 1)
 
-          # Native spelling first, LanguageTool only as a cross-platform fallback.
-          path = Path('src/ui/SemanticTextEdit.cpp')
-          text = path.read_text(encoding='utf-8-sig')
-          text = replace_once(
-              text,
-              '#include "core/ArchiveDocument.h"\n',
-              '#include "core/ArchiveDocument.h"\n#include "ui/NativeSpellChecker.h"\n',
-              'spell include')
-          proof_pattern = re.compile(r'''void SemanticTextEdit::runProofread\(\) \{.*?\n\}\n\nvoid SemanticTextEdit::clearProofread''', re.S)
-          proof_replacement = r'''void SemanticTextEdit::runProofread() {
-              const QTextCursor source = textCursor();
-              proofreadBase_ = source.hasSelection() ? source.selectionStart() : 0;
-              const QString text = source.hasSelection() ? source.selectedText() : toPlainText();
-              if (text.trimmed().isEmpty()) {
-                  emit proofreadError(tr("Escribe o selecciona un fragmento para revisar."));
-                  return;
-              }
+          # Light/dark product surfaces must be applied after the module-local native styling.
+          main = Path('src/main.cpp')
+          text = main.read_text(encoding='utf-8-sig')
+          old = '''    installNativeProductServices(window);\n    applyNativeVisualSystem(window);'''
+          new = '''    applyNativeVisualSystem(window);\n    installNativeProductServices(window);'''
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise RuntimeError('main theme startup order: source block not found')
+          main.write_text(text, encoding='utf-8')
 
-              emit proofreadStarted();
-              const QString fragment = text.left(18000);
+          editor = Path('src/ui/PilinReyEditorProduct.cpp')
+          text = editor.read_text(encoding='utf-8-sig')
+          if 'case PilinReyEditor::Tool::Lake: return QStringLiteral("lake");' not in text:
+              text = replace_once(
+                  text,
+                  '        case PilinReyEditor::Tool::River: return QStringLiteral("river");\n        case PilinReyEditor::Tool::Road: return QStringLiteral("road");',
+                  '        case PilinReyEditor::Tool::River: return QStringLiteral("river");\n        case PilinReyEditor::Tool::Lake: return QStringLiteral("lake");\n        case PilinReyEditor::Tool::Road: return QStringLiteral("road");',
+                  'lake type')
 
-              QJsonArray nativeMatches;
-              if (NativeSpellChecker::check(fragment, proofLanguage(), &nativeMatches)) {
-                  proofIssues_.clear();
-                  for (const QJsonValue value : nativeMatches) {
-                      const QJsonObject match = value.toObject();
-                      ProofIssue issue;
-                      issue.start = proofreadBase_ + match.value(QStringLiteral("offset")).toInt();
-                      issue.length = match.value(QStringLiteral("length")).toInt();
-                      issue.message = match.value(QStringLiteral("message")).toString();
-                      for (const QJsonValue replacement : match.value(QStringLiteral("replacements")).toArray()) {
-                          const QString candidate = replacement.toObject().value(QStringLiteral("value")).toString();
-                          if (!candidate.isEmpty()) issue.replacements.append(candidate);
-                      }
-                      if (issue.length > 0) proofIssues_.append(issue);
-                  }
-                  rebuildSelections();
-                  emit proofreadFinished(proofIssues_.size());
-                  return;
-              }
+              text = replace_once(
+                  text,
+                  '    return tool == PilinReyEditor::Tool::River || tool == PilinReyEditor::Tool::Road ||\n           tool == PilinReyEditor::Tool::Border || tool == PilinReyEditor::Tool::Region;',
+                  '    return tool == PilinReyEditor::Tool::River || tool == PilinReyEditor::Tool::Lake || tool == PilinReyEditor::Tool::Road ||\n           tool == PilinReyEditor::Tool::Border || tool == PilinReyEditor::Tool::Region;',
+                  'lake node tool')
 
-              QNetworkRequest request(QUrl(QStringLiteral("https://api.languagetool.org/v2/check")));
-              request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/x-www-form-urlencoded"));
-              QUrlQuery query;
-              query.addQueryItem(QStringLiteral("text"), fragment);
-              query.addQueryItem(QStringLiteral("language"), proofLanguage());
-              query.addQueryItem(QStringLiteral("enabledOnly"), QStringLiteral("false"));
-              QNetworkReply* reply = network_->post(request, query.query(QUrl::FullyEncoded).toUtf8());
-              connect(reply, &QNetworkReply::finished, this, [this, reply]() { parseProofreadReply(reply); });
-          }
+              text = replace_once(
+                  text,
+                  '        {Tool::River, "∿", "Trazar río"}, {Tool::Road, "━", "Trazar ruta"},',
+                  '        {Tool::River, "∿", "Trazar río"}, {Tool::Lake, "≈", "Dibujar lago"}, {Tool::Road, "━", "Trazar ruta"},',
+                  'lake toolbar')
 
-          void SemanticTextEdit::clearProofread'''
-          text, count = proof_pattern.subn(proof_replacement, text, count=1)
-          if count != 1:
-              raise SystemExit('proofread function: source block not found')
-          path.write_text(text, encoding='utf-8')
+              text = replace_once(
+                  text,
+                  '            if (tool_ == Tool::Region && value.size() >= 3) value.append(value.first());',
+                  '            if ((tool_ == Tool::Region || tool_ == Tool::Lake) && value.size() >= 3) value.append(value.first());',
+                  'lake polygon closure')
 
-          # Direct access to documentation from the manuscript index.
-          path = Path('src/ui/WritingPage.cpp')
-          text = path.read_text(encoding='utf-8-sig')
-          text = replace_once(
-              text,
-              '    indexLayout->addWidget(tree_, 1);\n    auto* indexActions = new QHBoxLayout;\n',
-              '    indexLayout->addWidget(tree_, 1);\n'
-              '    auto* documentationButton = makeButton(tr("Documentación"));\n'
-              '    documentationButton->setObjectName(QStringLiteral("writingSubtle"));\n'
-              '    documentationButton->setToolTip(tr("Abrir apuntes, fichas y material de referencia"));\n'
-              '    indexLayout->addWidget(documentationButton);\n'
-              '    auto* indexActions = new QHBoxLayout;\n',
-              'writing documentation button')
-          text = replace_once(
-              text,
-              '    connect(renameButton, &QPushButton::clicked, this, &WritingPage::renameChapter);\n',
-              '    connect(renameButton, &QPushButton::clicked, this, &WritingPage::renameChapter);\n'
-              '    connect(documentationButton, &QPushButton::clicked, this, [this]() {\n'
-              '        emit referenceActivated(QStringLiteral("world"), QString());\n'
-              '    });\n',
-              'writing documentation connection')
-          path.write_text(text, encoding='utf-8')
+              road_marker = '        } else if (type == QStringLiteral("road")) {\n            const QColor c = themeColor(p, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'
+              lake_draw = '''        } else if (type == QStringLiteral("lake")) {\n            const QColor water = themeColor(p, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));\n            QColor fill = water.lighter(145);\n            fill.setAlpha(210);\n            painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));\n            painter.setBrush(fill);\n            painter.drawPath(path);\n        } else if (type == QStringLiteral("road")) {\n            const QColor c = themeColor(p, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'''
+              text = replace_once(text, road_marker, lake_draw, 'lake viewport rendering')
 
-          # Complete editable lakes in the production map surface.
-          path = Path('src/ui/PilinReyEditorProduct.cpp')
-          text = path.read_text(encoding='utf-8-sig')
-          text = replace_once(
-              text,
-              '        case PilinReyEditor::Tool::River: return QStringLiteral("river");\n        case PilinReyEditor::Tool::Road: return QStringLiteral("road");',
-              '        case PilinReyEditor::Tool::River: return QStringLiteral("river");\n        case PilinReyEditor::Tool::Lake: return QStringLiteral("lake");\n        case PilinReyEditor::Tool::Road: return QStringLiteral("road");',
-              'lake tool type')
-          text = re.sub(
-              r'return tool == PilinReyEditor::Tool::River \|\| tool == PilinReyEditor::Tool::Road \|\|\s*tool == PilinReyEditor::Tool::Border \|\| tool == PilinReyEditor::Tool::Region;',
-              'return tool == PilinReyEditor::Tool::River || tool == PilinReyEditor::Tool::Lake || tool == PilinReyEditor::Tool::Road ||\n           tool == PilinReyEditor::Tool::Border || tool == PilinReyEditor::Tool::Region;',
-              text, count=1)
-          text = replace_once(
-              text,
-              '        {Tool::River, "∿", "Trazar río"}, {Tool::Road, "━", "Trazar ruta"},',
-              '        {Tool::River, "∿", "Trazar río"}, {Tool::Lake, "≈", "Dibujar lago"}, {Tool::Road, "━", "Trazar ruta"},',
-              'lake toolbar')
-          text = replace_once(
-              text,
-              '            if (tool_ == Tool::Region && value.size() >= 3) value.append(value.first());',
-              '            if ((tool_ == Tool::Region || tool_ == Tool::Lake) && value.size() >= 3) value.append(value.first());',
-              'lake close geometry')
-          text = replace_once(
-              text,
-              '''        } else if (type == QStringLiteral("road")) {
-              const QColor c = themeColor(p, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));''',
-              '''        } else if (type == QStringLiteral("lake")) {
-              const QColor water = themeColor(p, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));
-              QColor fill = water.lighter(145);
-              fill.setAlpha(210);
-              painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-              painter.setBrush(fill);
-              painter.drawPath(path);
-          } else if (type == QStringLiteral("road")) {
-              const QColor c = themeColor(p, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));''',
-              'lake viewport rendering')
-          text = replace_once(
-              text,
-              'tool == Tool::River ? tr("Río") : tool == Tool::Road ? tr("Ruta")',
-              'tool == Tool::River ? tr("Río") : tool == Tool::Lake ? tr("Lago") : tool == Tool::Road ? tr("Ruta")',
-              'lake tool label')
-          text = replace_once(
-              text,
-              'if (type == QStringLiteral("region")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), .12); }',
-              'if (type == QStringLiteral("region") || type == QStringLiteral("lake")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), type == QStringLiteral("lake") ? .82 : .12); }',
-              'lake persistent object')
-          path.write_text(text, encoding='utf-8')
+              text = replace_once(
+                  text,
+                  'tool == Tool::River ? tr("Río") : tool == Tool::Road ? tr("Ruta")',
+                  'tool == Tool::River ? tr("Río") : tool == Tool::Lake ? tr("Lago") : tool == Tool::Road ? tr("Ruta")',
+                  'lake tool label')
 
-          path = Path('src/ui/MapExporterProduct.cpp')
-          text = path.read_text(encoding='utf-8-sig')
-          text = replace_once(
-              text,
-              '''    } else if (type == QStringLiteral("road")) {
-              const QColor road = themeColor(pilin, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));''',
-              '''    } else if (type == QStringLiteral("lake")) {
-              const QColor water = themeColor(pilin, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));
-              QColor fill = water.lighter(145);
-              fill.setAlphaF(std::clamp(object.value(QStringLiteral("fillOpacity")).toDouble(.82), 0.0, 1.0));
-              painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-              painter.setBrush(fill);
-              painter.drawPath(path);
-          } else if (type == QStringLiteral("road")) {
-              const QColor road = themeColor(pilin, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));''',
-              'lake export rendering')
-          path.write_text(text, encoding='utf-8')
-          '@ | Set-Content -Path "$env:RUNNER_TEMP\integrate_product.py" -Encoding utf8
-          python "$env:RUNNER_TEMP\integrate_product.py"
+              text = replace_once(
+                  text,
+                  'if (type == QStringLiteral("region")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), .12); }',
+                  'if (type == QStringLiteral("region") || type == QStringLiteral("lake")) { object.insert(QStringLiteral("closed"), true); object.insert(QStringLiteral("fillOpacity"), type == QStringLiteral("lake") ? .82 : .12); }',
+                  'lake persistence')
+          editor.write_text(text, encoding='utf-8')
+
+          exporter = Path('src/ui/MapExporterProduct.cpp')
+          text = exporter.read_text(encoding='utf-8-sig')
+          if 'type == QStringLiteral("lake")' not in text:
+              road_marker = '    } else if (type == QStringLiteral("road")) {\n        const QColor road = themeColor(pilin, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'
+              lake_draw = '''    } else if (type == QStringLiteral("lake")) {\n        const QColor water = themeColor(pilin, QStringLiteral("river"), QColor(QStringLiteral("#2d6382")));\n        QColor fill = water.lighter(145);\n        fill.setAlphaF(std::clamp(object.value(QStringLiteral("fillOpacity")).toDouble(.82), 0.0, 1.0));\n        painter.setPen(QPen(water.darker(135), std::max(1.0, width * .7), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));\n        painter.setBrush(fill);\n        painter.drawPath(path);\n    } else if (type == QStringLiteral("road")) {\n        const QColor road = themeColor(pilin, QStringLiteral("road"), QColor(QStringLiteral("#75512f")));'''
+              text = replace_once(text, road_marker, lake_draw, 'lake exporter rendering')
+          exporter.write_text(text, encoding='utf-8')
+          '@ | Set-Content -Path "$env:RUNNER_TEMP\finalize_product.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\finalize_product.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if (git status --porcelain) {
-            git add src/ui/SemanticTextEdit.cpp src/ui/WritingPage.cpp src/ui/PilinReyEditorProduct.cpp src/ui/MapExporterProduct.cpp
-            git commit -m "product: finish native proofing, documentation access and map lakes"
+            git add src/main.cpp src/ui/PilinReyEditorProduct.cpp src/ui/MapExporterProduct.cpp
+            git commit -m "product: finish editable lakes and persistent theme startup"
             git push origin HEAD:main
           }
 
@@ -207,10 +125,10 @@ jobs:
         run: |
           $exe = Join-Path $env:GITHUB_WORKSPACE 'dist\bin\WorldbuilderWriter.exe'
           if (!(Test-Path $exe)) { throw 'WorldbuilderWriter.exe was not installed.' }
-          $required = @('Qt6Core.dll','Qt6Gui.dll','Qt6Widgets.dll')
-          foreach ($dll in $required) {
+          foreach ($dll in @('Qt6Core.dll','Qt6Gui.dll','Qt6Widgets.dll')) {
             if (!(Test-Path (Join-Path (Split-Path $exe) $dll))) { throw "$dll missing from standalone bundle." }
           }
+          if (!(Test-Path (Join-Path (Split-Path $exe) 'platforms\qwindows.dll'))) { throw 'Qt Windows platform plugin missing.' }
 
       - name: Native launch smoke test
         shell: pwsh
@@ -223,4 +141,4 @@ jobs:
           if ($process.HasExited) { throw "Worldbuilder Writer exited during startup with code $($process.ExitCode)." }
           Stop-Process -Id $process.Id -Force
 
-      # Validation only. This workflow does not publish a release artifact.
+      # Validation only. No RC/release artifact is published.
