@@ -44,7 +44,7 @@ bool NativeSpellChecker::check(const QString& text, const QString& language, QJs
     if (FAILED(init) && init != RPC_E_CHANGED_MODE) return false;
 
     ISpellCheckerFactory* factory = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_SpellCheckerFactory, nullptr, CLSCTX_INPROC_SERVER,
+    HRESULT hr = CoCreateInstance(__uuidof(SpellCheckerFactory), nullptr, CLSCTX_INPROC_SERVER,
                                   IID_PPV_ARGS(&factory));
     if (FAILED(hr) || !factory) {
         if (ownsCom) CoUninitialize();
