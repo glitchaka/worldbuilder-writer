@@ -38,6 +38,7 @@ protected:
 private:
     void createShell();
     void routeProductModule(int row);
+    void refreshProductTheme();
     void loadStartupProject();
     void showLibrary();
     void newProject();
