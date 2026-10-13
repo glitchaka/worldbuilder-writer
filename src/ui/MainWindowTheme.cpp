@@ -1,5 +1,8 @@
 #include "ui/MainWindow.h"
 
+#include "ui/SettingsWorkspace.h"
+#include "ui/WritingPage.h"
+
 #include <QApplication>
 #include <QLabel>
 #include <QLineEdit>
@@ -9,6 +12,15 @@
 namespace wbw {
 
 void MainWindow::refreshProductTheme() {
+    if (settingsPage_ && !property("wbwProductThemeConnected").toBool()) {
+        setProperty("wbwProductThemeConnected", true);
+        connect(settingsPage_, &SettingsWorkspace::preferencesChanged, this, [this]() {
+            refreshProductTheme();
+            if (writingPage_) writingPage_->refreshProductChromeTheme();
+            if (mapPage_) mapPage_->applyTheme();
+        });
+    }
+
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
     QWidget* shell = findChild<QWidget*>(QStringLiteral("topShell"));
     if (!shell) shell = findChild<QWidget*>(QStringLiteral("productTopBar"));
