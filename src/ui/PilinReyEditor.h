@@ -53,6 +53,7 @@ public:
     void migrateLegacyMarkers();
     void installCartographicFurniture();
     void activateAzgaarGenerationPipeline();
+    void configureProductWorkspace();
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
     void smoothTerrain();
