@@ -10,6 +10,7 @@
 
 #include <QComboBox>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QTabBar>
@@ -35,7 +36,7 @@ void polishLibraryControls(ProjectHubPage* hub) {
 
 void prepareWritingSurface(WritingPage* writing) {
     if (!writing) return;
-    if (auto* hero = writing->findChild<QWidget*>(QStringLiteral("writingHero"))) hero->hide();
+    writing->applyProductChrome();
     if (auto* tabs = writing->findChild<QTabWidget*>(QStringLiteral("writingTabs"))) {
         if (tabs->tabBar()) tabs->tabBar()->hide();
     }
