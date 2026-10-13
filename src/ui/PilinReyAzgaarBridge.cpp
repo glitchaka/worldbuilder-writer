@@ -17,9 +17,12 @@ public:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() != QEvent::Polish && event->type() != QEvent::Show) return QObject::eventFilter(watched, event);
+        if (event->type() != QEvent::Polish && event->type() != QEvent::Show)
+            return QObject::eventFilter(watched, event);
+
         auto* editor = qobject_cast<PilinReyEditor*>(watched);
-        if (!editor || editor->property("wbwAzgaarGeneratorConnected").toBool()) return QObject::eventFilter(watched, event);
+        if (!editor || editor->property("wbwAzgaarGeneratorConnected").toBool())
+            return QObject::eventFilter(watched, event);
 
         QTimer::singleShot(0, editor, [editor]() {
             if (!editor || editor->property("wbwAzgaarGeneratorConnected").toBool()) return;
@@ -35,20 +38,18 @@ protected:
             }
             if (!buildButton) return;
 
-            QList<QSpinBox*> spins = popover->findChildren<QSpinBox*>();
             QSpinBox* seed = nullptr;
             QSpinBox* continents = nullptr;
             QSpinBox* islands = nullptr;
-            for (QSpinBox* spin : spins) {
+            for (QSpinBox* spin : popover->findChildren<QSpinBox*>()) {
                 if (spin->maximum() > 1000000) seed = spin;
                 else if (spin->minimum() == 1 && spin->maximum() <= 10) continents = spin;
                 else if (spin->minimum() == 0 && spin->maximum() >= 20) islands = spin;
             }
 
-            QList<QSlider*> sliders = popover->findChildren<QSlider*>();
             QSlider* roughness = nullptr;
             QSlider* seaLevel = nullptr;
-            for (QSlider* slider : sliders) {
+            for (QSlider* slider : popover->findChildren<QSlider*>()) {
                 if (slider->minimum() >= 25 && slider->maximum() >= 75) roughness = slider;
                 if (slider->minimum() >= 20 && slider->maximum() <= 65) seaLevel = slider;
             }
@@ -71,12 +72,17 @@ protected:
     }
 };
 
+} // namespace
+
 void installAzgaarGeneratorBridge() {
     if (!qApp) return;
     qApp->installEventFilter(new AzgaarGeneratorBridge(qApp));
 }
 
-} // namespace
 } // namespace wbw
 
-Q_COREAPP_STARTUP_FUNCTION(wbw::installAzgaarGeneratorBridge)
+static void installWbwAzgaarGeneratorBridge() {
+    wbw::installAzgaarGeneratorBridge();
+}
+
+Q_COREAPP_STARTUP_FUNCTION(installWbwAzgaarGeneratorBridge)
