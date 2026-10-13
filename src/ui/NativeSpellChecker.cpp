@@ -35,7 +35,7 @@ LPCWSTR wide(const QString& value) {
 } // namespace
 
 bool NativeSpellChecker::check(const QString& text, const QString& language, QJsonArray* matches) {
-    if (matches) matches->clear();
+    if (matches) *matches = QJsonArray();
 #ifdef Q_OS_WIN
     if (text.trimmed().isEmpty()) return true;
 
