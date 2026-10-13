@@ -4,6 +4,7 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QSpinBox>
+#include <QVBoxLayout>
 
 namespace wbw {
 
@@ -49,6 +50,17 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
             generateProceduralWorld();
             popover->hide();
         });
+
+    if (auto* layout = qobject_cast<QVBoxLayout*>(popover->layout())) {
+        auto* recalc = new QPushButton(tr("Recalcular geografía desde el terreno"), popover);
+        recalc->setObjectName(QStringLiteral("pilinRecalculateGeography"));
+        recalc->setToolTip(tr("Conserva el heightmap que editaste y vuelve a derivar biomas e hidrología."));
+        layout->addWidget(recalc);
+        connect(recalc, &QPushButton::clicked, this, [this, popover]() {
+            recalculateDerivedGeography();
+            popover->hide();
+        });
+    }
 
     setProperty("wbwAzgaarGeneratorConnected", true);
 }
