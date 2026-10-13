@@ -45,6 +45,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/WritingShortcutBridge.h
 
     src/ui/SettingsWorkspace.cpp
+    src/ui/SettingsProductCleanup.cpp
     src/ui/SettingsWorkspace.h
     src/ui/RelationshipBoard.cpp
     src/ui/MapExporterProduct.cpp
