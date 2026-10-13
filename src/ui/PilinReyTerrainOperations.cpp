@@ -15,6 +15,11 @@ QJsonObject mergeTerrainMetadata(const MapTerrainEngine& terrain, const QJsonObj
         QStringLiteral("seaLevel"),
         QStringLiteral("generatedAt"),
         QStringLiteral("generator"),
+        QStringLiteral("temperature"),
+        QStringLiteral("precipitation"),
+        QStringLiteral("moisture"),
+        QStringLiteral("flow"),
+        QStringLiteral("biomeIds"),
         QStringLiteral("biomes"),
         QStringLiteral("regions"),
         QStringLiteral("regionNames")
@@ -35,6 +40,7 @@ void PilinReyEditor::smoothTerrain() {
         terrain.smooth(2);
         pilin.insert(QStringLiteral("terrainModel"), mergeTerrainMetadata(terrain, previous));
     });
+    recalculateDerivedGeography();
 }
 
 void PilinReyEditor::erodeTerrain() {
@@ -45,6 +51,7 @@ void PilinReyEditor::erodeTerrain() {
         terrain.erode(2, .18f);
         pilin.insert(QStringLiteral("terrainModel"), mergeTerrainMetadata(terrain, previous));
     });
+    recalculateDerivedGeography();
 }
 
 void PilinReyEditor::normalizeTerrain() {
@@ -56,6 +63,7 @@ void PilinReyEditor::normalizeTerrain() {
         terrain.smooth(1);
         pilin.insert(QStringLiteral("terrainModel"), mergeTerrainMetadata(terrain, previous));
     });
+    recalculateDerivedGeography();
 }
 
 void PilinReyEditor::applyBakedTerrainMap(const QJsonObject& map) {
