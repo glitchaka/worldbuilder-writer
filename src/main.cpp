@@ -106,6 +106,8 @@ void applyProductStructure(wbw::MainWindow& window) {
         if (auto* hero = writing->findChild<QWidget*>(QStringLiteral("writingHero"))) hero->hide();
     }
     if (auto* top = window.findChild<QWidget*>(QStringLiteral("topShell"))) top->hide();
+    if (auto* identity = window.findChild<QWidget*>(QStringLiteral("appIdentity"))) identity->hide();
+    if (auto* rail = window.findChild<QWidget*>(QStringLiteral("sideRail"))) rail->setFixedWidth(90);
     if (auto* save = window.findChild<QPushButton*>(QStringLiteral("primarySave"))) save->hide();
     if (auto* focus = window.findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->hide();
     if (auto* settings = window.findChild<wbw::SettingsWorkspace*>()) settings->finalizeProductControls();
