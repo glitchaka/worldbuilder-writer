@@ -2,6 +2,7 @@
 #include "ui/PilinReyEditor.h"
 
 #include <QApplication>
+#include <QLineEdit>
 
 namespace wbw {
 
@@ -10,6 +11,11 @@ void MapWorkspace::applyTheme() {
         editor_->setArchiveDocument(document_);
         editor_->migrateLegacyMarkers();
         editor_->installCartographicFurniture();
+    }
+
+    if (name_ && !property("wbwMapNameLive").toBool()) {
+        setProperty("wbwMapNameLive", true);
+        connect(name_, &QLineEdit::textEdited, this, [this](const QString&) { renameMap(); });
     }
 
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
