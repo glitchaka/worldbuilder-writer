@@ -31,6 +31,7 @@ void WritingPage::refreshProductChromeTheme() {
 #manuscriptSceneTitle,#sceneInspectorTitle,#planningFilterTitle{color:#f0ece5;}
 #sceneEditor{background:#0b1016;color:#e6dfd5;selection-background-color:#315a70;selection-color:#ffffff;}
 #sceneInspector QLineEdit,#sceneInspector QComboBox,#sceneBoardOutlinePanel QLineEdit,#sceneBoardOutlinePanel QComboBox{background:#101820;color:#dce4ea;border:1px solid #2b3742;}
+#sceneNotes{background:#101820;color:#dce4ea;border:1px solid #2b3742;border-radius:7px;padding:8px;font-family:'Segoe UI';font-size:9pt;selection-background-color:#315a70;}
 #sceneInspectorHint{background:#101820;color:#85939f;border:1px solid #26333e;}
 #writingFocusAction,#planningClearFilters{background:#111922;color:#aeb9c3;border:1px solid #2e3a46;}
 )QSS") : QStringLiteral(R"QSS(
@@ -43,6 +44,7 @@ void WritingPage::refreshProductChromeTheme() {
 #manuscriptSceneTitle,#sceneInspectorTitle,#planningFilterTitle{color:#312d28;}
 #sceneEditor{background:#fffdf9;color:#302c27;selection-background-color:#d8c6ae;selection-color:#241f1a;}
 #sceneInspector QLineEdit,#sceneInspector QComboBox,#sceneBoardOutlinePanel QLineEdit,#sceneBoardOutlinePanel QComboBox{background:#fffdf9;color:#312e29;border:1px solid #d2cbc0;}
+#sceneNotes{background:#fffdf9;color:#312e29;border:1px solid #d2cbc0;border-radius:7px;padding:8px;font-family:'Segoe UI';font-size:9pt;selection-background-color:#d8c6ae;}
 #sceneInspectorHint{background:#f8f4ed;color:#6f685f;border:1px solid #d7cfc3;}
 #writingFocusAction,#planningClearFilters{background:#f8f4ed;color:#625c54;border:1px solid #d2c9bd;}
 #manuscriptTree{color:#4b4740;} #manuscriptTree::item:hover{background:#e4ded4;color:#2e2a25;} #manuscriptTree::item:selected{background:#d9e6e8;color:#285d61;border-left:2px solid #3a9598;}
