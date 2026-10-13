@@ -1,3 +1,4 @@
+#include "ui/PilinReyEditor.h"
 #include "ui/SettingsWorkspace.h"
 
 #include <QCheckBox>
@@ -32,8 +33,6 @@ void removeInertSettings(SettingsWorkspace* settings) {
     if (!settings || settings->property("wbwInertSettingsRemoved").toBool()) return;
     settings->setProperty("wbwInertSettingsRemoved", true);
 
-    // These controls existed visually but had no product behavior. They stay out of the
-    // production UI until a corresponding engine/action actually exists.
     const QStringList inertChecks{
         QObject::tr("Corrección gramatical"),
         QObject::tr("Sugerencias de estilo"),
@@ -113,11 +112,15 @@ void installWritingShortcutBridge(QMainWindow* window) {
 
     applyWritingPreferences(page, focusShortcut, proofShortcut);
 
+    PilinReyEditor* mapEditor = window->findChild<PilinReyEditor*>();
+    if (mapEditor) mapEditor->applyPersistentCanvasPreferences();
+
     if (auto* settingsPage = window->findChild<SettingsWorkspace*>()) {
         removeInertSettings(settingsPage);
         QObject::connect(settingsPage, &SettingsWorkspace::preferencesChanged, page,
-                         [page, focusShortcut, proofShortcut]() {
+                         [page, focusShortcut, proofShortcut, mapEditor]() {
             applyWritingPreferences(page, focusShortcut, proofShortcut);
+            if (mapEditor) mapEditor->applyPersistentCanvasPreferences();
         });
     }
 
