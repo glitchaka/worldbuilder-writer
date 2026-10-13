@@ -14,12 +14,8 @@ void WritingPage::activatePlanningFilters() {
     auto* location = findChild<QComboBox*>(QStringLiteral("sceneBoardLocationFilter"));
     if (!search || !pov || !location) return;
 
-    property("wbwPlanningFiltersV1").setValue(true);
     setProperty("wbwPlanningFiltersV1", true);
 
-    // The visual filter rail is part of WritingPage itself. Replace the initial
-    // one-field-at-a-time callbacks with a compound query understood by the
-    // existing board index: title + POV + location + status.
     QObject::disconnect(pov, nullptr, this, nullptr);
     QObject::disconnect(location, nullptr, this, nullptr);
 
