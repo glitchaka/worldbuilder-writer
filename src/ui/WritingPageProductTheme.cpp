@@ -1,10 +1,21 @@
 #include "ui/WritingPage.h"
 
 #include <QApplication>
+#include <QComboBox>
+#include <QLineEdit>
 
 namespace wbw {
 
 void WritingPage::refreshProductChromeTheme() {
+    if (auto* search = findChild<QLineEdit*>(QStringLiteral("sceneBoardSearch"))) {
+        search->setMinimumWidth(0);
+        search->setMaximumWidth(QWIDGETSIZE_MAX);
+    }
+    if (auto* status = findChild<QComboBox*>(QStringLiteral("sceneBoardStatus"))) {
+        status->setMinimumWidth(0);
+        status->setMaximumWidth(QWIDGETSIZE_MAX);
+    }
+
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
     const QString mode = dark ? QStringLiteral("dark") : QStringLiteral("light");
     if (property("wbwProductChromeTheme").toString() == mode) return;
