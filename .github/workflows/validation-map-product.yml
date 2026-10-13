@@ -19,29 +19,21 @@ jobs:
       - name: Apply known product integration fixes to main
         shell: pwsh
         run: |
-          $mapFile = 'src/ui/PilinReyEditorProduct.cpp'
-          $mapText = Get-Content $mapFile -Raw
-          $mapText = $mapText.Replace('property("terrainStrength").toInt(58)', 'property("terrainStrength").toInt()')
-          $mapText = $mapText.Replace('property("selectedBiome").toInt(2)', 'property("selectedBiome").toInt()')
-          Set-Content -Path $mapFile -Value $mapText -Encoding utf8
+          $path = 'src/ui/PilinReyEditorProduct.cpp'
+          $text = Get-Content $path -Raw
+          $text = $text.Replace('property("terrainStrength").toInt(58)', 'property("terrainStrength").toInt()')
+          $text = $text.Replace('property("selectedBiome").toInt(2)', 'property("selectedBiome").toInt()')
+          Set-Content -Path $path -Value $text -Encoding utf8
 
-          $writingFile = 'src/ui/WritingPage.cpp'
-          $writingText = Get-Content $writingFile -Raw
-          $oldFocus = @'
-    heroPanel_->show();
-    commandBarPanel_->show();
-'@
-          $newFocus = @'
-    heroPanel_->hide();
-    commandBarPanel_->show();
-'@
-          $writingText = $writingText.Replace($oldFocus, $newFocus)
-          Set-Content -Path $writingFile -Value $writingText -Encoding utf8
+          $path = 'src/ui/WritingPage.cpp'
+          $text = Get-Content $path -Raw
+          $text = $text.Replace('heroPanel_->show();', 'heroPanel_->hide();')
+          Set-Content -Path $path -Value $text -Encoding utf8
 
-          $worldFile = 'src/ui/WorldPageChromeV2.cpp'
-          $worldText = Get-Content $worldFile -Raw
-          $worldText = $worldText.Replace('workspaceBar->move(62, 12);', 'workspaceBar->move(78, 72);')
-          Set-Content -Path $worldFile -Value $worldText -Encoding utf8
+          $path = 'src/ui/WorldPageChromeV2.cpp'
+          $text = Get-Content $path -Raw
+          $text = $text.Replace('workspaceBar->move(62, 12);', 'workspaceBar->move(78, 72);')
+          Set-Content -Path $path -Value $text -Encoding utf8
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
