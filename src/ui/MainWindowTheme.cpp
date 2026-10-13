@@ -1,5 +1,6 @@
 #include "ui/MainWindow.h"
 
+#include "ui/MapWorkspace.h"
 #include "ui/SettingsWorkspace.h"
 #include "ui/WritingPage.h"
 
