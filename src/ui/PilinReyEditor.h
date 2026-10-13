@@ -49,6 +49,7 @@ public:
     ~PilinReyEditor() override;
 
     void setMap(const QJsonObject& map);
+    void setArchiveDocument(ArchiveDocument* document);
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
     void smoothTerrain();
@@ -107,6 +108,7 @@ private:
     void copySelectedObject();
     void pasteCopiedObject();
     void linkSelectedToAtlas();
+    void linkSelectedToArchiveAtlas();
     void transformSelection(double scaleFactor, double rotationDegrees);
     void importAsset();
     void setThemeColor(const QString& key);
@@ -120,13 +122,14 @@ private:
     void exportMap();
     QString activeLayerId() const;
 
+    ArchiveDocument* archiveDocument_ = nullptr;
     QJsonObject map_;
     QJsonArray clipboardObjects_;
     QList<QJsonObject> undoStack_;
     QList<QJsonObject> redoStack_;
     bool refreshing_ = false;
     QStringList selectedObjectIds_;
-    QString selectedAssetKind_ = QStringLiteral("castle");
+    QString selectedAssetKind_ = QStringLiteral("custom");
     QString selectedAssetData_;
     int brushRadius_ = 220;
     int density_ = 58;
