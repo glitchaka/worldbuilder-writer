@@ -26,3 +26,5 @@ jobs:
       - name: Build
         shell: pwsh
         run: cmake --build build --config Release --parallel
+
+      # This workflow only validates main; it does not create or publish a release artifact.
