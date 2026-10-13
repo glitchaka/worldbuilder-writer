@@ -3,9 +3,11 @@
 #include "ui/ProjectHubPage.h"
 #include "ui/ReviewPage.h"
 #include "ui/SettingsWorkspace.h"
+#include "ui/ThemeManager.h"
 #include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QLineEdit>
 #include <QListWidget>
@@ -31,39 +33,49 @@ public:
         const QRect r = option.rect.adjusted(5, 3, -5, -3);
         const bool selected = option.state.testFlag(QStyle::State_Selected);
         const bool hover = option.state.testFlag(QStyle::State_MouseOver);
+        const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
+
+        const QColor hoverFill = dark ? QColor(QStringLiteral("#111923")) : QColor(QStringLiteral("#dfd9cf"));
+        const QColor selectedFill = dark ? QColor(QStringLiteral("#16283b")) : QColor(QStringLiteral("#d8e4ec"));
+        const QColor selectionBar = dark ? QColor(QStringLiteral("#4aa5ff")) : QColor(QStringLiteral("#457aa3"));
+        const QColor icon = dark ? QColor(QStringLiteral("#9ca9b6")) : QColor(QStringLiteral("#746e65"));
+        const QColor selectedIcon = dark ? QColor(QStringLiteral("#79c1ff")) : QColor(QStringLiteral("#315f78"));
+        const QColor text = dark ? QColor(QStringLiteral("#929eaa")) : QColor(QStringLiteral("#6d675f"));
+        const QColor selectedText = dark ? QColor(QStringLiteral("#cfe8ff")) : QColor(QStringLiteral("#315f78"));
+
         if (selected || hover) {
             painter->setPen(Qt::NoPen);
-            painter->setBrush(selected ? QColor(QStringLiteral("#16283b")) : QColor(QStringLiteral("#111923")));
+            painter->setBrush(selected ? selectedFill : hoverFill);
             painter->drawRoundedRect(r, 8, 8);
         }
         if (selected) {
-            painter->setBrush(QColor(QStringLiteral("#4aa5ff")));
+            painter->setBrush(selectionBar);
             painter->drawRoundedRect(QRectF(r.left(), r.top() + 8, 3, r.height() - 16), 1.5, 1.5);
         }
 
-        const QString text = index.data(Qt::DisplayRole).toString();
+        const QString value = index.data(Qt::DisplayRole).toString();
         QString glyph = QStringLiteral("•");
-        QString compact = text;
-        if (text == QObject::tr("Biblioteca")) glyph = QStringLiteral("▥");
-        else if (text == QObject::tr("Escritura")) glyph = QStringLiteral("▤");
-        else if (text == QObject::tr("Tablero de escenas")) { glyph = QStringLiteral("▦"); compact = QObject::tr("Escenas"); }
-        else if (text == QObject::tr("Atlas / documentación")) { glyph = QStringLiteral("◎"); compact = QObject::tr("Atlas"); }
-        else if (text == QObject::tr("Mapas")) glyph = QStringLiteral("◇");
-        else if (text == QObject::tr("Revisión")) glyph = QStringLiteral("▥");
-        else if (text == QObject::tr("Configuración / salida")) { glyph = QStringLiteral("⚙"); compact = QObject::tr("Configuración"); }
+        QString compact = value;
+        if (value == QObject::tr("Biblioteca")) glyph = QStringLiteral("▥");
+        else if (value == QObject::tr("Escritura")) glyph = QStringLiteral("▤");
+        else if (value == QObject::tr("Tablero de escenas")) { glyph = QStringLiteral("▦"); compact = QObject::tr("Escenas"); }
+        else if (value == QObject::tr("Atlas / documentación")) { glyph = QStringLiteral("◎"); compact = QObject::tr("Atlas"); }
+        else if (value == QObject::tr("Mapas")) glyph = QStringLiteral("◇");
+        else if (value == QObject::tr("Revisión")) glyph = QStringLiteral("▥");
+        else if (value == QObject::tr("Configuración / salida")) { glyph = QStringLiteral("⚙"); compact = QObject::tr("Configuración"); }
 
         QFont iconFont = option.font;
         iconFont.setPointSizeF(15.5);
         iconFont.setWeight(QFont::Medium);
         painter->setFont(iconFont);
-        painter->setPen(selected ? QColor(QStringLiteral("#79c1ff")) : QColor(QStringLiteral("#9ca9b6")));
+        painter->setPen(selected ? selectedIcon : icon);
         painter->drawText(QRect(r.left(), r.top() + 7, r.width(), 24), Qt::AlignCenter, glyph);
 
         QFont textFont = option.font;
         textFont.setPointSizeF(7.8);
         textFont.setWeight(selected ? QFont::DemiBold : QFont::Normal);
         painter->setFont(textFont);
-        painter->setPen(selected ? QColor(QStringLiteral("#cfe8ff")) : QColor(QStringLiteral("#929eaa")));
+        painter->setPen(selected ? selectedText : text);
         painter->drawText(QRect(r.left() + 2, r.top() + 34, r.width() - 4, 22), Qt::AlignHCenter | Qt::AlignTop, compact);
         painter->restore();
     }
@@ -90,10 +102,6 @@ void polishLibraryControls(ProjectHubPage* hub) {
 
     const QList<QPushButton*> viewButtons = hub->findChildren<QPushButton*>(QStringLiteral("hubViewButton"));
     if (viewButtons.size() > 1) viewButtons.at(1)->hide();
-
-    // The current card library is intentionally single-view until the alternate view has
-    // its own implementation. Likewise, only the status filter is kept because it is the
-    // filter actually consumed by ProjectHubPage::rebuildCards().
     if (auto* sort = hub->findChild<QComboBox*>(QStringLiteral("hubSort"))) sort->hide();
     if (auto* genre = hub->findChild<QComboBox*>(QStringLiteral("hubGenreFilter"))) genre->hide();
 
@@ -172,6 +180,11 @@ void MainWindow::routeProductModule(int row) {
     if (auto* save = findChild<QPushButton*>(QStringLiteral("primarySave"))) save->hide();
     if (auto* focus = findChild<QPushButton*>(QStringLiteral("secondaryAction"))) focus->hide();
     if (auto* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->hide();
+
+    // Atlas and review apply some of their approved chrome lazily on first show. Reapplying the
+    // saved theme here keeps light mode real instead of letting a lazy dark stylesheet win.
+    ThemeManager::applySaved();
+    if (navigation_) navigation_->viewport()->update();
 }
 
 } // namespace wbw
