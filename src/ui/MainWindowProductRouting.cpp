@@ -85,14 +85,9 @@ public:
 void installProductRail(QListWidget* navigation) {
     if (!navigation || navigation->property("wbwProductRailV5").toBool()) return;
     navigation->setProperty("wbwProductRailV5", true);
-
-    // The original shell attached a QWidget to every QListWidget item, which meant the
-    // polished delegate never painted at all. Remove those old widgets instead of layering
-    // yet another visual patch over them.
     for (int i = 0; i < navigation->count(); ++i) {
         if (QListWidgetItem* item = navigation->item(i)) navigation->removeItemWidget(item);
     }
-
     navigation->setItemDelegate(new ProductRailDelegate(navigation));
     navigation->setMouseTracking(true);
     navigation->setSpacing(1);
@@ -189,6 +184,7 @@ void MainWindow::routeProductModule(int row) {
     if (auto* top = findChild<QWidget*>(QStringLiteral("topShell"))) top->hide();
 
     ThemeManager::applySaved();
+    if (row == 4 && mapPage_) mapPage_->applyTheme();
     if (navigation_) navigation_->viewport()->update();
 }
 
