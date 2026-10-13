@@ -36,6 +36,7 @@ void removeInertSettings(SettingsWorkspace* settings) {
     const QStringList inertChecks{
         QObject::tr("Corrección gramatical"),
         QObject::tr("Sugerencias de estilo"),
+        QObject::tr("Comillas tipográficas"),
         QObject::tr("Incluir notas y referencias"),
         QObject::tr("Incluir mundo y personajes"),
         QObject::tr("Incluir portada"),
@@ -52,7 +53,8 @@ void removeInertSettings(SettingsWorkspace* settings) {
         const bool backupRetention = items.contains(QObject::tr("Durante 30 días")) && items.contains(QObject::tr("Durante 1 año"));
         const bool defaultExport = items.contains(QObject::tr("PDF formateado")) && items.contains(QObject::tr("WBW nativo"));
         const bool renderQuality = items.contains(QObject::tr("Rápida")) && items.contains(QObject::tr("Alta"));
-        if (suggestionLevel || backupRetention || defaultExport || renderQuality) hideFieldAndLabel(combo);
+        const bool accentSelector = items.contains(QObject::tr("Azul")) && items.contains(QObject::tr("Turquesa")) && items.contains(QObject::tr("Magenta"));
+        if (suggestionLevel || backupRetention || defaultExport || renderQuality || accentSelector) hideFieldAndLabel(combo);
     }
 }
 
