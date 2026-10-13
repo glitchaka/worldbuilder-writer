@@ -32,6 +32,7 @@ public:
     void setDocument(ArchiveDocument* document);
     void refresh();
     void openFocusMode();
+    void applyProductChrome();
 
 public slots:
     // Kept as the single commit path so the UI can debounce manuscript persistence without
