@@ -116,6 +116,7 @@ private:
     void linkSelectedToArchiveAtlas();
     void transformSelection(double scaleFactor, double rotationDegrees);
     void importAsset();
+    void importAssetDirectory();
     void setThemeColor(const QString& key);
     QJsonObject selectedObject() const;
     QJsonArray selectedObjects() const;
