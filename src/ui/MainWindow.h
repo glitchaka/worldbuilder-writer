@@ -17,6 +17,7 @@ class QTimer;
 
 namespace wbw {
 
+class MapWorkspace;
 class PlanningPage;
 class ProjectHubPage;
 class ReviewPage;
@@ -66,6 +67,7 @@ private:
     PlanningPage* planningPage_ = nullptr;
     WritingPage* writingPage_ = nullptr;
     WorldPage* worldPage_ = nullptr;
+    MapWorkspace* mapPage_ = nullptr;
     ReviewPage* reviewPage_ = nullptr;
     SettingsWorkspace* settingsPage_ = nullptr;
     QTimer* autosaveTimer_ = nullptr;
