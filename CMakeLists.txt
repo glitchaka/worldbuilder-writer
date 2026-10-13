@@ -35,6 +35,8 @@ qt_add_library(WorldbuilderWriterUi OBJECT
 
     src/ui/MapTerrainEngine.cpp
     src/ui/MapTerrainEngine.h
+    src/ui/MapWorkspace.cpp
+    src/ui/MapWorkspace.h
 
     src/ui/NativeSpellChecker.cpp
     src/ui/NativeSpellChecker.h
