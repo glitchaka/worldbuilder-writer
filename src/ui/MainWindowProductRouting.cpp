@@ -26,7 +26,7 @@ namespace {
 class ProductRailDelegate final : public QStyledItemDelegate {
 public:
     explicit ProductRailDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
-    QSize sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const override { return QSize(88, 62); }
+    QSize sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const override { return QSize(80, 62); }
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         painter->save();
@@ -83,19 +83,28 @@ public:
 };
 
 void installProductRail(QListWidget* navigation) {
-    if (!navigation || navigation->property("wbwProductRailV4").toBool()) return;
-    navigation->setProperty("wbwProductRailV4", true);
+    if (!navigation || navigation->property("wbwProductRailV5").toBool()) return;
+    navigation->setProperty("wbwProductRailV5", true);
+
+    // The original shell attached a QWidget to every QListWidget item, which meant the
+    // polished delegate never painted at all. Remove those old widgets instead of layering
+    // yet another visual patch over them.
+    for (int i = 0; i < navigation->count(); ++i) {
+        if (QListWidgetItem* item = navigation->item(i)) navigation->removeItemWidget(item);
+    }
+
     navigation->setItemDelegate(new ProductRailDelegate(navigation));
     navigation->setMouseTracking(true);
     navigation->setSpacing(1);
+    if (QWidget* rail = navigation->parentWidget()) rail->setFixedWidth(90);
     navigation->setStyleSheet(QStringLiteral(
         "QListWidget#sideNavigation{background:transparent;border:0;outline:0;}"
         "QListWidget#sideNavigation::item{background:transparent;border:0;padding:0;margin:0;}"));
 }
 
 void polishLibraryControls(ProjectHubPage* hub) {
-    if (!hub || hub->property("wbwLibraryControlsV4").toBool()) return;
-    hub->setProperty("wbwLibraryControlsV4", true);
+    if (!hub || hub->property("wbwLibraryControlsV5").toBool()) return;
+    hub->setProperty("wbwLibraryControlsV5", true);
     if (auto* search = hub->findChild<QLineEdit*>(QStringLiteral("hubSearch"))) {
         search->show();
         search->setMaximumWidth(520);
