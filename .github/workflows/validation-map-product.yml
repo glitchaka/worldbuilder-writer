@@ -5,9 +5,6 @@ on:
     branches: [ validation/map-product ]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: windows-2022
@@ -15,34 +12,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-
-      - name: Apply known product integration fixes to main
-        shell: pwsh
-        run: |
-          $path = 'src/ui/PilinReyEditorProduct.cpp'
-          $text = Get-Content $path -Raw
-          $text = $text.Replace('property("terrainStrength").toInt(58)', 'property("terrainStrength").toInt()')
-          $text = $text.Replace('property("selectedBiome").toInt(2)', 'property("selectedBiome").toInt()')
-          Set-Content -Path $path -Value $text -Encoding utf8
-
-          $path = 'src/ui/WritingPage.cpp'
-          $text = Get-Content $path -Raw
-          $text = $text.Replace('heroPanel_->show();', 'heroPanel_->hide();')
-          Set-Content -Path $path -Value $text -Encoding utf8
-
-          $path = 'src/ui/WorldPageChromeV2.cpp'
-          $text = Get-Content $path -Raw
-          $text = $text.Replace('workspaceBar->move(62, 12);', 'workspaceBar->move(78, 72);')
-          Set-Content -Path $path -Value $text -Encoding utf8
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          $changed = git status --porcelain
-          if ($changed) {
-            git add src/ui/PilinReyEditorProduct.cpp src/ui/WritingPage.cpp src/ui/WorldPageChromeV2.cpp
-            git commit -m "fix: integrate map studio and focus product behavior"
-            git push origin HEAD:main
-          }
 
       - name: Install Qt
         shell: pwsh
