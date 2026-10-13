@@ -52,6 +52,7 @@ public:
     void setArchiveDocument(ArchiveDocument* document);
     void migrateLegacyMarkers();
     void installCartographicFurniture();
+    void activateAzgaarGenerationPipeline();
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
     void smoothTerrain();
