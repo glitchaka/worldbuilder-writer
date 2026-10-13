@@ -15,6 +15,7 @@
 #include <QShortcut>
 #include <QSplitter>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -35,6 +36,7 @@ public:
     void applyProductChrome();
     void refreshProductChromeTheme();
     void activatePlanningFilters();
+    void activateSceneNotes();
 
 public slots:
     // Kept as the single commit path so the UI can debounce manuscript persistence without
@@ -97,6 +99,7 @@ private:
     QLineEdit* sceneLocation_ = nullptr;
     QLineEdit* sceneLayer_ = nullptr;
     QComboBox* sceneStatus_ = nullptr;
+    QTextEdit* sceneNotes_ = nullptr;
     SemanticTextEdit* editor_ = nullptr;
     QLabel* wordCount_ = nullptr;
     QLabel* proofState_ = nullptr;
