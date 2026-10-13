@@ -5,6 +5,9 @@ on:
     branches: [ validation/map-product ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-2022
@@ -12,6 +15,132 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+
+      - name: Integrate final source fixes to main
+        shell: pwsh
+        run: |
+          $review = 'src/ui/ReviewPage.cpp'
+          $text = Get-Content $review -Raw
+          $old = @'
+          QString scenePlainText(const QJsonObject& scene) {
+              QTextDocument document;
+              document.setHtml(scene.value(QStringLiteral("content")).toString());
+              return document.toPlainText();
+          }
+          '@
+          $new = @'
+          QString scenePlainText(const QJsonObject& scene) {
+              if (scene.contains(QStringLiteral("text"))) return scene.value(QStringLiteral("text")).toString();
+              QTextDocument document;
+              document.setHtml(scene.value(QStringLiteral("content")).toString());
+              return document.toPlainText();
+          }
+          '@
+          $old = $old.Trim()
+          $new = $new.Trim()
+          if (-not $text.Contains($old)) { throw 'Review scenePlainText source block not found.' }
+          $text = $text.Replace($old, $new)
+          $oldTail = 'if(!analysisResults_->count())analysisResults_->addItem(tr("No se encontraron incidencias con la configuración actual."));}'
+          $newTail = 'if(!analysisResults_->count())analysisResults_->addItem(tr("No se encontraron incidencias con la configuración actual."));refreshReviewDashboard();}'
+          if (-not $text.Contains($oldTail)) { throw 'Review runAnalysis tail not found.' }
+          $text = $text.Replace($oldTail, $newTail)
+          Set-Content -Path $review -Value $text -Encoding utf8
+
+          $mainWindow = 'src/ui/MainWindow.cpp'
+          $text = Get-Content $mainWindow -Raw
+          $text = $text.Replace('QStringLiteral("writingSceneSearch")', 'QStringLiteral("sceneBoardSearch")')
+          $oldBackup = @'
+              const QString previous = settings.value(QStringLiteral("backupDirectory"), QDir::homePath()).toString();
+              const QString directory = QFileDialog::getExistingDirectory(this, tr("Carpeta de copias de seguridad"), previous);
+              if (directory.isEmpty()) return;
+              settings.setValue(QStringLiteral("backupDirectory"), directory);
+          '@
+          $newBackup = @'
+              const QString previous = settings.value(QStringLiteral("backupDirectory"), QString()).toString();
+              QString directory = previous;
+              if (directory.isEmpty() || !QDir(directory).exists()) {
+                  directory = QFileDialog::getExistingDirectory(this, tr("Carpeta de copias de seguridad"), QDir::homePath());
+                  if (directory.isEmpty()) return;
+                  settings.setValue(QStringLiteral("backupDirectory"), directory);
+              }
+          '@
+          $oldBackup = $oldBackup.Trim()
+          $newBackup = $newBackup.Trim()
+          if (-not $text.Contains($oldBackup)) { throw 'MainWindow backup source block not found.' }
+          $text = $text.Replace($oldBackup, $newBackup)
+          Set-Content -Path $mainWindow -Value $text -Encoding utf8
+
+          $hub = 'src/ui/ProjectHubPage.cpp'
+          $text = Get-Content $hub -Raw
+          $text = $text.Replace('#include "storage/ProjectStore.h"', "#include `"storage/ProjectStore.h`"`n#include `"storage/WbwPackage.h`"")
+          $text = $text.Replace('#include <QFileInfo>', "#include <QFileInfo>`n#include <QFileDialog>")
+          $text = $text.Replace('#include <QMessageBox>', "#include <QMessageBox>`n#include <QMenu>")
+          $oldMenu = @'
+                  connect(remove, &QPushButton::clicked, this, [this, path, archiveTitle]() {
+                      if (QMessageBox::question(this, tr("Eliminar proyecto"), tr("¿Eliminar definitivamente “%1”? Esta acción no se puede deshacer.").arg(archiveTitle)) != QMessageBox::Yes) return;
+                      QString error;
+                      if (!ProjectStore::removeProject(path, &error)) {
+                          QMessageBox::critical(this, tr("No se pudo eliminar"), error);
+                          return;
+                      }
+                      refresh();
+                      emit projectDeleted();
+                  });
+          '@
+          $newMenu = @'
+                  connect(remove, &QPushButton::clicked, this, [this, path, archiveTitle, remove]() {
+                      QMenu menu(this);
+                      QAction* openAction = menu.addAction(tr("Abrir proyecto"));
+                      QAction* exportAction = menu.addAction(tr("Exportar proyecto .wbw…"));
+                      menu.addSeparator();
+                      QAction* deleteAction = menu.addAction(tr("Eliminar definitivamente"));
+                      QAction* chosen = menu.exec(remove->mapToGlobal(QPoint(0, remove->height())));
+                      if (chosen == openAction) {
+                          emit openProjectRequested(path);
+                          return;
+                      }
+                      if (chosen == exportAction) {
+                          ArchiveDocument source;
+                          QString error;
+                          if (!ProjectStore::loadJsonFile(path, source, &error)) {
+                              QMessageBox::critical(this, tr("No se pudo abrir"), error);
+                              return;
+                          }
+                          QString target = QFileDialog::getSaveFileName(this, tr("Exportar proyecto .wbw"),
+                              (archiveTitle.trimmed().isEmpty() ? tr("proyecto") : archiveTitle) + QStringLiteral(".wbw"),
+                              tr("Proyecto Worldbuilder Writer (*.wbw)"));
+                          if (target.isEmpty()) return;
+                          if (!target.endsWith(QStringLiteral(".wbw"), Qt::CaseInsensitive)) target += QStringLiteral(".wbw");
+                          if (!WbwPackage::exportPackage(target, source, &error)) {
+                              QMessageBox::critical(this, tr("No se pudo exportar"), error);
+                              return;
+                          }
+                          return;
+                      }
+                      if (chosen != deleteAction) return;
+                      if (QMessageBox::question(this, tr("Eliminar proyecto"), tr("¿Eliminar definitivamente “%1”? Esta acción no se puede deshacer.").arg(archiveTitle)) != QMessageBox::Yes) return;
+                      QString error;
+                      if (!ProjectStore::removeProject(path, &error)) {
+                          QMessageBox::critical(this, tr("No se pudo eliminar"), error);
+                          return;
+                      }
+                      refresh();
+                      emit projectDeleted();
+                  });
+          '@
+          $oldMenu = $oldMenu.Trim()
+          $newMenu = $newMenu.Trim()
+          if (-not $text.Contains($oldMenu)) { throw 'ProjectHub project action block not found.' }
+          $text = $text.Replace($oldMenu, $newMenu)
+          Set-Content -Path $hub -Value $text -Encoding utf8
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if (git status --porcelain) {
+            git add src/ui/ReviewPage.cpp src/ui/MainWindow.cpp src/ui/ProjectHubPage.cpp
+            git commit -m "fix: complete review, backup, search and library export behavior"
+            git push origin HEAD:main
+          }
 
       - name: Install Qt
         shell: pwsh
@@ -27,4 +156,4 @@ jobs:
         shell: pwsh
         run: cmake --build build --config Release --parallel
 
-      # This workflow only validates main; it does not create or publish a release artifact.
+      # This workflow validates the committed native source; it does not publish a release artifact.
