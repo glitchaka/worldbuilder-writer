@@ -50,7 +50,6 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
             popover->hide();
         });
 
-    property("wbwGeneratorSeed").clear();
     setProperty("wbwAzgaarGeneratorConnected", true);
 }
 
