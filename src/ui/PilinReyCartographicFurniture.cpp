@@ -1,6 +1,7 @@
 #include "ui/PilinReyEditor.h"
 
 #include <QApplication>
+#include <QColor>
 #include <QEvent>
 #include <QFont>
 #include <QJsonArray>
@@ -127,12 +128,18 @@ protected:
             painter.setPen(QPen(vegetation, 0.7, Qt::SolidLine, Qt::RoundCap));
             drawSegments(painter, forestMarks_);
         }
+        drawSettlementMarks(painter, dark);
         painter.restore();
 
         drawFrameAndCompass(painter, furnitureStrong, furnitureWeak, plate, dark);
     }
 
 private:
+    struct SettlementMark {
+        QPointF world;
+        QString kind;
+    };
+
     QPointF worldToScreen(const QPointF& point) const {
         return QPointF(point.x() * zoom_ + pan_.x(), point.y() * zoom_ + pan_.y());
     }
@@ -147,14 +154,94 @@ private:
         }
     }
 
+    void drawSettlementMarks(QPainter& painter, bool dark) const {
+        if (settlements_.isEmpty()) return;
+        const QJsonObject pilin = map_.value(QStringLiteral("pilinRey")).toObject();
+        QColor ink(pilin.value(QStringLiteral("theme")).toObject().value(QStringLiteral("symbol")).toString());
+        if (!ink.isValid()) ink = dark ? QColor(QStringLiteral("#ece3d2")) : QColor(QStringLiteral("#30281f"));
+        const QColor halo = dark ? QColor(8, 12, 16, 210) : QColor(246, 239, 225, 220);
+
+        painter.save();
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        for (const SettlementMark& mark : settlements_) {
+            const QPointF p = worldToScreen(mark.world);
+            const QString kind = mark.kind.toLower();
+            const bool capital = kind.contains(QStringLiteral("capital"));
+            const bool city = kind.contains(QStringLiteral("ciudad"));
+            const bool fort = kind.contains(QStringLiteral("fort"));
+            const bool port = kind.contains(QStringLiteral("puerto"));
+            const bool ruin = kind.contains(QStringLiteral("ruina"));
+            const qreal r = capital ? 7.0 : city ? 6.0 : (fort || port) ? 6.2 : 4.7;
+
+            painter.setBrush(halo);
+            painter.setPen(QPen(halo, 3.8, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            painter.drawEllipse(p, r + 2.0, r + 2.0);
+
+            painter.setPen(QPen(ink, 1.25, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            painter.setBrush(Qt::NoBrush);
+
+            if (capital) {
+                painter.drawEllipse(p, r, r);
+                painter.drawEllipse(p, r - 2.5, r - 2.5);
+                painter.setBrush(ink);
+                painter.drawEllipse(p, 1.45, 1.45);
+                painter.drawLine(p + QPointF(0, -r - 3), p + QPointF(0, -r + 1));
+                painter.drawLine(p + QPointF(r - 1, 0), p + QPointF(r + 3, 0));
+                painter.drawLine(p + QPointF(0, r - 1), p + QPointF(0, r + 3));
+                painter.drawLine(p + QPointF(-r - 3, 0), p + QPointF(-r + 1, 0));
+            } else if (fort) {
+                QPolygonF bastion;
+                bastion << p + QPointF(0, -r) << p + QPointF(r, 0) << p + QPointF(0, r) << p + QPointF(-r, 0);
+                painter.drawPolygon(bastion);
+                painter.drawLine(p + QPointF(-r * .55, 0), p + QPointF(r * .55, 0));
+                painter.drawLine(p + QPointF(0, -r * .55), p + QPointF(0, r * .55));
+            } else if (port) {
+                painter.drawEllipse(p, r - 1.0, r - 1.0);
+                painter.drawLine(p + QPointF(0, -r - 2), p + QPointF(0, r + 3));
+                painter.drawLine(p + QPointF(-3.5, -1), p + QPointF(3.5, -1));
+                QPainterPath anchor;
+                anchor.moveTo(p + QPointF(-5, r));
+                anchor.quadTo(p + QPointF(0, r + 4), p + QPointF(5, r));
+                painter.drawPath(anchor);
+            } else if (ruin) {
+                const QRectF box(p.x() - r, p.y() - r, r * 2, r * 2);
+                painter.drawRect(box);
+                painter.drawLine(box.topLeft(), p + QPointF(-1, 1));
+                painter.drawLine(p + QPointF(2, -2), box.bottomRight());
+            } else if (city) {
+                painter.drawEllipse(p, r, r);
+                painter.setBrush(ink);
+                painter.drawEllipse(p, 1.8, 1.8);
+            } else {
+                painter.setBrush(ink);
+                painter.drawEllipse(p, r * .48, r * .48);
+                painter.setBrush(Qt::NoBrush);
+                painter.drawEllipse(p, r, r);
+            }
+        }
+        painter.restore();
+    }
+
     void rebuildLinework() {
         coastline_.clear();
         contours_.clear();
         bathymetric_.clear();
         hachures_.clear();
         forestMarks_.clear();
+        settlements_.clear();
 
         const QJsonObject pilin = map_.value(QStringLiteral("pilinRey")).toObject();
+        for (const QJsonValue& layerValue : pilin.value(QStringLiteral("layers")).toArray()) {
+            const QJsonObject layer = layerValue.toObject();
+            if (!layer.value(QStringLiteral("visible")).toBool(true)) continue;
+            for (const QJsonValue& objectValue : layer.value(QStringLiteral("objects")).toArray()) {
+                const QJsonObject object = objectValue.toObject();
+                if (object.value(QStringLiteral("type")).toString() != QStringLiteral("settlement")) continue;
+                settlements_.append({QPointF(object.value(QStringLiteral("x")).toDouble(), object.value(QStringLiteral("y")).toDouble()),
+                                     object.value(QStringLiteral("settlementType")).toString(object.value(QStringLiteral("kind")).toString())});
+            }
+        }
+
         const QJsonObject terrain = pilin.value(QStringLiteral("terrainModel")).toObject();
         const int tw = terrain.value(QStringLiteral("width")).toInt();
         const int th = terrain.value(QStringLiteral("height")).toInt();
@@ -326,6 +413,7 @@ private:
     QVector<QLineF> bathymetric_;
     QVector<QLineF> hachures_;
     QVector<QLineF> forestMarks_;
+    QVector<SettlementMark> settlements_;
     double docW_ = 4096.0;
     double docH_ = 2304.0;
     double zoom_ = .2;
