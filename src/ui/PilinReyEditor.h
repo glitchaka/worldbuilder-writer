@@ -54,6 +54,7 @@ public:
     void installCartographicFurniture();
     void activateAzgaarGenerationPipeline();
     void configureProductWorkspace();
+    void recalculateDerivedGeography();
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
     void smoothTerrain();
