@@ -60,6 +60,7 @@ public:
     void nudgeSelection(double dx, double dy);
     void transformSelectedPathGeometry(double scaleFactor, double rotationDegrees);
     void editSelectedLabelStyle();
+    void applyPersistentCanvasPreferences();
 
 signals:
     void markerMoved(const QString& id, double x, double y);
