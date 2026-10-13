@@ -52,4 +52,4 @@ jobs:
           if ($process.HasExited) { throw "Worldbuilder Writer exited during startup with code $($process.ExitCode)." }
           Stop-Process -Id $process.Id -Force
 
-      # Validation only. No RC/release artifact is published.
+      # Validation only. No RC/release artifact is published. Native spelling fix included.
