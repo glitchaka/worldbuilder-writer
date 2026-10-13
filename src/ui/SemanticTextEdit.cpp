@@ -1,6 +1,7 @@
 #include "ui/SemanticTextEdit.h"
 
 #include "core/ArchiveDocument.h"
+#include "ui/NativeSpellChecker.h"
 
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -163,10 +164,32 @@ void SemanticTextEdit::runProofread() {
     }
 
     emit proofreadStarted();
+    const QString fragment = text.left(18000);
+
+    QJsonArray nativeMatches;
+    if (NativeSpellChecker::check(fragment, proofLanguage(), &nativeMatches)) {
+        proofIssues_.clear();
+        for (const QJsonValue value : nativeMatches) {
+            const QJsonObject match = value.toObject();
+            ProofIssue issue;
+            issue.start = proofreadBase_ + match.value(QStringLiteral("offset")).toInt();
+            issue.length = match.value(QStringLiteral("length")).toInt();
+            issue.message = match.value(QStringLiteral("message")).toString();
+            for (const QJsonValue replacement : match.value(QStringLiteral("replacements")).toArray()) {
+                const QString candidate = replacement.toObject().value(QStringLiteral("value")).toString();
+                if (!candidate.isEmpty()) issue.replacements.append(candidate);
+            }
+            if (issue.length > 0) proofIssues_.append(issue);
+        }
+        rebuildSelections();
+        emit proofreadFinished(proofIssues_.size());
+        return;
+    }
+
     QNetworkRequest request(QUrl(QStringLiteral("https://api.languagetool.org/v2/check")));
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/x-www-form-urlencoded"));
     QUrlQuery query;
-    query.addQueryItem(QStringLiteral("text"), text.left(18000));
+    query.addQueryItem(QStringLiteral("text"), fragment);
     query.addQueryItem(QStringLiteral("language"), proofLanguage());
     query.addQueryItem(QStringLiteral("enabledOnly"), QStringLiteral("false"));
     QNetworkReply* reply = network_->post(request, query.query(QUrl::FullyEncoded).toUtf8());

@@ -315,6 +315,10 @@ QWidget* WritingPage::buildEditorTab() {
     tree_->setMaximumWidth(310);
     tree_->setIndentation(14);
     indexLayout->addWidget(tree_, 1);
+    auto* documentationButton = makeButton(tr("Documentación"));
+    documentationButton->setObjectName(QStringLiteral("writingSubtle"));
+    documentationButton->setToolTip(tr("Abrir apuntes, fichas y material de referencia"));
+    indexLayout->addWidget(documentationButton);
     auto* indexActions = new QHBoxLayout;
     indexActions->setSpacing(3);
     auto* renameButton = makeButton(tr("Renombrar"));
@@ -380,6 +384,9 @@ QWidget* WritingPage::buildEditorTab() {
     connect(addChapterButton, &QPushButton::clicked, this, &WritingPage::addChapter);
     connect(addSceneButton, &QPushButton::clicked, this, &WritingPage::addScene);
     connect(renameButton, &QPushButton::clicked, this, &WritingPage::renameChapter);
+    connect(documentationButton, &QPushButton::clicked, this, [this]() {
+        emit referenceActivated(QStringLiteral("world"), QString());
+    });
     connect(removeButton, &QPushButton::clicked, this, &WritingPage::removeItem);
     connect(upButton, &QPushButton::clicked, this, [this]() { moveItem(-1); });
     connect(downButton, &QPushButton::clicked, this, [this]() { moveItem(1); });
