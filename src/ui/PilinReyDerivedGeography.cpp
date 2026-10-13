@@ -8,6 +8,7 @@
 #include <QUuid>
 
 #include <algorithm>
+#include <cmath>
 
 namespace wbw {
 namespace {
@@ -77,7 +78,7 @@ void PilinReyEditor::recalculateDerivedGeography() {
                     ? moisture.at(index).toDouble()
                     : (precipitation.size() == count ? precipitation.at(index).toDouble() + 4.0 : 13.0);
 
-                int azgaarBiome = 4; // grassland
+                int azgaarBiome = 4;
                 int visual = 1;
                 if (temperature < -5.0 || elevation > .91) {
                     azgaarBiome = 11; visual = 6;
