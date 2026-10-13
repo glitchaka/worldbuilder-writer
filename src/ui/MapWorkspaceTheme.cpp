@@ -9,6 +9,7 @@ void MapWorkspace::applyTheme() {
     if (editor_) {
         editor_->setArchiveDocument(document_);
         editor_->migrateLegacyMarkers();
+        editor_->installCartographicFurniture();
     }
 
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
