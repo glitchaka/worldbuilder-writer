@@ -1,5 +1,6 @@
 #include "ui/MainWindow.h"
 
+#include "ui/MapWorkspace.h"
 #include "ui/ProjectHubPage.h"
 #include "ui/ReviewPage.h"
 #include "ui/SettingsWorkspace.h"
@@ -25,17 +26,17 @@ namespace {
 class ProductRailDelegate final : public QStyledItemDelegate {
 public:
     explicit ProductRailDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
-    QSize sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const override { return QSize(112, 66); }
+    QSize sizeHint(const QStyleOptionViewItem&, const QModelIndex&) const override { return QSize(88, 62); }
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
-        const QRect r = option.rect.adjusted(5, 3, -5, -3);
+        const QRect r = option.rect.adjusted(4, 3, -4, -3);
         const bool selected = option.state.testFlag(QStyle::State_Selected);
         const bool hover = option.state.testFlag(QStyle::State_MouseOver);
         const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
 
-        const QColor hoverFill = dark ? QColor(QStringLiteral("#111923")) : QColor(QStringLiteral("#dfd9cf"));
+        const QColor hoverFill = dark ? QColor(QStringLiteral("#111923")) : QColor(QStringLiteral("#e7e1d8"));
         const QColor selectedFill = dark ? QColor(QStringLiteral("#16283b")) : QColor(QStringLiteral("#d8e4ec"));
         const QColor selectionBar = dark ? QColor(QStringLiteral("#4aa5ff")) : QColor(QStringLiteral("#457aa3"));
         const QColor icon = dark ? QColor(QStringLiteral("#9ca9b6")) : QColor(QStringLiteral("#746e65"));
@@ -50,7 +51,7 @@ public:
         }
         if (selected) {
             painter->setBrush(selectionBar);
-            painter->drawRoundedRect(QRectF(r.left(), r.top() + 8, 3, r.height() - 16), 1.5, 1.5);
+            painter->drawRoundedRect(QRectF(r.left(), r.top() + 7, 3, r.height() - 14), 1.5, 1.5);
         }
 
         const QString value = index.data(Qt::DisplayRole).toString();
@@ -61,29 +62,29 @@ public:
         else if (value == QObject::tr("Tablero de escenas")) { glyph = QStringLiteral("▦"); compact = QObject::tr("Escenas"); }
         else if (value == QObject::tr("Atlas / documentación")) { glyph = QStringLiteral("◎"); compact = QObject::tr("Atlas"); }
         else if (value == QObject::tr("Mapas")) glyph = QStringLiteral("◇");
-        else if (value == QObject::tr("Revisión")) glyph = QStringLiteral("▥");
-        else if (value == QObject::tr("Configuración / salida")) { glyph = QStringLiteral("⚙"); compact = QObject::tr("Configuración"); }
+        else if (value == QObject::tr("Revisión")) glyph = QStringLiteral("✓");
+        else if (value == QObject::tr("Configuración / salida")) { glyph = QStringLiteral("⚙"); compact = QObject::tr("Ajustes"); }
 
         QFont iconFont = option.font;
-        iconFont.setPointSizeF(15.5);
+        iconFont.setPointSizeF(15.0);
         iconFont.setWeight(QFont::Medium);
         painter->setFont(iconFont);
         painter->setPen(selected ? selectedIcon : icon);
-        painter->drawText(QRect(r.left(), r.top() + 7, r.width(), 24), Qt::AlignCenter, glyph);
+        painter->drawText(QRect(r.left(), r.top() + 6, r.width(), 23), Qt::AlignCenter, glyph);
 
         QFont textFont = option.font;
-        textFont.setPointSizeF(7.8);
+        textFont.setPointSizeF(7.2);
         textFont.setWeight(selected ? QFont::DemiBold : QFont::Normal);
         painter->setFont(textFont);
         painter->setPen(selected ? selectedText : text);
-        painter->drawText(QRect(r.left() + 2, r.top() + 34, r.width() - 4, 22), Qt::AlignHCenter | Qt::AlignTop, compact);
+        painter->drawText(QRect(r.left() + 2, r.top() + 33, r.width() - 4, 20), Qt::AlignHCenter | Qt::AlignTop, compact);
         painter->restore();
     }
 };
 
 void installProductRail(QListWidget* navigation) {
-    if (!navigation || navigation->property("wbwProductRailV1").toBool()) return;
-    navigation->setProperty("wbwProductRailV1", true);
+    if (!navigation || navigation->property("wbwProductRailV4").toBool()) return;
+    navigation->setProperty("wbwProductRailV4", true);
     navigation->setItemDelegate(new ProductRailDelegate(navigation));
     navigation->setMouseTracking(true);
     navigation->setSpacing(1);
@@ -93,18 +94,15 @@ void installProductRail(QListWidget* navigation) {
 }
 
 void polishLibraryControls(ProjectHubPage* hub) {
-    if (!hub || hub->property("wbwLibraryControlsV3").toBool()) return;
-    hub->setProperty("wbwLibraryControlsV3", true);
+    if (!hub || hub->property("wbwLibraryControlsV4").toBool()) return;
+    hub->setProperty("wbwLibraryControlsV4", true);
     if (auto* search = hub->findChild<QLineEdit*>(QStringLiteral("hubSearch"))) {
         search->show();
         search->setMaximumWidth(520);
     }
-
-    const QList<QPushButton*> viewButtons = hub->findChildren<QPushButton*>(QStringLiteral("hubViewButton"));
-    if (viewButtons.size() > 1) viewButtons.at(1)->hide();
+    for (QPushButton* button : hub->findChildren<QPushButton*>(QStringLiteral("hubViewButton"))) button->hide();
     if (auto* sort = hub->findChild<QComboBox*>(QStringLiteral("hubSort"))) sort->hide();
     if (auto* genre = hub->findChild<QComboBox*>(QStringLiteral("hubGenreFilter"))) genre->hide();
-
     for (QPushButton* button : hub->findChildren<QPushButton*>(QStringLiteral("newProjectOption"))) {
         if (button->text().contains(QObject::tr("Desde plantilla"), Qt::CaseInsensitive)) button->hide();
     }
@@ -152,15 +150,15 @@ void MainWindow::routeProductModule(int row) {
             saveState_->setText(tr("Mundo, personajes y referencias"));
             break;
         case 4:
-            pages_->setCurrentWidget(worldPage_);
-            if (worldTabs && mapsTab) {
-                const int mapIndex = worldTabs->indexOf(mapsTab);
-                for (int i = 0; i < worldTabs->count(); ++i) worldTabs->setTabVisible(i, i == mapIndex);
-                if (mapIndex >= 0) worldTabs->setCurrentIndex(mapIndex);
-                if (worldTabs->tabBar()) worldTabs->tabBar()->hide();
+            if (!mapPage_) {
+                mapPage_ = new MapWorkspace(pages_);
+                pages_->addWidget(mapPage_);
+                connect(mapPage_, &MapWorkspace::changed, this, &MainWindow::onDocumentChanged);
             }
+            mapPage_->setDocument(&document_);
+            pages_->setCurrentWidget(mapPage_);
             projectTitle_->setText(tr("Mapas"));
-            saveState_->setText(tr("Pilín Rey"));
+            saveState_->setText(tr("Cartografía"));
             break;
         case 5:
             pages_->setCurrentWidget(reviewPage_);
