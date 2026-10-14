@@ -57,6 +57,7 @@ public:
     void recalculateDerivedGeography();
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
+    void generateAzgaarTemplateWorld(const QString& templateId);
     void smoothTerrain();
     void erodeTerrain();
     void normalizeTerrain();
