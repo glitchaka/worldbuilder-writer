@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: worldbuilder-writer-validation-${{ github.ref }}
@@ -40,31 +40,23 @@ jobs:
         shell: pwsh
         run: cmake --install build --config Release --prefix "$env:GITHUB_WORKSPACE\dist"
 
+      - name: Smoke launch standalone app
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE "dist\bin\WorldbuilderWriter.exe"
+          if (-not (Test-Path $exe)) {
+            throw "Standalone executable was not installed at $exe"
+          }
+          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            throw "WorldbuilderWriter exited during smoke launch with code $($process.ExitCode)"
+          }
+          Stop-Process -Id $process.Id -Force
+
       - name: Upload validation bundle
         uses: actions/upload-artifact@v4
         with:
           name: WorldbuilderWriter-validation-win64
           path: ${{ github.workspace }}/dist
           if-no-files-found: error
-
-  cleanup-branches:
-    name: leave only main
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Delete every remote branch except main
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin --prune
-          git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin \
-            | grep -v '^HEAD$' \
-            | while IFS= read -r branch; do
-                if [ -n "$branch" ] && [ "$branch" != "main" ]; then
-                  echo "Deleting origin/$branch"
-                  git push origin --delete "$branch"
-                fi
-              done
