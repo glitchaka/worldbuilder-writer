@@ -49,10 +49,17 @@ QJsonObject newMapObject(const QString& name) {
         {QStringLiteral("style"), QStringLiteral("Atlas")},
         {QStringLiteral("continents"), 3},
         {QStringLiteral("islands"), 10},
-        {QStringLiteral("roughness"), 6},
+        {QStringLiteral("roughness"), 58},
         {QStringLiteral("markers"), QJsonArray()},
         {QStringLiteral("updatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)}
     };
+}
+
+bool isBlankNativeTerrain(const QJsonObject& map) {
+    const QJsonObject terrain = map.value(QStringLiteral("pilinRey")).toObject()
+                                    .value(QStringLiteral("terrainModel")).toObject();
+    return terrain.isEmpty()
+        || terrain.value(QStringLiteral("generator")).toString() == QStringLiteral("blank-heightmap");
 }
 
 } // namespace
@@ -101,9 +108,9 @@ MapWorkspace::MapWorkspace(QWidget* parent) : QWidget(parent) {
     chromeLayout->addWidget(metadata);
     chromeLayout->addStretch(1);
 
-    auto* hint = new QLabel(tr("El lienzo es la superficie principal; capas y herramientas aparecen sólo cuando las necesitas."), chrome_);
+    auto* hint = new QLabel(tr("Terreno editable · clima e hidrología derivada · capas · rutas · asentamientos · assets"), chrome_);
     hint->setObjectName(QStringLiteral("mapWorkspaceHint"));
-    hint->setMaximumWidth(440);
+    hint->setMaximumWidth(520);
     chromeLayout->addWidget(hint);
     root->addWidget(chrome_);
 
@@ -116,6 +123,13 @@ MapWorkspace::MapWorkspace(QWidget* parent) : QWidget(parent) {
     editor_ = new PilinReyEditor(canvasHost);
     editor_->setObjectName(QStringLiteral("pilinReyEditor"));
     canvasLayout->addWidget(editor_, 1);
+
+    // Build the real native cartography studio at construction time. This is
+    // not tied to a theme change and cannot fall back to the legacy floating UI.
+    editor_->activateAzgaarGenerationPipeline();
+    editor_->configureProductWorkspace();
+    editor_->installCartographicFurniture();
+    editor_->setProperty("wbwMapInfrastructureReady", true);
 
     auto* empty = new QFrame(canvasHost);
     empty->setObjectName(QStringLiteral("mapWorkspaceEmpty"));
@@ -131,11 +145,11 @@ MapWorkspace::MapWorkspace(QWidget* parent) : QWidget(parent) {
     emptyTitle_->setObjectName(QStringLiteral("mapWorkspaceEmptyTitle"));
     emptyTitle_->setAlignment(Qt::AlignCenter);
     emptyLayout->addWidget(emptyTitle_);
-    emptyCopy_ = new QLabel(tr("Empieza con un lienzo vacío o genera un mundo editable desde el propio editor cartográfico."), empty);
+    emptyCopy_ = new QLabel(tr("Crea el documento y abre directamente el generador nativo basado en Azgaar. El resultado queda editable: relieve, biomas, ríos, regiones, rutas, asentamientos y etiquetas."), empty);
     emptyCopy_->setObjectName(QStringLiteral("mapWorkspaceEmptyCopy"));
     emptyCopy_->setAlignment(Qt::AlignCenter);
     emptyCopy_->setWordWrap(true);
-    emptyCopy_->setMaximumWidth(560);
+    emptyCopy_->setMaximumWidth(680);
     emptyLayout->addWidget(emptyCopy_, 0, Qt::AlignHCenter);
     emptyCreate_ = new QPushButton(tr("Crear mapa"), empty);
     emptyCreate_->setObjectName(QStringLiteral("mapWorkspacePrimary"));
@@ -183,6 +197,7 @@ void MapWorkspace::setDocument(ArchiveDocument* document) {
     }
     document_ = document;
     currentRow_ = -1;
+    editor_->setArchiveDocument(document_);
     refresh();
 }
 
@@ -224,8 +239,20 @@ void MapWorkspace::selectMap(int row) {
     refreshing_ = true;
     name_->setText(map.value(QStringLiteral("name")).toString());
     refreshing_ = false;
+
     editor_->setMap(map);
+    editor_->migrateLegacyMarkers();
     editor_->applyPersistentCanvasPreferences();
+    applyTheme();
+
+    // A new/blank map should never dump the user into the old empty blue
+    // canvas. It opens the native Azgaar generation controls immediately.
+    if (isBlankNativeTerrain(editor_->map())) {
+        if (auto* generator = editor_->findChild<QFrame*>(QStringLiteral("pilinGeneratorPopover"))) {
+            generator->show();
+            generator->raise();
+        }
+    }
 }
 
 void MapWorkspace::createMap() {
@@ -234,11 +261,25 @@ void MapWorkspace::createMap() {
     QString name = QInputDialog::getText(this, tr("Nuevo mapa"), tr("Nombre:"), QLineEdit::Normal, tr("Mapa sin nombre"), &ok).trimmed();
     if (!ok) return;
     if (name.isEmpty()) name = tr("Mapa sin nombre");
+
     QJsonArray maps = document_->array(QStringLiteral("maps"));
-    maps.append(newMapObject(name));
+    QJsonObject map = newMapObject(name);
+    maps.append(map);
     document_->setArray(QStringLiteral("maps"), maps);
     currentRow_ = maps.size() - 1;
     rebuildPicker(currentRow_);
+
+    // Prime the generator with the map document defaults. The user still
+    // decides when to generate; nothing is flattened into a bitmap.
+    editor_->setProperty("wbwGeneratorSeed", map.value(QStringLiteral("seed")).toInt());
+    editor_->setProperty("wbwGeneratorContinents", map.value(QStringLiteral("continents")).toInt(3));
+    editor_->setProperty("wbwGeneratorIslands", map.value(QStringLiteral("islands")).toInt(10));
+    editor_->setProperty("wbwGeneratorRoughness", map.value(QStringLiteral("roughness")).toInt(58));
+    editor_->setProperty("wbwGeneratorSeaLevel", 42);
+    if (auto* generator = editor_->findChild<QFrame*>(QStringLiteral("pilinGeneratorPopover"))) {
+        generator->show();
+        generator->raise();
+    }
     emit changed();
 }
 
