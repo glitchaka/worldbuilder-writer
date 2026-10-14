@@ -25,6 +25,7 @@ public:
     void setDocument(ArchiveDocument* document);
     void refresh();
     bool openReference(const QString& kind, const QString& id);
+    void configureAtlasProductSurface();
 
 signals:
     void changed();
