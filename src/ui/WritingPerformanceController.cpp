@@ -1,7 +1,7 @@
 #include "ui/WritingPerformanceController.h"
 
-#include "ui/WritingPage.h"
 #include "ui/SemanticTextEdit.h"
+#include "ui/WritingPage.h"
 
 #include <QEvent>
 #include <QMainWindow>
@@ -35,8 +35,12 @@ public:
         marginTimer_.setSingleShot(true);
         marginTimer_.setInterval(60);
 
+        // Persist the manuscript after a short idle period instead of rebuilding the
+        // project model, semantic index and scene board for every individual keystroke.
         QObject::disconnect(editor_, &QTextEdit::textChanged, page_, &WritingPage::applyScene);
-        connect(editor_, &QTextEdit::textChanged, this, [this]() { if (page_) commitTimer_.start(); });
+        connect(editor_, &QTextEdit::textChanged, this, [this]() {
+            if (page_) commitTimer_.start();
+        });
         connect(&commitTimer_, &QTimer::timeout, this, [this]() { flushPendingEdit(); });
         connect(&marginTimer_, &QTimer::timeout, this, [this]() { applyMargins(); });
 
@@ -56,7 +60,11 @@ protected:
             (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
             marginTimer_.start();
         }
-        if (watched == window_ && event->type() == QEvent::Close && commitTimer_.isActive()) flushPendingEdit();
+
+        if (watched == window_ && event->type() == QEvent::Close && commitTimer_.isActive()) {
+            flushPendingEdit();
+        }
+
         const bool onTree = tree_ && (watched == tree_ || watched == tree_->viewport());
         if (onTree && commitTimer_.isActive() &&
             (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::KeyPress || event->type() == QEvent::FocusOut)) {
@@ -89,10 +97,6 @@ private:
         format.setTopMargin(34);
         format.setBottomMargin(56);
         editor_->document()->rootFrame()->setFrameFormat(format);
-
-        editor_->setStyleSheet(QStringLiteral(
-            "QTextEdit#sceneEditor{background:#0b1016;color:#e7e0d6;border:0;padding:0;"
-            "selection-background-color:#315b72;selection-color:#ffffff;}"));
     }
 
     QPointer<QMainWindow> window_;
@@ -106,8 +110,8 @@ private:
 } // namespace
 
 void installWritingPerformanceController(QMainWindow* window) {
-    if (!window || window->property("wbwWritingPerformanceV7").toBool()) return;
-    window->setProperty("wbwWritingPerformanceV7", true);
+    if (!window || window->property("wbwWritingPerformanceV8").toBool()) return;
+    window->setProperty("wbwWritingPerformanceV8", true);
     new ManuscriptGuard(window);
 }
 

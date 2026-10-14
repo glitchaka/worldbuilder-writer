@@ -4,6 +4,6 @@ class QMainWindow;
 
 namespace wbw {
 
-void installTerrainModelSyncController(QMainWindow* window);
+void scheduleProductSelfTest(QMainWindow* window);
 
 } // namespace wbw

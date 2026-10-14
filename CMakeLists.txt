@@ -46,6 +46,10 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/NativeSpellChecker.h
     src/ui/WritingShortcutBridge.cpp
     src/ui/WritingShortcutBridge.h
+    src/ui/WritingPerformanceController.cpp
+    src/ui/WritingPerformanceController.h
+    src/ui/ProductSelfTest.cpp
+    src/ui/ProductSelfTest.h
 
     src/ui/SettingsWorkspace.cpp
     src/ui/SettingsProductCleanup.cpp
