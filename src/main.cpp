@@ -1,5 +1,4 @@
 #include "ui/MainWindow.h"
-#include "ui/ProductSelfTest.h"
 #include "ui/SettingsWorkspace.h"
 #include "ui/ThemeManager.h"
 #include "ui/WritingPerformanceController.h"
@@ -29,8 +28,6 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setOrganizationName(QStringLiteral("Worldbuilder Writer"));
     app.setStyle(QStringLiteral("Fusion"));
 
-    const bool runProductSelfTest = app.arguments().contains(QStringLiteral("--product-self-test"));
-
     ensureFirstRunTheme();
     wbw::ThemeManager::applySaved();
 
@@ -44,7 +41,5 @@ int main(int argc, char* argv[]) {
 
     window.resize(1600, 1000);
     window.show();
-
-    if (runProductSelfTest) wbw::scheduleProductSelfTest(&window);
     return app.exec();
 }
