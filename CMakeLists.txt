@@ -34,6 +34,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/ThemeManager.cpp
 
     src/ui/MapTerrainEngine.cpp
+    src/ui/MapTerrainAzgaar.cpp
     src/ui/MapTerrainEngine.h
     src/ui/MapWorkspace.cpp
     src/ui/MapWorkspaceTheme.cpp
