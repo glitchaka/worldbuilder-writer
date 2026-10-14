@@ -24,6 +24,9 @@ QString mapEditorChrome(bool dark) {
 QToolButton#pilinStudioTool{background:#111922;color:#aab6c0;border:1px solid #293641;border-radius:8px;}
 QToolButton#pilinStudioTool:hover{background:#182530;color:#fff;border-color:#385064;}
 QToolButton#pilinStudioTool:checked{background:#17384a;color:#9bd9e7;border-color:#3f8199;}
+QToolButton#pilinStudioPanelToggle{background:transparent;color:#87949f;border:1px solid transparent;border-radius:7px;}
+QToolButton#pilinStudioPanelToggle:hover{background:#17212a;color:#eef2f4;}
+QToolButton#pilinStudioPanelToggle:checked{background:#142833;color:#9bd9e7;border-color:#31576a;}
 #pilinStudioAction{background:#111922;color:#c7d0d8;border:1px solid #2d3944;border-radius:7px;}
 #pilinStudioTabs::pane{border:0;background:#0d131a;}
 #pilinStudioTabs QTabBar::tab{background:#0d131a;color:#7f8b96;border:0;border-bottom:2px solid transparent;}
@@ -55,6 +58,9 @@ QToolButton#pilinPrimaryCommand{background:#315f7e;color:#fff;border:1px solid #
 QToolButton#pilinStudioTool{background:#fbf8f2;color:#5d564d;border:1px solid #d3c9bc;border-radius:8px;}
 QToolButton#pilinStudioTool:hover{background:#eee7dd;color:#29251f;border-color:#b9a998;}
 QToolButton#pilinStudioTool:checked{background:#dbe7ea;color:#315d72;border-color:#92afbd;}
+QToolButton#pilinStudioPanelToggle{background:transparent;color:#71695f;border:1px solid transparent;border-radius:7px;}
+QToolButton#pilinStudioPanelToggle:hover{background:#e9e2d8;color:#29251f;}
+QToolButton#pilinStudioPanelToggle:checked{background:#dbe7ea;color:#315d72;border-color:#92afbd;}
 #pilinStudioAction{background:#fbf8f2;color:#4a433b;border:1px solid #d4cabc;border-radius:7px;}
 #pilinStudioTabs::pane{border:0;background:#f3efe8;}
 #pilinStudioTabs QTabBar::tab{background:#f3efe8;color:#756d64;border:0;border-bottom:2px solid transparent;}
@@ -84,7 +90,10 @@ void MapWorkspace::applyTheme() {
             editor_->setProperty("wbwMapInfrastructureReady", true);
             editor_->activateAzgaarGenerationPipeline();
             editor_->configureProductWorkspace();
+            editor_->installWorkspacePanelControls();
             editor_->installCartographicFurniture();
+        } else {
+            editor_->installWorkspacePanelControls();
         }
         editor_->applyMapStylePreset(editor_->map().value(QStringLiteral("style")).toString(QStringLiteral("Atlas")));
 
