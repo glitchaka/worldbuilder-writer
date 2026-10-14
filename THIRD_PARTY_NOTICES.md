@@ -5,10 +5,10 @@
 Worldbuilder Writer's native cartographic generation pipeline adapts ideas and algorithms from **Azgaar's Fantasy Map Generator**:
 
 - Project: `Azgaar/Fantasy-Map-Generator`
-- Copyright © 2017–2026 Azgaar
+- Copyright © 2017–2024 Max Haniyeu (Azgaar)
 - License: MIT
 
-Worldbuilder Writer does **not** embed the Fantasy Map Generator website or its HTML/JavaScript user interface. Relevant generation concepts are adapted to native C++/Qt data structures so generated terrain, climate, hydrology, biomes, settlements, regions and routes remain editable inside Worldbuilder Writer.
+Worldbuilder Writer does **not** embed the Fantasy Map Generator website or its HTML/JavaScript user interface. Relevant generation concepts and heightmap templates are ported/adapted to native C++/Qt data structures so generated terrain, climate, hydrology, biomes, settlements, regions and routes remain editable inside Worldbuilder Writer.
 
 ### MIT License
 
