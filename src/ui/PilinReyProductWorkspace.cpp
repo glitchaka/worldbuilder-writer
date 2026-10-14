@@ -15,11 +15,13 @@
 namespace wbw {
 
 void PilinReyEditor::configureProductWorkspace() {
-    if (property("wbwProductWorkspaceV1").toBool()) {
+    if (property("wbwProductWorkspaceV2").toBool()) {
+        if (layersPopover_) layersPopover_->show();
+        if (assetsPopover_) assetsPopover_->show();
         layoutFloatingPanels();
         return;
     }
-    setProperty("wbwProductWorkspaceV1", true);
+    setProperty("wbwProductWorkspaceV2", true);
 
     if (toolRail_) {
         toolRail_->setMinimumWidth(54);
@@ -37,10 +39,14 @@ void PilinReyEditor::configureProductWorkspace() {
     }
 
     if (layers_) {
-        layers_->setMinimumHeight(230);
+        layers_->setMinimumHeight(180);
+        layers_->setMaximumHeight(260);
         layers_->setAlternatingRowColors(false);
     }
-    if (assets_) assets_->setMinimumHeight(230);
+    if (assets_) {
+        assets_->setMinimumHeight(170);
+        assets_->setMaximumHeight(250);
+    }
 
     if (assetsPopover_ && assets_) {
         if (auto* layout = qobject_cast<QVBoxLayout*>(assetsPopover_->layout())) {
@@ -104,8 +110,10 @@ void PilinReyEditor::configureProductWorkspace() {
 
     QTimer::singleShot(0, this, [this]() {
         if (layersPopover_) layersPopover_->show();
+        if (assetsPopover_) assetsPopover_->show();
         layoutFloatingPanels();
         if (layersPopover_) layersPopover_->raise();
+        if (assetsPopover_) assetsPopover_->raise();
         if (toolRail_) toolRail_->raise();
         if (topCommands_) topCommands_->raise();
     });
