@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 concurrency:
   group: worldbuilder-writer-validation-${{ github.ref }}
   cancel-in-progress: true
@@ -43,3 +46,25 @@ jobs:
           name: WorldbuilderWriter-validation-win64
           path: ${{ github.workspace }}/dist
           if-no-files-found: error
+
+  cleanup-branches:
+    name: leave only main
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete every remote branch except main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin --prune
+          git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin \
+            | grep -v '^HEAD$' \
+            | while IFS= read -r branch; do
+                if [ -n "$branch" ] && [ "$branch" != "main" ]; then
+                  echo "Deleting origin/$branch"
+                  git push origin --delete "$branch"
+                fi
+              done
