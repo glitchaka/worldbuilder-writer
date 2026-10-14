@@ -4,6 +4,7 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLabel>
 #include <QList>
 #include <QStringList>
 #include <QWidget>
@@ -12,7 +13,6 @@
 
 class QCheckBox;
 class QFrame;
-class QLabel;
 class QListWidget;
 class QListWidgetItem;
 class QResizeEvent;
