@@ -236,8 +236,9 @@ void WorldPage::configureAtlasProductSurface() {
     connect(worldRelations_, &QTextEdit::textChanged, this, [refreshContext]() { (*refreshContext)(); });
     connect(connected, &QListWidget::itemActivated, this, [this](QListWidgetItem* item) {
         if (!item) return;
-        const int row = item->data(Qt::UserRole).toInt(-1);
-        if (row >= 0 && row < worldList_->count()) worldList_->setCurrentRow(row);
+        bool ok = false;
+        const int row = item->data(Qt::UserRole).toInt(&ok);
+        if (ok && row >= 0 && row < worldList_->count()) worldList_->setCurrentRow(row);
     });
 
     applyFilter();
