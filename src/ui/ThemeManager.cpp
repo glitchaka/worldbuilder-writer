@@ -85,24 +85,20 @@ QString mainSurface(bool dark) {
     if (dark) return QStringLiteral(R"QSS(
 /* WBW-SURFACE-DARK */
 #appRoot,#workspaceShell,#contentShell,#pageStack{background:#0b0f14;color:#d8e0e8;}
-#sideRail{background:#090d12;border-right:1px solid #202934;}
+#productTopBar,#topShell{background:#0c1117;border-bottom:1px solid #202a34;}
+#productNavigation{background:transparent;color:#8d99a6;border:0;}
+#productNavigation::item:hover{background:#121a23;} #productNavigation::item:selected{color:#60d7d8;border-bottom:2px solid #32c7c9;}
 #appMark{background:#111b27;color:#a9d3ff;border:1px solid #315a7e;}
-#sideNavigation{background:transparent;color:#8d99a6;}
-#sideNavigation::item:hover{background:#121a23;} #sideNavigation::item:selected{background:#16283b;border-left:2px solid #3f9ef6;}
-#navigationGlyph{color:#9aa8b7;} #navigationLabel{color:#8d99a6;}
-#topShell{background:#0c1117;border-bottom:1px solid #202a34;}
 #projectTitle{color:#f0ece4;} #saveState{color:#78838e;}
 #globalSearch{background:#0a1016;color:#cbd4dc;border:1px solid #273440;}
 )QSS");
     return QStringLiteral(R"QSS(
 /* WBW-SURFACE-LIGHT */
 #appRoot,#workspaceShell,#contentShell,#pageStack{background:#f2f0eb;color:#2d2a25;}
-#sideRail{background:#e9e5dd;border-right:1px solid #d0c8bc;}
+#productTopBar,#topShell{background:#f7f5f0;border-bottom:1px solid #d6cfc4;}
+#productNavigation{background:transparent;color:#746e65;border:0;}
+#productNavigation::item:hover{background:#ebe5db;} #productNavigation::item:selected{color:#2c7478;border-bottom:2px solid #3a9598;}
 #appMark{background:#f7f3eb;color:#72543a;border:1px solid #baa184;}
-#sideNavigation{background:transparent;color:#6d675f;}
-#sideNavigation::item:hover{background:#dfd9cf;} #sideNavigation::item:selected{background:#d8e4ec;border-left:2px solid #457aa3;}
-#navigationGlyph{color:#746e65;} #navigationLabel{color:#746e65;}
-#topShell{background:#f7f5f0;border-bottom:1px solid #d6cfc4;}
 #projectTitle{color:#302c27;} #saveState{color:#787168;}
 #globalSearch{background:#fffdf8;color:#312e29;border:1px solid #d2cbc0;}
 )QSS");
@@ -230,47 +226,45 @@ QString mapSurface(bool dark) {
     return dark ? QStringLiteral(R"QSS(
 /* WBW-MAP-DARK */
 #pilinReyEditor,#pilinCanvasHost,#pilinQtViewport{background:#090d12;}
-#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinGeneratorPopover,#pilinTerrainPopover,#pilinBiomePopover,#pilinSelectionPopover,#pilinToolOptions{background:rgba(12,17,23,247);color:#d9e0e7;border-color:#2c3741;}
+#pilinStudioToolbar,#pilinStudioLeft,#pilinStudioRight{background:#0d131a;color:#d9e0e7;}
 )QSS") : QStringLiteral(R"QSS(
 /* WBW-MAP-LIGHT */
 #pilinReyEditor,#pilinCanvasHost,#pilinQtViewport{background:#d8d2c8;}
-#pilinToolPalette,#pilinTopCommands,#pilinPopover,#pilinGeneratorPopover,#pilinTerrainPopover,#pilinBiomePopover,#pilinSelectionPopover,#pilinToolOptions{background:rgba(250,248,243,248);color:#342f29;border:1px solid #cfc6b9;}
-QToolButton#pilinMapTool{color:#625b52;} QToolButton#pilinMapTool:hover{background:#e8e2d8;color:#2d2924;} QToolButton#pilinMapTool:checked{background:#d9e5ec;color:#315e78;border:1px solid #90aec1;}
-QToolButton#pilinCommand{color:#615a51;} QToolButton#pilinCommand:hover{background:#e9e3d9;color:#2e2a25;}
-#pilinPopoverTitle,#pilinToolOptionsLabel{color:#312b25;} #pilinPopoverCopy{color:#746c62;}
-#pilinPopover QListWidget,#pilinGeneratorPopover QListWidget{background:#fffdf9;color:#342f29;border:1px solid #d5cdc1;}
-#pilinPopover QPushButton,#pilinGeneratorPopover QPushButton,#pilinTerrainPopover QPushButton,#pilinBiomePopover QPushButton{background:#f5f1ea;color:#494239;border:1px solid #d7cec1;}
-#pilinStatus{background:rgba(250,248,243,235);color:#665f56;border:1px solid #d0c7bb;}
+#pilinStudioToolbar,#pilinStudioLeft,#pilinStudioRight{background:#f3efe8;color:#342f29;}
 )QSS");
 }
 
-void appendSurface(const QString& objectName, const QString& block) {
+void applySurface(QWidget* widget, const QString& block) {
+    if (!widget) return;
+    static const char* baseProperty = "wbwThemeBaseStyle";
+    if (!widget->property(baseProperty).isValid()) widget->setProperty(baseProperty, widget->styleSheet());
+    widget->setStyleSheet(widget->property(baseProperty).toString() + block);
+}
+
+void applyNamedSurface(const QString& objectName, const QString& block) {
     if (!qApp) return;
     for (QWidget* widget : QApplication::allWidgets()) {
-        if (!widget || widget->objectName() != objectName) continue;
-        QString sheet = widget->styleSheet();
-        if (!sheet.endsWith(block)) widget->setStyleSheet(sheet + block);
+        if (widget && widget->objectName() == objectName) applySurface(widget, block);
     }
 }
 
 void applyProductSurfaces(bool dark) {
     if (!qApp) return;
-    if (QWidget* root = [&]() -> QWidget* {
-        for (QWidget* widget : QApplication::allWidgets())
-            if (widget && widget->objectName() == QStringLiteral("appRoot")) return widget->window();
-        return nullptr;
-    }()) {
-        const QString block = mainSurface(dark);
-        QString sheet = root->styleSheet();
-        if (!sheet.endsWith(block)) root->setStyleSheet(sheet + block);
+    QWidget* rootWindow = nullptr;
+    for (QWidget* widget : QApplication::allWidgets()) {
+        if (widget && widget->objectName() == QStringLiteral("appRoot")) {
+            rootWindow = widget->window();
+            break;
+        }
     }
-    appendSurface(QStringLiteral("appTitleBar"), titleSurface(dark));
-    appendSurface(QStringLiteral("projectHubPage"), librarySurface(dark));
-    appendSurface(QStringLiteral("writingPage"), writingSurface(dark));
-    appendSurface(QStringLiteral("worldPage"), worldSurface(dark));
-    appendSurface(QStringLiteral("reviewPage"), reviewSurface(dark));
-    appendSurface(QStringLiteral("settingsWorkspace"), settingsSurface(dark));
-    appendSurface(QStringLiteral("pilinReyEditor"), mapSurface(dark));
+    applySurface(rootWindow, mainSurface(dark));
+    applyNamedSurface(QStringLiteral("appTitleBar"), titleSurface(dark));
+    applyNamedSurface(QStringLiteral("projectHubPage"), librarySurface(dark));
+    applyNamedSurface(QStringLiteral("writingPage"), writingSurface(dark));
+    applyNamedSurface(QStringLiteral("worldPage"), worldSurface(dark));
+    applyNamedSurface(QStringLiteral("reviewPage"), reviewSurface(dark));
+    applyNamedSurface(QStringLiteral("settingsWorkspace"), settingsSurface(dark));
+    applyNamedSurface(QStringLiteral("pilinReyEditor"), mapSurface(dark));
 }
 
 } // namespace
