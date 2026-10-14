@@ -31,6 +31,8 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/storage/WbwPackage.cpp
     src/storage/GoogleDriveService.cpp
     src/import/ManuscriptImporter.cpp
+    src/export/ManuscriptExporter.cpp
+    src/export/ManuscriptExporter.h
     src/ui/ThemeManager.cpp
 
     src/ui/MapTerrainEngine.cpp
