@@ -1,6 +1,7 @@
 #include "ui/PilinReyEditor.h"
 
 #include <QFrame>
+#include <QLabel>
 #include <QPushButton>
 #include <QSlider>
 #include <QSpinBox>
@@ -39,6 +40,18 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
         if (slider->minimum() >= 20 && slider->maximum() <= 65) seaLevel = slider;
     }
 
+    if (auto* layout = qobject_cast<QVBoxLayout*>(popover->layout())) {
+        auto* source = new QLabel(
+            tr("Motor nativo adaptado de Azgaar/Fantasy-Map-Generator (MIT). Genera datos editables, no una imagen ni una interfaz web embebida."),
+            popover);
+        source->setObjectName(QStringLiteral("pilinAzgaarSource"));
+        source->setWordWrap(true);
+        layout->insertWidget(1, source);
+    }
+
+    buildButton->setText(tr("Generar con Azgaar"));
+    buildButton->setToolTip(tr("Ejecuta el pipeline nativo: relieve → clima → hidrología → biomas → regiones → asentamientos → rutas."));
+
     QObject::disconnect(buildButton, nullptr, this, nullptr);
     connect(buildButton, &QPushButton::clicked, this,
         [this, popover, seed, continents, islands, roughness, seaLevel]() {
@@ -54,7 +67,7 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
     if (auto* layout = qobject_cast<QVBoxLayout*>(popover->layout())) {
         auto* recalc = new QPushButton(tr("Recalcular geografía desde el terreno"), popover);
         recalc->setObjectName(QStringLiteral("pilinRecalculateGeography"));
-        recalc->setToolTip(tr("Conserva el heightmap que editaste y vuelve a derivar biomas e hidrología."));
+        recalc->setToolTip(tr("Conserva el heightmap que editaste y vuelve a derivar clima, biomas e hidrología."));
         layout->addWidget(recalc);
         connect(recalc, &QPushButton::clicked, this, [this, popover]() {
             recalculateDerivedGeography();
