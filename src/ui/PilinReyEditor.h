@@ -54,6 +54,7 @@ public:
     void installCartographicFurniture();
     void activateAzgaarGenerationPipeline();
     void configureProductWorkspace();
+    void installWorkspacePanelControls();
     void recalculateDerivedGeography();
     void applyMapStylePreset(const QString& styleName);
     QJsonObject map() const { return map_; }
