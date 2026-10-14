@@ -84,6 +84,7 @@ void MainWindow::routeProductModule(int row) {
                 for (int i = 0; i < worldTabs->count(); ++i) worldTabs->setTabVisible(i, worldTabs->widget(i) != mapsTab);
                 if (worldTabs->tabBar()) worldTabs->tabBar()->show();
             }
+            worldPage_->configureAtlasProductSurface();
             projectTitle_->setText(tr("Mundo"));
             saveState_->setText(tr("Atlas y documentación"));
             break;
