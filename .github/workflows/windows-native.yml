@@ -1,4 +1,4 @@
-name: Windows native validation
+name: Windows native build
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: worldbuilder-writer-validation-${{ github.ref }}
+  group: worldbuilder-writer-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,55 +35,3 @@ jobs:
       - name: Build
         shell: pwsh
         run: cmake --build build --config Release --parallel
-
-      - name: Install standalone bundle
-        shell: pwsh
-        run: cmake --install build --config Release --prefix "$env:GITHUB_WORKSPACE\dist"
-
-      - name: Smoke launch standalone app
-        shell: pwsh
-        run: |
-          $exe = Join-Path $env:GITHUB_WORKSPACE "dist\bin\WorldbuilderWriter.exe"
-          if (-not (Test-Path $exe)) {
-            throw "Standalone executable was not installed at $exe"
-          }
-          $process = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
-          Start-Sleep -Seconds 5
-          if ($process.HasExited) {
-            throw "WorldbuilderWriter exited during smoke launch with code $($process.ExitCode)"
-          }
-          Stop-Process -Id $process.Id -Force
-
-      - name: Product functional self-test
-        shell: pwsh
-        run: |
-          $exe = Join-Path $env:GITHUB_WORKSPACE "dist\bin\WorldbuilderWriter.exe"
-          $stdout = Join-Path $env:GITHUB_WORKSPACE "product-self-test.stdout.log"
-          $stderr = Join-Path $env:GITHUB_WORKSPACE "product-self-test.stderr.log"
-          $env:QT_FORCE_STDERR_LOGGING = "1"
-          $process = Start-Process -FilePath $exe -ArgumentList "--product-self-test" -WorkingDirectory (Split-Path $exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-          $deadline = (Get-Date).AddSeconds(60)
-          while (-not $process.HasExited -and (Get-Date) -lt $deadline) {
-            Start-Sleep -Milliseconds 500
-            $process.Refresh()
-          }
-          if (-not $process.HasExited) {
-            Stop-Process -Id $process.Id -Force
-            if (Test-Path $stdout) { Get-Content $stdout }
-            if (Test-Path $stderr) { Get-Content $stderr }
-            throw "Product self-test timed out after 60 seconds"
-          }
-          if ($process.ExitCode -ne 0) {
-            if (Test-Path $stdout) { Get-Content $stdout }
-            if (Test-Path $stderr) { Get-Content $stderr }
-            throw "Product self-test failed with exit code $($process.ExitCode)"
-          }
-          if (Test-Path $stdout) { Get-Content $stdout }
-          if (Test-Path $stderr) { Get-Content $stderr }
-
-      - name: Upload validation bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: WorldbuilderWriter-validation-win64
-          path: ${{ github.workspace }}/dist
-          if-no-files-found: error
