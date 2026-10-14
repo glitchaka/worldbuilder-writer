@@ -28,6 +28,8 @@ public:
     void setDocument(ArchiveDocument* document);
     void refresh();
     void installManuscriptExportActions();
+    void installWorkspaceNavigation();
+    void refreshProductTheme();
 
 signals:
     void changed();
