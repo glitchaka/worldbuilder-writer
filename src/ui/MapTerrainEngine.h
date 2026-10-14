@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QPointF>
+#include <QString>
 #include <QVector>
 
 namespace wbw {
@@ -13,11 +14,21 @@ public:
 
     void clear(float value = 0.0f);
     void generateWorld(int continentCount = 3, int islandCount = 10, float roughness = 0.58f);
+
+    // Native heightmap editing primitives. The Azgaar-named operations mirror
+    // the semantics used by Azgaar/Fantasy-Map-Generator while operating on
+    // Worldbuilder Writer's C++ terrain grid.
     void addHill(const QPointF& center, float radius, float height);
     void addPit(const QPointF& center, float radius, float depth);
     void addRange(const QPointF& start, const QPointF& end, float radius, float height, float jitter = 0.18f);
     void addTrough(const QPointF& start, const QPointF& end, float radius, float depth, float jitter = 0.16f);
     void carveStrait(bool vertical, float center, float width, float depth);
+    void modify(float minHeight, float maxHeight, float add, float multiply = 1.0f,
+                float power = 0.0f, bool preserveLandFloor = false);
+    void mask(float power = 1.0f);
+    void invert(bool xAxis = true, bool yAxis = true);
+    void generateAzgaarTemplate(const QString& templateId);
+
     void smooth(int passes = 1);
     void erode(int passes = 1, float strength = 0.18f);
     void normalize();
