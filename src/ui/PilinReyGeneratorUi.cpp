@@ -1,6 +1,8 @@
 #include "ui/PilinReyEditor.h"
 
+#include <QComboBox>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QSlider>
@@ -40,6 +42,23 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
         if (slider->minimum() >= 20 && slider->maximum() <= 65) seaLevel = slider;
     }
 
+    auto* templateChoice = new QComboBox(popover);
+    templateChoice->setObjectName(QStringLiteral("pilinAzgaarTemplate"));
+    templateChoice->addItem(tr("Continentes"), QStringLiteral("continents"));
+    templateChoice->addItem(tr("Archipiélago"), QStringLiteral("archipelago"));
+    templateChoice->addItem(tr("Isla alta"), QStringLiteral("highisland"));
+    templateChoice->addItem(tr("Isla baja"), QStringLiteral("lowisland"));
+    templateChoice->addItem(tr("Volcán"), QStringLiteral("volcano"));
+    templateChoice->addItem(tr("Atolón"), QStringLiteral("atoll"));
+    templateChoice->addItem(tr("Mediterráneo"), QStringLiteral("mediterranean"));
+    templateChoice->addItem(tr("Península"), QStringLiteral("peninsula"));
+    templateChoice->addItem(tr("Pangea"), QStringLiteral("pangea"));
+    templateChoice->addItem(tr("Istmo"), QStringLiteral("isthmus"));
+    templateChoice->addItem(tr("Fragmentado"), QStringLiteral("shattered"));
+    templateChoice->addItem(tr("Cuenca cerrada"), QStringLiteral("taklamakan"));
+    templateChoice->addItem(tr("Viejo Mundo"), QStringLiteral("oldworld"));
+    templateChoice->addItem(tr("Fracturado"), QStringLiteral("fractious"));
+
     if (auto* layout = qobject_cast<QVBoxLayout*>(popover->layout())) {
         auto* source = new QLabel(
             tr("Motor nativo adaptado de Azgaar/Fantasy-Map-Generator (MIT). Genera datos editables, no una imagen ni una interfaz web embebida."),
@@ -47,19 +66,31 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
         source->setObjectName(QStringLiteral("pilinAzgaarSource"));
         source->setWordWrap(true);
         layout->insertWidget(1, source);
+
+        auto* templateRow = new QWidget(popover);
+        templateRow->setObjectName(QStringLiteral("pilinAzgaarTemplateRow"));
+        auto* row = new QHBoxLayout(templateRow);
+        row->setContentsMargins(0, 0, 0, 0);
+        row->setSpacing(9);
+        auto* label = new QLabel(tr("Forma base"), templateRow);
+        label->setObjectName(QStringLiteral("pilinAzgaarTemplateLabel"));
+        row->addWidget(label);
+        row->addWidget(templateChoice, 1);
+        layout->insertWidget(2, templateRow);
     }
 
     buildButton->setText(tr("Generar con Azgaar"));
-    buildButton->setToolTip(tr("Ejecuta el pipeline nativo: relieve → clima → hidrología → biomas → regiones → asentamientos → rutas."));
+    buildButton->setToolTip(tr("Ejecuta el pipeline nativo: heightmap → clima → hidrología → biomas → regiones → asentamientos → rutas."));
 
     QObject::disconnect(buildButton, nullptr, this, nullptr);
     connect(buildButton, &QPushButton::clicked, this,
-        [this, popover, seed, continents, islands, roughness, seaLevel]() {
+        [this, popover, seed, continents, islands, roughness, seaLevel, templateChoice]() {
             if (seed) setProperty("wbwGeneratorSeed", seed->value());
             if (continents) setProperty("wbwGeneratorContinents", continents->value());
             if (islands) setProperty("wbwGeneratorIslands", islands->value());
             if (roughness) setProperty("wbwGeneratorRoughness", roughness->value());
             if (seaLevel) setProperty("wbwGeneratorSeaLevel", seaLevel->value());
+            setProperty("wbwGeneratorTemplate", templateChoice->currentData().toString());
             generateProceduralWorld();
             popover->hide();
         });
