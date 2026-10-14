@@ -44,11 +44,28 @@ void prepareWritingSurface(WritingPage* writing) {
     }
 }
 
+void finalizeNavigationLabels(QListWidget* navigation) {
+    if (!navigation || navigation->property("wbwFinalModuleLabels").toBool()) return;
+    navigation->setProperty("wbwFinalModuleLabels", true);
+    const QStringList labels{
+        QObject::tr("Biblioteca"), QObject::tr("Escritura"), QObject::tr("Tablero"),
+        QObject::tr("Atlas"), QObject::tr("Mapas"), QObject::tr("Revisión"), QObject::tr("Configuración")
+    };
+    for (int i = 0; i < qMin(navigation->count(), labels.size()); ++i) {
+        navigation->item(i)->setText(labels.at(i));
+        navigation->item(i)->setToolTip(i == 2 ? QObject::tr("Tablero de escenas")
+                                   : i == 3 ? QObject::tr("Atlas y documentación")
+                                            : labels.at(i));
+        navigation->item(i)->setSizeHint(QSize(i == 6 ? 118 : 94, 50));
+    }
+}
+
 } // namespace
 
 void MainWindow::routeProductModule(int row) {
     if (!pages_ || !navigation_) return;
 
+    finalizeNavigationLabels(navigation_);
     prepareWritingSurface(writingPage_);
     auto* writingTabs = writingPage_ ? writingPage_->findChild<QTabWidget*>(QStringLiteral("writingTabs")) : nullptr;
     auto* worldTabs = worldPage_ ? worldPage_->findChild<QTabWidget*>(QStringLiteral("worldTabs")) : nullptr;
@@ -74,8 +91,8 @@ void MainWindow::routeProductModule(int row) {
         case 2:
             pages_->setCurrentWidget(writingPage_);
             if (writingTabs && writingTabs->count() > 1) writingTabs->setCurrentIndex(1);
-            projectTitle_->setText(tr("Planificación"));
-            saveState_->setText(tr("Tablero de escenas"));
+            projectTitle_->setText(tr("Tablero de escenas"));
+            saveState_->setText(tr("Orden visual del manuscrito"));
             break;
         case 3:
             pages_->setCurrentWidget(worldPage_);
@@ -85,8 +102,8 @@ void MainWindow::routeProductModule(int row) {
                 if (worldTabs->tabBar()) worldTabs->tabBar()->show();
             }
             worldPage_->configureAtlasProductSurface();
-            projectTitle_->setText(tr("Mundo"));
-            saveState_->setText(tr("Atlas y documentación"));
+            projectTitle_->setText(tr("Atlas y documentación"));
+            saveState_->setText(tr("Mundo y material de referencia"));
             break;
         case 4:
             if (!mapPage_) {
