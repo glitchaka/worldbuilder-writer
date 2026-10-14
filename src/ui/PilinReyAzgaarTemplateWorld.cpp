@@ -181,6 +181,34 @@ QJsonArray routePolyline(const SettlementCandidate& a, const SettlementCandidate
     return points;
 }
 
+void applyReliefCharacter(MapTerrainEngine& terrain, double roughness, quint32 seed) {
+    roughness = std::clamp(roughness, .30, .82);
+    const float minDim = static_cast<float>(std::min(terrain.width(), terrain.height()));
+
+    if (roughness < .52) {
+        const int passes = qBound(1, static_cast<int>(std::round((.56 - roughness) * 16.0)), 4);
+        terrain.smooth(passes);
+    } else if (roughness > .60) {
+        const int features = qBound(1, static_cast<int>(std::round((roughness - .56) * 14.0)), 4);
+        for (int i = 0; i < features; ++i) {
+            const QPointF start(
+                terrain.width() * (.12 + noise01(i, 71, seed ^ 0x27d4eb2fu) * .76),
+                terrain.height() * (.12 + noise01(i, 73, seed ^ 0x85ebca6bu) * .76));
+            const QPointF end(
+                terrain.width() * (.12 + noise01(i, 79, seed ^ 0xc2b2ae35u) * .76),
+                terrain.height() * (.12 + noise01(i, 83, seed ^ 0x165667b1u) * .76));
+            const float strength = .035f + static_cast<float>((roughness - .60) * .30);
+            terrain.addRange(start, end, minDim * (.025f + static_cast<float>(noise01(i, 89, seed) * .025)),
+                             strength, .18f + static_cast<float>((roughness - .60) * .40));
+            if (i % 2 == 1) {
+                terrain.addTrough(end, start, minDim * .018f, strength * .55f, .20f);
+            }
+        }
+    }
+
+    terrain.erode(2, static_cast<float>(.12 + roughness * .09));
+}
+
 } // namespace
 
 void PilinReyEditor::generateAzgaarTemplateWorld(const QString& templateId) {
@@ -196,6 +224,9 @@ void PilinReyEditor::generateAzgaarTemplateWorld(const QString& templateId) {
     const double seaLevel = property("wbwGeneratorSeaLevel").isValid()
         ? std::clamp(property("wbwGeneratorSeaLevel").toInt() / 100.0, .20, .70)
         : .42;
+    const double roughness = property("wbwGeneratorRoughness").isValid()
+        ? std::clamp(property("wbwGeneratorRoughness").toInt() / 100.0, .30, .82)
+        : .58;
     const int politicalCenters = property("wbwGeneratorContinents").isValid()
         ? qBound(1, property("wbwGeneratorContinents").toInt(), 8)
         : 3;
@@ -205,12 +236,13 @@ void PilinReyEditor::generateAzgaarTemplateWorld(const QString& templateId) {
 
     MapTerrainEngine terrain(320, 180, seed);
     terrain.generateAzgaarTemplate(templateId);
-    terrain.erode(2, .16f);
+    applyReliefCharacter(terrain, roughness, seed);
 
     mutateDocument([&](QJsonObject& pilin) {
         QJsonObject model = terrain.toJson();
         model.insert(QStringLiteral("seaLevel"), seaLevel);
-        model.insert(QStringLiteral("generator"), QStringLiteral("azgaar-native-template-v1"));
+        model.insert(QStringLiteral("roughness"), roughness);
+        model.insert(QStringLiteral("generator"), QStringLiteral("azgaar-native-template-v2"));
         model.insert(QStringLiteral("sourceProject"), QStringLiteral("Azgaar/Fantasy-Map-Generator"));
         model.insert(QStringLiteral("heightmapTemplate"), templateId);
         model.insert(QStringLiteral("generatedAt"), QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
