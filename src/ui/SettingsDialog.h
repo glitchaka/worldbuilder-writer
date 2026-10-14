@@ -2,8 +2,10 @@
 
 #include <QDialog>
 #include <QJsonArray>
+#include <QPoint>
 
 class QComboBox;
+class QEvent;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -19,6 +21,10 @@ class SettingsDialog final : public QDialog {
     Q_OBJECT
 public:
     explicit SettingsDialog(QWidget* parent = nullptr);
+
+protected:
+    bool event(QEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void refreshState();
@@ -41,6 +47,9 @@ private:
     QPushButton* connectButton_ = nullptr;
     QPushButton* disconnectButton_ = nullptr;
     QPushButton* refreshButton_ = nullptr;
+
+    bool dragging_ = false;
+    QPoint dragOffset_;
 };
 
 } // namespace wbw
