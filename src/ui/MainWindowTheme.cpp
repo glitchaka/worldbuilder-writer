@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include "ui/MapWorkspace.h"
+#include "ui/ReviewPage.h"
 #include "ui/SettingsWorkspace.h"
 #include "ui/WritingPage.h"
 
@@ -18,9 +19,12 @@ void MainWindow::refreshProductTheme() {
         connect(settingsPage_, &SettingsWorkspace::preferencesChanged, this, [this]() {
             refreshProductTheme();
             if (writingPage_) writingPage_->refreshProductChromeTheme();
+            if (reviewPage_) reviewPage_->refreshProductTheme();
             if (mapPage_) mapPage_->applyTheme();
         });
     }
+
+    if (reviewPage_) reviewPage_->refreshProductTheme();
 
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
     QWidget* shell = findChild<QWidget*>(QStringLiteral("topShell"));
