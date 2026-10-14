@@ -1,102 +1,74 @@
 #include "ui/MapWorkspace.h"
 
-#include "core/ArchiveDocument.h"
 #include "ui/PilinReyEditor.h"
 
 #include <QApplication>
-#include <QJsonArray>
-#include <QJsonObject>
 #include <QLineEdit>
 
 namespace wbw {
 namespace {
 
-QJsonObject applyCartographicPreset(QJsonObject map) {
-    QJsonObject pilin = map.value(QStringLiteral("pilinRey")).toObject();
-    const QString style = map.value(QStringLiteral("style")).toString(QStringLiteral("Atlas"));
-    if (pilin.value(QStringLiteral("stylePreset")).toString() == style) return map;
-
-    QJsonObject theme = pilin.value(QStringLiteral("theme")).toObject();
-    if (style.compare(QObject::tr("Pergamino"), Qt::CaseInsensitive) == 0 || style.compare(QStringLiteral("Pergamino"), Qt::CaseInsensitive) == 0) {
-        theme.insert(QStringLiteral("sea"), QStringLiteral("#b8b295"));
-        theme.insert(QStringLiteral("river"), QStringLiteral("#546d78"));
-        theme.insert(QStringLiteral("road"), QStringLiteral("#765538"));
-        theme.insert(QStringLiteral("border"), QStringLiteral("#824d54"));
-        theme.insert(QStringLiteral("region"), QStringLiteral("#906a49"));
-        theme.insert(QStringLiteral("symbol"), QStringLiteral("#30281f"));
-        theme.insert(QStringLiteral("text"), QStringLiteral("#30281f"));
-    } else if (style.compare(QObject::tr("Nocturno"), Qt::CaseInsensitive) == 0 || style.compare(QStringLiteral("Nocturno"), Qt::CaseInsensitive) == 0) {
-        theme.insert(QStringLiteral("sea"), QStringLiteral("#284958"));
-        theme.insert(QStringLiteral("river"), QStringLiteral("#72b5d0"));
-        theme.insert(QStringLiteral("road"), QStringLiteral("#b49063"));
-        theme.insert(QStringLiteral("border"), QStringLiteral("#c57482"));
-        theme.insert(QStringLiteral("region"), QStringLiteral("#a88563"));
-        theme.insert(QStringLiteral("symbol"), QStringLiteral("#ece3d2"));
-        theme.insert(QStringLiteral("text"), QStringLiteral("#eee6d7"));
-    } else {
-        theme.insert(QStringLiteral("sea"), QStringLiteral("#789fad"));
-        theme.insert(QStringLiteral("river"), QStringLiteral("#2d6382"));
-        theme.insert(QStringLiteral("road"), QStringLiteral("#75512f"));
-        theme.insert(QStringLiteral("border"), QStringLiteral("#7c4650"));
-        theme.insert(QStringLiteral("region"), QStringLiteral("#8e6547"));
-        theme.insert(QStringLiteral("symbol"), QStringLiteral("#2c2924"));
-        theme.insert(QStringLiteral("text"), QStringLiteral("#29251f"));
-    }
-    pilin.insert(QStringLiteral("theme"), theme);
-    pilin.insert(QStringLiteral("stylePreset"), style);
-    map.insert(QStringLiteral("pilinRey"), pilin);
-    return map;
-}
-
 QString mapEditorChrome(bool dark) {
     if (dark) {
         return QStringLiteral(R"QSS(
 #pilinReyEditor,#pilinCanvasHost,#pilinQtViewport{background:#080b0f;}
-#pilinToolPalette{background:rgba(13,18,24,242);border:1px solid #2d3842;border-radius:13px;}
-#pilinTopCommands{background:rgba(13,18,24,238);border:1px solid #2d3842;border-radius:11px;}
-#pilinPopover,#pilinGeneratorPopover,#pilinTerrainPopover,#pilinBiomePopover,#pilinSelectionPopover,#pilinToolOptions{background:rgba(14,19,25,248);color:#e4e0d8;border:1px solid #35414c;border-radius:11px;}
-QToolButton#pilinMapTool{background:transparent;color:#9ca8b4;border:0;border-radius:8px;font-size:12pt;padding:0;}
-QToolButton#pilinMapTool:hover{background:#18232d;color:#f6f1e8;}
-QToolButton#pilinMapTool:checked{background:#20394b;color:#9fd2f2;border:1px solid #416f8f;}
-QToolButton#pilinCommand{background:transparent;color:#aab4bd;border:0;border-radius:7px;padding:7px 9px;}
+#pilinStudioToolbar{background:#0c1117;border:0;border-bottom:1px solid #26313b;border-radius:0;}
+#pilinStudioBody{background:#090d12;}
+#pilinStudioLeft,#pilinStudioRight{background:#0d131a;border:0;}
+#pilinStudioLeft{border-right:1px solid #26313b;}
+#pilinStudioRight{border-left:1px solid #26313b;}
+#pilinStudioTitle{color:#f0ebe3;}
+#pilinStudioCopy,#pilinStudioValue{color:#7e8b96;}
+#pilinStudioSection{color:#7c8994;}
+#pilinStudioField{color:#aab5bf;}
+QToolButton#pilinStudioTool{background:#111922;color:#aab6c0;border:1px solid #293641;border-radius:8px;}
+QToolButton#pilinStudioTool:hover{background:#182530;color:#fff;border-color:#385064;}
+QToolButton#pilinStudioTool:checked{background:#17384a;color:#9bd9e7;border-color:#3f8199;}
+#pilinStudioAction{background:#111922;color:#c7d0d8;border:1px solid #2d3944;border-radius:7px;}
+#pilinStudioTabs::pane{border:0;background:#0d131a;}
+#pilinStudioTabs QTabBar::tab{background:#0d131a;color:#7f8b96;border:0;border-bottom:2px solid transparent;}
+#pilinStudioTabs QTabBar::tab:selected{color:#dbe6ec;border-bottom-color:#3fc1c6;}
+#pilinPopover,#pilinGeneratorPopover,#pilinTerrainPopover,#pilinBiomePopover,#pilinSelectionPopover{background:#0d131a;color:#e4e0d8;border:1px solid #35414c;border-radius:10px;}
+#pilinStudioRight #pilinPopover{border:0;border-radius:0;}
+#pilinAssetSearch,#pilinAssetCategory{background:#101820;color:#dce4ea;border:1px solid #2b3742;border-radius:7px;}
+#pilinImportAssetFolder{background:#16232d;color:#cfd9e0;border:1px solid #334554;border-radius:7px;}
+QToolButton#pilinCommand{background:transparent;color:#aab4bd;border:0;border-radius:7px;}
 QToolButton#pilinCommand:hover{background:#1a242d;color:#f3efe8;}
-QToolButton#pilinPrimaryCommand{background:#315f7e;color:#ffffff;border:1px solid #477c9e;border-radius:7px;padding:7px 11px;font-weight:700;}
-QToolButton#pilinPrimaryCommand:hover{background:#3b7093;}
-#pilinPopoverTitle,#pilinToolOptionsLabel{font-family:'Georgia';font-size:12pt;font-weight:600;color:#f0e9dc;}
-#pilinPopoverCopy{color:#87939e;font-size:8.5pt;}
-#pilinStatus{background:rgba(11,15,20,218);color:#88949f;border:1px solid #2b3540;border-radius:7px;padding:6px 9px;}
-#pilinPopover QListWidget,#pilinGeneratorPopover QListWidget{background:#0b1015;color:#dce3e9;border:1px solid #2d3944;border-radius:8px;outline:0;}
-#pilinPopover QListWidget::item{padding:8px;border-radius:6px;}
-#pilinPopover QListWidget::item:selected{background:#20384a;color:#dcefff;}
-#pilinPopover QPushButton,#pilinGeneratorPopover QPushButton,#pilinTerrainPopover QPushButton,#pilinBiomePopover QPushButton{background:#121a22;color:#d1d9df;border:1px solid #303c47;border-radius:7px;padding:8px 10px;text-align:left;}
-#pilinPopover QPushButton:hover,#pilinGeneratorPopover QPushButton:hover,#pilinTerrainPopover QPushButton:hover,#pilinBiomePopover QPushButton:hover{background:#1b2731;color:#ffffff;}
-#pilinBiomePopover QPushButton:checked{background:#234155;color:#b8def5;border-color:#4b7997;}
-#pilinPrimaryAction{background:#356f96;color:#ffffff;border-color:#4b83a6;font-weight:700;}
+QToolButton#pilinPrimaryCommand{background:#315f7e;color:#fff;border:1px solid #477c9e;border-radius:7px;font-weight:700;}
+#pilinPopoverTitle{color:#f0e9dc;}
+#pilinPopoverCopy{color:#87939e;}
+#pilinStatus{background:rgba(11,15,20,218);color:#88949f;border:1px solid #2b3540;border-radius:7px;}
 )QSS");
     }
 
     return QStringLiteral(R"QSS(
-#pilinReyEditor,#pilinCanvasHost,#pilinQtViewport{background:#cfc8bb;}
-#pilinToolPalette{background:rgba(250,247,240,244);border:1px solid #c9beae;border-radius:13px;}
-#pilinTopCommands{background:rgba(250,247,240,242);border:1px solid #c9beae;border-radius:11px;}
-#pilinPopover,#pilinGeneratorPopover,#pilinTerrainPopover,#pilinBiomePopover,#pilinSelectionPopover,#pilinToolOptions{background:rgba(252,249,243,250);color:#37312b;border:1px solid #c8bdad;border-radius:11px;}
-QToolButton#pilinMapTool{background:transparent;color:#625b52;border:0;border-radius:8px;font-size:12pt;padding:0;}
-QToolButton#pilinMapTool:hover{background:#e7e0d5;color:#27231f;}
-QToolButton#pilinMapTool:checked{background:#d8e3e8;color:#315d72;border:1px solid #90aebe;}
-QToolButton#pilinCommand{background:transparent;color:#625b52;border:0;border-radius:7px;padding:7px 9px;}
+#pilinReyEditor,#pilinCanvasHost,#pilinQtViewport{background:#d8d1c5;}
+#pilinStudioToolbar{background:#f7f4ee;border:0;border-bottom:1px solid #d3cabd;border-radius:0;}
+#pilinStudioBody{background:#d8d1c5;}
+#pilinStudioLeft,#pilinStudioRight{background:#f3efe8;border:0;}
+#pilinStudioLeft{border-right:1px solid #d0c6b8;}
+#pilinStudioRight{border-left:1px solid #d0c6b8;}
+#pilinStudioTitle{color:#342f29;}
+#pilinStudioCopy,#pilinStudioValue{color:#7b7268;}
+#pilinStudioSection{color:#80766a;}
+#pilinStudioField{color:#625a51;}
+QToolButton#pilinStudioTool{background:#fbf8f2;color:#5d564d;border:1px solid #d3c9bc;border-radius:8px;}
+QToolButton#pilinStudioTool:hover{background:#eee7dd;color:#29251f;border-color:#b9a998;}
+QToolButton#pilinStudioTool:checked{background:#dbe7ea;color:#315d72;border-color:#92afbd;}
+#pilinStudioAction{background:#fbf8f2;color:#4a433b;border:1px solid #d4cabc;border-radius:7px;}
+#pilinStudioTabs::pane{border:0;background:#f3efe8;}
+#pilinStudioTabs QTabBar::tab{background:#f3efe8;color:#756d64;border:0;border-bottom:2px solid transparent;}
+#pilinStudioTabs QTabBar::tab:selected{color:#315d72;border-bottom-color:#5e91a8;}
+#pilinPopover,#pilinGeneratorPopover,#pilinTerrainPopover,#pilinBiomePopover,#pilinSelectionPopover{background:#f7f3ec;color:#37312b;border:1px solid #c8bdad;border-radius:10px;}
+#pilinStudioRight #pilinPopover{border:0;border-radius:0;}
+#pilinAssetSearch,#pilinAssetCategory{background:#fffdf9;color:#312e29;border:1px solid #d2cbc0;border-radius:7px;}
+#pilinImportAssetFolder{background:#eee7dd;color:#494139;border:1px solid #cec2b3;border-radius:7px;}
+QToolButton#pilinCommand{background:transparent;color:#625b52;border:0;border-radius:7px;}
 QToolButton#pilinCommand:hover{background:#e9e2d8;color:#29251f;}
-QToolButton#pilinPrimaryCommand{background:#557c91;color:#ffffff;border:1px solid #557c91;border-radius:7px;padding:7px 11px;font-weight:700;}
-QToolButton#pilinPrimaryCommand:hover{background:#456f86;}
-#pilinPopoverTitle,#pilinToolOptionsLabel{font-family:'Georgia';font-size:12pt;font-weight:600;color:#342e28;}
-#pilinPopoverCopy{color:#7b7268;font-size:8.5pt;}
-#pilinStatus{background:rgba(250,247,240,225);color:#6b635a;border:1px solid #c9beae;border-radius:7px;padding:6px 9px;}
-#pilinPopover QListWidget,#pilinGeneratorPopover QListWidget{background:#fffdf9;color:#37312b;border:1px solid #d0c5b7;border-radius:8px;outline:0;}
-#pilinPopover QListWidget::item{padding:8px;border-radius:6px;}
-#pilinPopover QListWidget::item:selected{background:#dce6ea;color:#315d72;}
-#pilinPopover QPushButton,#pilinGeneratorPopover QPushButton,#pilinTerrainPopover QPushButton,#pilinBiomePopover QPushButton{background:#f4efe7;color:#4a433b;border:1px solid #d4cabc;border-radius:7px;padding:8px 10px;text-align:left;}
-#pilinPopover QPushButton:hover,#pilinGeneratorPopover QPushButton:hover,#pilinTerrainPopover QPushButton:hover,#pilinBiomePopover QPushButton:hover{background:#ebe3d8;color:#29251f;}
-#pilinBiomePopover QPushButton:checked{background:#dbe7ea;color:#315d72;border-color:#92afbd;}
-#pilinPrimaryAction{background:#557c91;color:#ffffff;border-color:#557c91;font-weight:700;}
+QToolButton#pilinPrimaryCommand{background:#557c91;color:#fff;border:1px solid #557c91;border-radius:7px;font-weight:700;}
+#pilinPopoverTitle{color:#342e28;}
+#pilinPopoverCopy{color:#7b7268;}
+#pilinStatus{background:rgba(250,247,240,225);color:#6b635a;border:1px solid #c9beae;border-radius:7px;}
 )QSS");
 }
 
@@ -105,17 +77,12 @@ QToolButton#pilinPrimaryCommand:hover{background:#456f86;}
 void MapWorkspace::applyTheme() {
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
 
+    // Theme changes must be visual only. Previously this method called setMap(),
+    // migration and workspace construction again, which reset editor state and
+    // could reparent/show legacy widgets during a light/dark switch.
     if (editor_) {
-        if (document_ && currentRow_ >= 0) {
-            const QJsonArray maps = document_->array(QStringLiteral("maps"));
-            if (currentRow_ < maps.size()) editor_->setMap(applyCartographicPreset(maps.at(currentRow_).toObject()));
-        }
-        editor_->setArchiveDocument(document_);
-        editor_->migrateLegacyMarkers();
-        editor_->activateAzgaarGenerationPipeline();
-        editor_->configureProductWorkspace();
-        editor_->installCartographicFurniture();
-        editor_->setStyleSheet(editor_->styleSheet() + mapEditorChrome(dark));
+        if (!editor_->property("wbwProductWorkspaceV3").toBool()) editor_->configureProductWorkspace();
+        editor_->setStyleSheet(mapEditorChrome(dark));
     }
 
     if (name_ && !property("wbwMapNameLive").toBool()) {
@@ -139,7 +106,6 @@ void MapWorkspace::applyTheme() {
 #mapWorkspaceEmptyTitle{color:#f0ebe3;font-family:'Georgia';font-size:22pt;font-weight:600;}
 #mapWorkspaceEmptyCopy{color:#7e8994;font-size:9.5pt;}
 #mapWorkspacePrimary{background:#2e78b3;color:#ffffff;border:0;border-radius:8px;padding:9px 18px;font-weight:700;}
-#mapWorkspacePrimary:hover{background:#3788c8;}
 )QSS"));
     } else {
         setStyleSheet(QStringLiteral(R"QSS(
@@ -157,7 +123,6 @@ void MapWorkspace::applyTheme() {
 #mapWorkspaceEmptyTitle{color:#342f29;font-family:'Georgia';font-size:22pt;font-weight:600;}
 #mapWorkspaceEmptyCopy{color:#746d64;font-size:9.5pt;}
 #mapWorkspacePrimary{background:#487b9b;color:#ffffff;border:0;border-radius:8px;padding:9px 18px;font-weight:700;}
-#mapWorkspacePrimary:hover{background:#3c6e8d;}
 )QSS"));
     }
 }
