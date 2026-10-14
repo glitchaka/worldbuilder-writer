@@ -67,8 +67,6 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/PilinReyCartographicFurniture.cpp
     src/ui/PilinReyStylePresets.cpp
     src/ui/ProjectHubPage.cpp
-    src/ui/SettingsDialog.cpp
-    src/ui/SettingsDialogChrome.cpp
     src/ui/SemanticTextEdit.cpp
     src/ui/PlanningPage.cpp
     src/ui/WritingPage.cpp
