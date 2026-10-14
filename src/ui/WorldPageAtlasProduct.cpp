@@ -75,7 +75,7 @@ QPushButton* filterChip(const QString& text, const QString& key, QWidget* parent
 
 void WorldPage::configureAtlasProductSurface() {
     applyAtlasChrome();
-    if (property("wbwAtlasProductSurfaceV2").toBool() || !worldList_ || !document_) return;
+    if (property("wbwAtlasProductSurfaceV2").toBool() || !worldList_) return;
 
     auto* index = findChild<QWidget*>(QStringLiteral("worldIndexPanel"));
     auto* contextRail = findChild<QFrame*>(QStringLiteral("atlasContextRail"));
@@ -129,11 +129,11 @@ void WorldPage::configureAtlasProductSurface() {
     worldList_->setMaximumWidth(QWIDGETSIZE_MAX);
 
     const auto applyFilter = [this, search, filterGroup]() {
-        if (!document_ || !worldList_) return;
+        if (!worldList_) return;
         const QString query = search->text().trimmed();
         QString key = QStringLiteral("all");
         if (auto* checked = qobject_cast<QPushButton*>(filterGroup->checkedButton())) key = checked->property("filterKey").toString();
-        const QJsonArray world = document_->array(QStringLiteral("world"));
+        const QJsonArray world = document_ ? document_->array(QStringLiteral("world")) : QJsonArray();
         for (int i = 0; i < worldList_->count(); ++i) {
             const QJsonObject entry = i < world.size() ? world.at(i).toObject() : QJsonObject();
             const bool queryMatches = query.isEmpty() || entrySearchText(entry).contains(query, Qt::CaseInsensitive);
