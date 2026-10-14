@@ -118,6 +118,7 @@ void MainWindow::routeProductModule(int row) {
             break;
         case 5:
             pages_->setCurrentWidget(reviewPage_);
+            reviewPage_->installManuscriptExportActions();
             projectTitle_->setText(tr("Revisión"));
             saveState_->setText(tr("Diagnóstico editorial"));
             break;
