@@ -90,8 +90,9 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
             if (islands) setProperty("wbwGeneratorIslands", islands->value());
             if (roughness) setProperty("wbwGeneratorRoughness", roughness->value());
             if (seaLevel) setProperty("wbwGeneratorSeaLevel", seaLevel->value());
-            setProperty("wbwGeneratorTemplate", templateChoice->currentData().toString());
-            generateProceduralWorld();
+            const QString templateId = templateChoice->currentData().toString();
+            setProperty("wbwGeneratorTemplate", templateId);
+            generateAzgaarTemplateWorld(templateId);
             popover->hide();
         });
 
