@@ -118,7 +118,9 @@ void MainWindow::routeProductModule(int row) {
             break;
         case 5:
             pages_->setCurrentWidget(reviewPage_);
+            reviewPage_->installWorkspaceNavigation();
             reviewPage_->installManuscriptExportActions();
+            reviewPage_->refreshProductTheme();
             projectTitle_->setText(tr("Revisión"));
             saveState_->setText(tr("Diagnóstico editorial"));
             break;
@@ -134,6 +136,7 @@ void MainWindow::routeProductModule(int row) {
     ThemeManager::applySaved();
     refreshProductTheme();
     writingPage_->refreshProductChromeTheme();
+    if (reviewPage_) reviewPage_->refreshProductTheme();
     if (row == 4 && mapPage_) mapPage_->applyTheme();
     navigation_->viewport()->update();
 }
