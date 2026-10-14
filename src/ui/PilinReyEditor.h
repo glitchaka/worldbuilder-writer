@@ -55,6 +55,7 @@ public:
     void activateAzgaarGenerationPipeline();
     void configureProductWorkspace();
     void recalculateDerivedGeography();
+    void applyMapStylePreset(const QString& styleName);
     QJsonObject map() const { return map_; }
     void generateProceduralWorld();
     void generateAzgaarTemplateWorld(const QString& templateId);
