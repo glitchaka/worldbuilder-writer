@@ -49,8 +49,11 @@ void SettingsWorkspace::finalizeProductControls() {
         if (!label) continue;
         if (hiddenLabels.contains(label->text())) label->hide();
         if (label->text() == tr("Pilín Rey")) label->setText(tr("Mapas"));
-        if (label->text() == tr("PDF · WBW · PNG · SVG"))
-            label->setText(tr("PDF · DOCX · ODT · EPUB · TXT · WBW · PNG · SVG"));
+    }
+
+    if (auto* output = findChild<QLabel*>(QStringLiteral("settingsOutputText"))) {
+        output->setText(tr("Manuscrito: PDF · DOCX · ODT · EPUB · TXT · WBW\nMapas: PNG · SVG"));
+        output->setWordWrap(true);
     }
 
     if (navigation_ && navigation_->count() >= 7) {
