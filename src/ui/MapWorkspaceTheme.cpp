@@ -87,6 +87,7 @@ void MapWorkspace::applyTheme() {
             editor_->configureProductWorkspace();
             editor_->installCartographicFurniture();
         }
+        editor_->applyMapStylePreset(editor_->map().value(QStringLiteral("style")).toString(QStringLiteral("Atlas")));
         editor_->setStyleSheet(mapEditorChrome(dark));
     }
 
