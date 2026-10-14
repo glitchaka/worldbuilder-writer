@@ -10,7 +10,6 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
-#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QTabWidget>
@@ -69,9 +68,8 @@ void PilinReyEditor::configureProductWorkspace() {
     auto* root = qobject_cast<QVBoxLayout*>(layout());
     if (!root || !canvasHost_) return;
 
-    // The old product patch floated every control over the canvas. Replace that
-    // architecture with the actual map-studio layout: toolbar, tool dock,
-    // document canvas, and persistent layers/assets dock.
+    // Replace the old floating patchwork with the real cartography workspace:
+    // command toolbar + terrain tools + canvas + persistent layers/assets.
     if (topCommands_) {
         QFrame* toolbar = topCommands_;
         toolbar->setParent(this);
@@ -79,7 +77,7 @@ void PilinReyEditor::configureProductWorkspace() {
         toolbar->setMinimumHeight(50);
         toolbar->setMaximumHeight(54);
         root->insertWidget(0, toolbar);
-        topCommands_ = nullptr; // prevents the legacy floating-position code from moving it again
+        topCommands_ = nullptr;
     }
 
     root->removeWidget(canvasHost_);
@@ -134,7 +132,7 @@ void PilinReyEditor::configureProductWorkspace() {
     if (toolRail_) {
         toolRail_->hide();
         toolRail_->deleteLater();
-        toolRail_ = nullptr; // no more floating rail
+        toolRail_ = nullptr;
     }
 
     if (QWidget* legacyOptions = canvasHost_->findChild<QWidget*>(QStringLiteral("pilinToolOptions"))) {
@@ -316,7 +314,15 @@ QToolButton#pilinStudioTool:checked{background:#17384a;color:#9bd9e7;border-colo
         if (layersPopover_) layersPopover_->show();
         if (assetsPopover_) assetsPopover_->show();
         if (tabs && tabs->count()) tabs->setCurrentIndex(0);
-        if (viewport_) viewport_->fitDocument();
+
+        const QJsonObject terrain = map_.value(QStringLiteral("pilinRey")).toObject().value(QStringLiteral("terrainModel")).toObject();
+        if (terrain.value(QStringLiteral("generator")).toString() == QStringLiteral("blank-heightmap")) {
+            if (auto* generator = canvasHost_->findChild<QFrame*>(QStringLiteral("pilinGeneratorPopover"))) {
+                generator->show();
+                generator->raise();
+                layoutFloatingPanels();
+            }
+        }
     });
 }
 
