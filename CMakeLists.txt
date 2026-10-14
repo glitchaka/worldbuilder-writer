@@ -83,6 +83,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/ReviewPage.cpp
     src/ui/ReviewPageChromeV2.cpp
     src/ui/ReviewPageManuscriptExport.cpp
+    src/ui/ReviewPageWorkspace.cpp
     src/ui/MainWindow.cpp
     src/ui/MainWindowProductRouting.cpp
     src/ui/MainWindowTheme.cpp
