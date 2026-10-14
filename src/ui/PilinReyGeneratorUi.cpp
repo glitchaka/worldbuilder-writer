@@ -1,6 +1,7 @@
 #include "ui/PilinReyEditor.h"
 
 #include <QComboBox>
+#include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -27,12 +28,12 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
     if (!buildButton) return;
 
     QSpinBox* seed = nullptr;
-    QSpinBox* continents = nullptr;
-    QSpinBox* islands = nullptr;
+    QSpinBox* politicalCenters = nullptr;
+    QSpinBox* settlementDensity = nullptr;
     for (QSpinBox* spin : popover->findChildren<QSpinBox*>()) {
         if (spin->maximum() > 1000000) seed = spin;
-        else if (spin->minimum() == 1 && spin->maximum() <= 10) continents = spin;
-        else if (spin->minimum() == 0 && spin->maximum() >= 20) islands = spin;
+        else if (spin->minimum() == 1 && spin->maximum() <= 10) politicalCenters = spin;
+        else if (spin->minimum() == 0 && spin->maximum() >= 20) settlementDensity = spin;
     }
 
     QSlider* roughness = nullptr;
@@ -40,6 +41,22 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
     for (QSlider* slider : popover->findChildren<QSlider*>()) {
         if (slider->minimum() >= 25 && slider->maximum() >= 75) roughness = slider;
         if (slider->minimum() >= 20 && slider->maximum() <= 65) seaLevel = slider;
+    }
+
+    // The old controls were named for the superseded custom generator. In the
+    // Azgaar pipeline the physical landmass shape comes from the selected
+    // heightmap template; these two values drive political and settlement
+    // generation. Rename the labels instead of pretending they still control
+    // continent/island geometry.
+    for (QFormLayout* form : popover->findChildren<QFormLayout*>()) {
+        if (politicalCenters) {
+            if (auto* label = qobject_cast<QLabel*>(form->labelForField(politicalCenters)))
+                label->setText(tr("Centros políticos"));
+        }
+        if (settlementDensity) {
+            if (auto* label = qobject_cast<QLabel*>(form->labelForField(settlementDensity)))
+                label->setText(tr("Densidad urbana"));
+        }
     }
 
     auto* templateChoice = new QComboBox(popover);
@@ -61,7 +78,7 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
 
     if (auto* layout = qobject_cast<QVBoxLayout*>(popover->layout())) {
         auto* source = new QLabel(
-            tr("Motor nativo adaptado de Azgaar/Fantasy-Map-Generator (MIT). Genera datos editables, no una imagen ni una interfaz web embebida."),
+            tr("Motor nativo adaptado de Azgaar/Fantasy-Map-Generator (MIT). La forma base crea el heightmap; relieve, nivel del mar, centros políticos y densidad urbana modifican después el mundo editable."),
             popover);
         source->setObjectName(QStringLiteral("pilinAzgaarSource"));
         source->setWordWrap(true);
@@ -80,14 +97,14 @@ void PilinReyEditor::activateAzgaarGenerationPipeline() {
     }
 
     buildButton->setText(tr("Generar con Azgaar"));
-    buildButton->setToolTip(tr("Ejecuta el pipeline nativo: heightmap → clima → hidrología → biomas → regiones → asentamientos → rutas."));
+    buildButton->setToolTip(tr("Ejecuta el pipeline nativo: heightmap → relieve → clima → hidrología → biomas → regiones → asentamientos → rutas."));
 
     QObject::disconnect(buildButton, nullptr, this, nullptr);
     connect(buildButton, &QPushButton::clicked, this,
-        [this, popover, seed, continents, islands, roughness, seaLevel, templateChoice]() {
+        [this, popover, seed, politicalCenters, settlementDensity, roughness, seaLevel, templateChoice]() {
             if (seed) setProperty("wbwGeneratorSeed", seed->value());
-            if (continents) setProperty("wbwGeneratorContinents", continents->value());
-            if (islands) setProperty("wbwGeneratorIslands", islands->value());
+            if (politicalCenters) setProperty("wbwGeneratorContinents", politicalCenters->value());
+            if (settlementDensity) setProperty("wbwGeneratorIslands", settlementDensity->value());
             if (roughness) setProperty("wbwGeneratorRoughness", roughness->value());
             if (seaLevel) setProperty("wbwGeneratorSeaLevel", seaLevel->value());
             const QString templateId = templateChoice->currentData().toString();
