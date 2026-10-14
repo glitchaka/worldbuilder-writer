@@ -77,9 +77,8 @@ QToolButton#pilinPrimaryCommand{background:#557c91;color:#fff;border:1px solid #
 void MapWorkspace::applyTheme() {
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
 
-    // One-time editor construction is allowed here because this is the first
-    // entry point used by the map module. Subsequent theme changes are visual
-    // only: no setMap(), migration, reparenting or document regeneration.
+    // Infrastructure is created once. A theme change must never rebuild,
+    // reparent or reset the cartographic editor.
     if (editor_) {
         if (!editor_->property("wbwMapInfrastructureReady").toBool()) {
             editor_->setProperty("wbwMapInfrastructureReady", true);
@@ -88,7 +87,15 @@ void MapWorkspace::applyTheme() {
             editor_->installCartographicFurniture();
         }
         editor_->applyMapStylePreset(editor_->map().value(QStringLiteral("style")).toString(QStringLiteral("Atlas")));
-        editor_->setStyleSheet(mapEditorChrome(dark));
+
+        // configureProductWorkspace contains structural QSS (sizes, padding,
+        // typography and layout-specific selectors). Preserve that immutable
+        // base and append only the current palette. Replacing the whole sheet
+        // here was what could visually collapse the studio after toggling theme.
+        constexpr const char* baseProperty = "wbwMapWorkspaceBaseStyle";
+        if (!editor_->property(baseProperty).isValid())
+            editor_->setProperty(baseProperty, editor_->styleSheet());
+        editor_->setStyleSheet(editor_->property(baseProperty).toString() + mapEditorChrome(dark));
     }
 
     if (name_ && !property("wbwMapNameLive").toBool()) {
