@@ -56,16 +56,18 @@ public:
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if ((watched == window_ || watched == editor_ || watched == editor_->viewport()) &&
-            (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
+        const bool onWindow = window_ && watched == window_;
+        const bool onEditor = editor_ && (watched == editor_ || watched == editor_->viewport());
+        const bool onTree = tree_ && (watched == tree_ || watched == tree_->viewport());
+
+        if ((onWindow || onEditor) && (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
             marginTimer_.start();
         }
 
-        if (watched == window_ && event->type() == QEvent::Close && commitTimer_.isActive()) {
+        if (onWindow && event->type() == QEvent::Close && commitTimer_.isActive()) {
             flushPendingEdit();
         }
 
-        const bool onTree = tree_ && (watched == tree_ || watched == tree_->viewport());
         if (onTree && commitTimer_.isActive() &&
             (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::KeyPress || event->type() == QEvent::FocusOut)) {
             flushPendingEdit();
@@ -75,7 +77,10 @@ protected:
 
 private:
     void flushPendingEdit() {
-        if (!page_) return;
+        if (!page_) {
+            commitTimer_.stop();
+            return;
+        }
         commitTimer_.stop();
         page_->applyScene();
     }

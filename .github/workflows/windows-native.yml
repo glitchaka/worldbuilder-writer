@@ -58,7 +58,10 @@ jobs:
         shell: pwsh
         run: |
           $exe = Join-Path $env:GITHUB_WORKSPACE "dist\bin\WorldbuilderWriter.exe"
-          $process = Start-Process -FilePath $exe -ArgumentList "--product-self-test" -WorkingDirectory (Split-Path $exe) -PassThru
+          $stdout = Join-Path $env:GITHUB_WORKSPACE "product-self-test.stdout.log"
+          $stderr = Join-Path $env:GITHUB_WORKSPACE "product-self-test.stderr.log"
+          $env:QT_FORCE_STDERR_LOGGING = "1"
+          $process = Start-Process -FilePath $exe -ArgumentList "--product-self-test" -WorkingDirectory (Split-Path $exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
           $deadline = (Get-Date).AddSeconds(60)
           while (-not $process.HasExited -and (Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
@@ -66,11 +69,17 @@ jobs:
           }
           if (-not $process.HasExited) {
             Stop-Process -Id $process.Id -Force
+            if (Test-Path $stdout) { Get-Content $stdout }
+            if (Test-Path $stderr) { Get-Content $stderr }
             throw "Product self-test timed out after 60 seconds"
           }
           if ($process.ExitCode -ne 0) {
+            if (Test-Path $stdout) { Get-Content $stdout }
+            if (Test-Path $stderr) { Get-Content $stderr }
             throw "Product self-test failed with exit code $($process.ExitCode)"
           }
+          if (Test-Path $stdout) { Get-Content $stdout }
+          if (Test-Path $stderr) { Get-Content $stderr }
 
       - name: Upload validation bundle
         uses: actions/upload-artifact@v4
