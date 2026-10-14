@@ -77,11 +77,16 @@ QToolButton#pilinPrimaryCommand{background:#557c91;color:#fff;border:1px solid #
 void MapWorkspace::applyTheme() {
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
 
-    // Theme changes must be visual only. Previously this method called setMap(),
-    // migration and workspace construction again, which reset editor state and
-    // could reparent/show legacy widgets during a light/dark switch.
+    // One-time editor construction is allowed here because this is the first
+    // entry point used by the map module. Subsequent theme changes are visual
+    // only: no setMap(), migration, reparenting or document regeneration.
     if (editor_) {
-        if (!editor_->property("wbwProductWorkspaceV3").toBool()) editor_->configureProductWorkspace();
+        if (!editor_->property("wbwMapInfrastructureReady").toBool()) {
+            editor_->setProperty("wbwMapInfrastructureReady", true);
+            editor_->activateAzgaarGenerationPipeline();
+            editor_->configureProductWorkspace();
+            editor_->installCartographicFurniture();
+        }
         editor_->setStyleSheet(mapEditorChrome(dark));
     }
 
