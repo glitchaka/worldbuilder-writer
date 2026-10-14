@@ -27,6 +27,7 @@ public:
 
     void setDocument(ArchiveDocument* document);
     void refresh();
+    void installManuscriptExportActions();
 
 signals:
     void changed();
