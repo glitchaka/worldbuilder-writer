@@ -49,6 +49,8 @@ void SettingsWorkspace::finalizeProductControls() {
         if (!label) continue;
         if (hiddenLabels.contains(label->text())) label->hide();
         if (label->text() == tr("Pilín Rey")) label->setText(tr("Mapas"));
+        if (label->text() == tr("PDF · WBW · PNG · SVG"))
+            label->setText(tr("PDF · DOCX · ODT · EPUB · TXT · WBW · PNG · SVG"));
     }
 
     if (navigation_ && navigation_->count() >= 7) {
