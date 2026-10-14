@@ -65,6 +65,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/PilinReyArchiveBridge.cpp
     src/ui/PilinReyLegacyMigration.cpp
     src/ui/PilinReyCartographicFurniture.cpp
+    src/ui/PilinReyStylePresets.cpp
     src/ui/ProjectHubPage.cpp
     src/ui/SettingsDialog.cpp
     src/ui/SemanticTextEdit.cpp
