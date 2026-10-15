@@ -19,7 +19,7 @@ void PilinReyEditor::installWorkspacePanelControls() {
     setProperty("wbwStudioPanelControls", true);
     QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
     const bool toolsVisible = settings.value(QStringLiteral("map/toolsPanelVisible"), true).toBool();
-    const bool libraryVisible = settings.value(QStringLiteral("map/libraryPanelVisible"), false).toBool();
+    const bool libraryVisible = settings.value(QStringLiteral("map/libraryPanelVisible"), true).toBool();
 
     auto* toolsToggle = new QToolButton(toolbar);
     toolsToggle->setObjectName(QStringLiteral("pilinStudioPanelToggle"));
