@@ -31,6 +31,7 @@ class MainWindow final : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     QTimer* autosaveTimer() const { return autosaveTimer_; }
+    void initializeProductSurface();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
