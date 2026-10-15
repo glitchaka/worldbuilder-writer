@@ -8,7 +8,10 @@
 namespace wbw {
 
 void PilinReyEditor::installWorkspacePanelControls() {
-    if (property("wbwStudioPanelControls").toBool()) return;
+    if (property("wbwStudioPanelControls").toBool()) {
+        installAzgaarStudioControls();
+        return;
+    }
 
     auto* toolbar = findChild<QFrame*>(QStringLiteral("pilinStudioToolbar"));
     auto* toolsPanel = findChild<QWidget*>(QStringLiteral("pilinStudioLeft"));
@@ -65,6 +68,8 @@ QToolButton#pilinStudioPanelToggle{background:transparent;color:#87949f;border:1
 QToolButton#pilinStudioPanelToggle:hover{background:#17212a;color:#eef2f4;}
 QToolButton#pilinStudioPanelToggle:checked{background:#142833;color:#9bd9e7;border-color:#31576a;}
 )QSS"));
+
+    installAzgaarStudioControls();
 }
 
 } // namespace wbw
