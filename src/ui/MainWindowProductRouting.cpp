@@ -45,8 +45,7 @@ void prepareWritingSurface(WritingPage* writing) {
 }
 
 void finalizeNavigationLabels(QListWidget* navigation) {
-    if (!navigation || navigation->property("wbwFinalModuleLabels").toBool()) return;
-    navigation->setProperty("wbwFinalModuleLabels", true);
+    if (!navigation) return;
     const QStringList labels{
         QObject::tr("Biblioteca"), QObject::tr("Escritura"), QObject::tr("Tablero"),
         QObject::tr("Atlas"), QObject::tr("Mapas"), QObject::tr("Revisión"), QObject::tr("Configuración")
@@ -68,9 +67,6 @@ void MainWindow::routeProductModule(int row) {
     finalizeNavigationLabels(navigation_);
     prepareWritingSurface(writingPage_);
     auto* writingTabs = writingPage_ ? writingPage_->findChild<QTabWidget*>(QStringLiteral("writingTabs")) : nullptr;
-    auto* worldTabs = worldPage_ ? worldPage_->findChild<QTabWidget*>(QStringLiteral("worldTabs")) : nullptr;
-    QWidget* mapsTab = worldPage_ ? worldPage_->findChild<QWidget*>(QStringLiteral("mapsTab")) : nullptr;
-    QWidget* atlasTab = worldPage_ ? worldPage_->findChild<QWidget*>(QStringLiteral("atlasTab")) : nullptr;
 
     switch (row) {
         case 0:
@@ -96,12 +92,10 @@ void MainWindow::routeProductModule(int row) {
             break;
         case 3:
             pages_->setCurrentWidget(worldPage_);
-            if (worldTabs) {
-                if (atlasTab && worldTabs->indexOf(atlasTab) >= 0) worldTabs->setCurrentWidget(atlasTab);
-                for (int i = 0; i < worldTabs->count(); ++i) worldTabs->setTabVisible(i, worldTabs->widget(i) != mapsTab);
-                if (worldTabs->tabBar()) worldTabs->tabBar()->show();
+            if (worldPage_) {
+                worldPage_->installKnowledgeWorkspace();
+                worldPage_->configureAtlasProductSurface();
             }
-            worldPage_->configureAtlasProductSurface();
             projectTitle_->setText(tr("Atlas y documentación"));
             saveState_->setText(tr("Mundo y material de referencia"));
             break;
@@ -136,6 +130,7 @@ void MainWindow::routeProductModule(int row) {
     ThemeManager::applySaved();
     refreshProductTheme();
     writingPage_->refreshProductChromeTheme();
+    if (worldPage_ && row == 3) worldPage_->installKnowledgeWorkspace();
     if (reviewPage_) reviewPage_->refreshProductTheme();
     if (row == 4 && mapPage_) mapPage_->applyTheme();
     navigation_->viewport()->update();
