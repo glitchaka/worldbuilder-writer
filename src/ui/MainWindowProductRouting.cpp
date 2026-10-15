@@ -69,12 +69,29 @@ void MainWindow::initializeProductSurface() {
     if (planningPage_) planningPage_->refreshProductTheme();
     if (worldPage_) worldPage_->installKnowledgeWorkspace();
 
-    if (writingPage_ && planningPage_ && !property("wbwCharacterReferenceBridge").toBool()) {
-        setProperty("wbwCharacterReferenceBridge", true);
+    if (writingPage_ && worldPage_ && !property("wbwSemanticReferenceBridge").toBool()) {
+        setProperty("wbwSemanticReferenceBridge", true);
         connect(writingPage_, &WritingPage::referenceActivated, this,
                 [this](const QString& kind, const QString& id) {
-            if (kind != QStringLiteral("character") || id.isEmpty() || !planningPage_) return;
-            planningPage_->openCharacter(id);
+            if (id.isEmpty() || !worldPage_) return;
+            if (kind == QStringLiteral("character")) {
+                if (planningPage_) planningPage_->openCharacter(id);
+                return;
+            }
+
+            auto* tabs = worldPage_->findChild<QTabWidget*>(QStringLiteral("worldTabs"));
+            if (!tabs) return;
+            QWidget* target = nullptr;
+            if (kind == QStringLiteral("world")) target = worldPage_->findChild<QWidget*>(QStringLiteral("atlasTab"));
+            else if (kind == QStringLiteral("magic")) target = worldPage_->findChild<QWidget*>(QStringLiteral("magicTab"));
+            else if (kind == QStringLiteral("worldText") || kind == QStringLiteral("magicText")) {
+                target = worldPage_->findChild<QWidget*>(QStringLiteral("textsTab"));
+                if (!target) target = worldPage_->findChild<QWidget*>(QStringLiteral("referenceTextsTab"));
+            }
+            if (target) {
+                const int index = tabs->indexOf(target);
+                if (index >= 0) tabs->setCurrentIndex(index);
+            }
         });
     }
 
