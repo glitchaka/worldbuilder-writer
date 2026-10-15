@@ -68,6 +68,16 @@ void MainWindow::initializeProductSurface() {
     prepareWritingSurface(writingPage_);
     if (planningPage_) planningPage_->refreshProductTheme();
     if (worldPage_) worldPage_->installKnowledgeWorkspace();
+
+    if (writingPage_ && planningPage_ && !property("wbwCharacterReferenceBridge").toBool()) {
+        setProperty("wbwCharacterReferenceBridge", true);
+        connect(writingPage_, &WritingPage::referenceActivated, this,
+                [this](const QString& kind, const QString& id) {
+            if (kind != QStringLiteral("character") || id.isEmpty() || !planningPage_) return;
+            planningPage_->openCharacter(id);
+        });
+    }
+
     routeProductModule(qMax(0, navigation_->currentRow()));
 }
 
