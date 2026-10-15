@@ -55,6 +55,7 @@ public:
     void activateAzgaarGenerationPipeline();
     void configureProductWorkspace();
     void installWorkspacePanelControls();
+    void installAzgaarStudioControls();
     void recalculateDerivedGeography();
     void applyMapStylePreset(const QString& styleName);
     QJsonObject map() const { return map_; }
