@@ -38,6 +38,7 @@ int main(int argc, char* argv[]) {
     wbw::installWritingShortcutBridge(&window);
     wbw::installWritingPerformanceController(&window);
     wbw::ThemeManager::applySaved();
+    window.initializeProductSurface();
 
     window.resize(1600, 1000);
     window.show();
