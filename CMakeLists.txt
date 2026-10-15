@@ -74,6 +74,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/ProjectHubPage.cpp
     src/ui/SemanticTextEdit.cpp
     src/ui/PlanningPage.cpp
+    src/ui/PlanningPageProductTheme.cpp
     src/ui/WritingPage.cpp
     src/ui/WritingPageProductChrome.cpp
     src/ui/WritingPageProductTheme.cpp
