@@ -19,6 +19,7 @@ public:
     explicit ProjectHubPage(QWidget* parent = nullptr);
 
     void refresh();
+    void refreshProductTheme();
 
 signals:
     void newProjectRequested();
