@@ -50,6 +50,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/WritingPerformanceController.h
 
     src/ui/SettingsWorkspace.cpp
+    src/ui/SettingsWorkspaceProductTheme.cpp
     src/ui/SettingsProductCleanup.cpp
     src/ui/SettingsWorkspace.h
     src/ui/RelationshipBoard.cpp
