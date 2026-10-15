@@ -34,7 +34,12 @@ int main(int argc, char* argv[]) {
     wbw::MainWindow window;
     window.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     window.setMenuBar(nullptr);
-    if (auto* settings = window.findChild<wbw::SettingsWorkspace*>()) settings->finalizeProductControls();
+    if (auto* settings = window.findChild<wbw::SettingsWorkspace*>()) {
+        settings->finalizeProductControls();
+        settings->refreshProductTheme();
+        QObject::connect(settings, &wbw::SettingsWorkspace::preferencesChanged,
+                         settings, &wbw::SettingsWorkspace::refreshProductTheme);
+    }
     wbw::installWritingShortcutBridge(&window);
     wbw::installWritingPerformanceController(&window);
     wbw::ThemeManager::applySaved();
