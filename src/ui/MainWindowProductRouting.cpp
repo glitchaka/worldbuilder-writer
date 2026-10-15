@@ -150,6 +150,7 @@ void MainWindow::routeProductModule(int row) {
             break;
         case 5:
             pages_->setCurrentWidget(reviewPage_);
+            reviewPage_->installProfileCompatibilityGuard();
             reviewPage_->installWorkspaceNavigation();
             reviewPage_->installManuscriptExportActions();
             reviewPage_->refreshProductTheme();
