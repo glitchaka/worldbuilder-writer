@@ -29,7 +29,7 @@ void PilinReyEditor::installAzgaarStudioControls() {
     auto* kicker = new QLabel(tr("GENERACIÓN AZGAAR"), card);
     kicker->setObjectName(QStringLiteral("pilinStudioSection"));
     auto* copy = new QLabel(tr("Crea una geografía base y sigue modelándola con los mismos pinceles del editor."), card);
-    copy->setObjectName(QStringLiteral("pilinAzgaarStudioCopy"));
+    copy->setObjectName(QStringLiteral("pilinStudioCopy"));
     copy->setWordWrap(true);
     layout->addWidget(kicker);
     layout->addWidget(copy);
@@ -59,18 +59,18 @@ void PilinReyEditor::installAzgaarStudioControls() {
     actions->setContentsMargins(0, 0, 0, 0);
     actions->setSpacing(6);
     auto* generate = new QPushButton(tr("Generar base"), card);
-    generate->setObjectName(QStringLiteral("pilinAzgaarStudioGenerate"));
+    generate->setObjectName(QStringLiteral("pilinPrimaryCommand"));
     generate->setCursor(Qt::PointingHandCursor);
     generate->setToolTip(tr("Genera un heightmap editable y deriva clima, hidrología, biomas, regiones, asentamientos y rutas."));
     auto* advanced = new QPushButton(tr("Ajustes…"), card);
-    advanced->setObjectName(QStringLiteral("pilinAzgaarStudioAdvanced"));
+    advanced->setObjectName(QStringLiteral("pilinStudioAction"));
     advanced->setCursor(Qt::PointingHandCursor);
     actions->addWidget(generate, 1);
     actions->addWidget(advanced);
     layout->addLayout(actions);
 
     auto* pipeline = new QLabel(tr("heightmap → clima → agua → biomas → regiones"), card);
-    pipeline->setObjectName(QStringLiteral("pilinAzgaarStudioPipeline"));
+    pipeline->setObjectName(QStringLiteral("pilinStudioCopy"));
     pipeline->setWordWrap(true);
     layout->addWidget(pipeline);
 
@@ -121,16 +121,6 @@ void PilinReyEditor::installAzgaarStudioControls() {
         popup->raise();
         layoutFloatingPanels();
     });
-
-    setStyleSheet(styleSheet() + QStringLiteral(R"QSS(
-#pilinAzgaarStudioCard{background:#101820;border:1px solid #2b3945;border-radius:9px;}
-#pilinAzgaarStudioCopy,#pilinAzgaarStudioPipeline{color:#7e8b96;font-size:7.8pt;}
-#pilinAzgaarStudioTemplate{background:#0c131a;color:#dbe3e9;border:1px solid #2c3945;border-radius:7px;padding:6px 8px;}
-#pilinAzgaarStudioGenerate{background:#315f7e;color:#fff;border:1px solid #477c9e;border-radius:7px;padding:7px 8px;font-weight:700;}
-#pilinAzgaarStudioAdvanced{background:#121b23;color:#aeb9c3;border:1px solid #2e3a46;border-radius:7px;padding:7px 8px;}
-#pilinAzgaarStudioGenerate:hover{background:#3b7093;}
-#pilinAzgaarStudioAdvanced:hover{background:#1a2731;color:#fff;}
-)QSS"));
 }
 
 } // namespace wbw
