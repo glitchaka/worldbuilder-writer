@@ -18,6 +18,13 @@ void PilinReyEditor::installWorkspacePanelControls() {
 
     setProperty("wbwStudioPanelControls", true);
     QSettings settings(QStringLiteral("WorldbuilderWriter"), QStringLiteral("WorldbuilderWriter"));
+    const QString migratedKey = QStringLiteral("map/studioPanelDefaultsV4Applied");
+    if (!settings.value(migratedKey, false).toBool()) {
+        settings.setValue(QStringLiteral("map/toolsPanelVisible"), true);
+        settings.setValue(QStringLiteral("map/libraryPanelVisible"), true);
+        settings.setValue(migratedKey, true);
+        settings.sync();
+    }
     const bool toolsVisible = settings.value(QStringLiteral("map/toolsPanelVisible"), true).toBool();
     const bool libraryVisible = settings.value(QStringLiteral("map/libraryPanelVisible"), true).toBool();
 
