@@ -61,6 +61,14 @@ void finalizeNavigationLabels(QListWidget* navigation) {
 
 } // namespace
 
+void MainWindow::initializeProductSurface() {
+    if (!navigation_) return;
+    finalizeNavigationLabels(navigation_);
+    prepareWritingSurface(writingPage_);
+    if (worldPage_) worldPage_->installKnowledgeWorkspace();
+    routeProductModule(qMax(0, navigation_->currentRow()));
+}
+
 void MainWindow::routeProductModule(int row) {
     if (!pages_ || !navigation_) return;
 
