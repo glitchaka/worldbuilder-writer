@@ -1,14 +1,13 @@
 #include "ui/MainWindow.h"
 
 #include "ui/MapWorkspace.h"
+#include "ui/PlanningPage.h"
 #include "ui/ReviewPage.h"
 #include "ui/SettingsWorkspace.h"
+#include "ui/WorldPage.h"
 #include "ui/WritingPage.h"
 
 #include <QApplication>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
 #include <QWidget>
 
 namespace wbw {
@@ -18,20 +17,15 @@ void MainWindow::refreshProductTheme() {
         setProperty("wbwProductThemeConnected", true);
         connect(settingsPage_, &SettingsWorkspace::preferencesChanged, this, [this]() {
             refreshProductTheme();
-            if (writingPage_) writingPage_->refreshProductChromeTheme();
-            if (reviewPage_) reviewPage_->refreshProductTheme();
-            if (mapPage_) mapPage_->applyTheme();
         });
     }
-
-    if (reviewPage_) reviewPage_->refreshProductTheme();
 
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
     QWidget* shell = findChild<QWidget*>(QStringLiteral("topShell"));
     if (!shell) shell = findChild<QWidget*>(QStringLiteral("productTopBar"));
-    if (!shell) return;
 
-    shell->setStyleSheet(dark ? QStringLiteral(R"QSS(
+    if (shell) {
+        shell->setStyleSheet(dark ? QStringLiteral(R"QSS(
 #topShell,#productTopBar{background:#0d1218;border-bottom:1px solid #252f39;}
 #appMark{background:#111b27;color:#a9d3ff;border:1px solid #315a7e;border-radius:7px;font-family:'Georgia';font-size:10pt;font-weight:700;}
 #appBrand{color:#eee8df;font-family:'Georgia';font-size:10.5pt;font-weight:600;}
@@ -62,6 +56,14 @@ void MainWindow::refreshProductTheme() {
 #windowMinimize:hover,#windowMaximize:hover{background:#e7e1d8;color:#29251f;}
 #windowClose:hover{background:#b84950;color:#ffffff;}
 )QSS"));
+    }
+
+    if (writingPage_) writingPage_->refreshProductChromeTheme();
+    if (planningPage_) planningPage_->refreshProductTheme();
+    if (worldPage_) worldPage_->refreshProductTheme();
+    if (reviewPage_) reviewPage_->refreshProductTheme();
+    if (settingsPage_) settingsPage_->refreshProductTheme();
+    if (mapPage_) mapPage_->applyTheme();
 }
 
 } // namespace wbw
