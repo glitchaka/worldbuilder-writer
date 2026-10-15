@@ -73,16 +73,18 @@ void WorldPage::installKnowledgeWorkspace() {
     if (tabs_->tabBar()) tabs_->tabBar()->hide();
     tabs_->setDocumentMode(true);
 
+    QWidget* planning = findChild<QWidget*>(QStringLiteral("planningPage"));
     QWidget* atlas = findChild<QWidget*>(QStringLiteral("atlasTab"));
     QWidget* magic = findChild<QWidget*>(QStringLiteral("magicTab"));
     QWidget* maps = findChild<QWidget*>(QStringLiteral("mapsTab"));
     QWidget* texts = findChild<QWidget*>(QStringLiteral("textsTab"));
     if (!texts) texts = findChild<QWidget*>(QStringLiteral("referenceTextsTab"));
 
+    const int planningIndex = planning ? tabs_->indexOf(planning) : -1;
     const int atlasIndex = atlas ? tabs_->indexOf(atlas) : 0;
     const int magicIndex = magic ? tabs_->indexOf(magic) : 1;
     const int mapsIndex = maps ? tabs_->indexOf(maps) : -1;
-    const int textsIndex = texts ? tabs_->indexOf(texts) : (tabs_->count() > 3 ? 3 : -1);
+    const int textsIndex = texts ? tabs_->indexOf(texts) : (tabs_->count() > 3 ? tabs_->count() - 1 : -1);
     if (mapsIndex >= 0) tabs_->setTabVisible(mapsIndex, false);
 
     root->removeWidget(tabs_);
@@ -104,7 +106,7 @@ void WorldPage::installKnowledgeWorkspace() {
     kicker->setObjectName(QStringLiteral("knowledgeKicker"));
     auto* title = new QLabel(tr("Mundo"), navigation);
     title->setObjectName(QStringLiteral("knowledgeTitle"));
-    auto* copy = new QLabel(tr("Atlas narrativo, sistemas y material de referencia en un único espacio editorial."), navigation);
+    auto* copy = new QLabel(tr("Atlas narrativo, fichas, sistemas y material de referencia en un único espacio editorial."), navigation);
     copy->setObjectName(QStringLiteral("knowledgeCopy"));
     copy->setWordWrap(true);
     navLayout->addWidget(kicker);
@@ -114,6 +116,13 @@ void WorldPage::installKnowledgeWorkspace() {
 
     auto* group = new QButtonGroup(navigation);
     group->setExclusive(true);
+
+    if (planningIndex >= 0) {
+        auto* characters = knowledgeButton(tr("Personajes y tramas"), tr("Fichas, relaciones, teorías y cronología"), planningIndex, navigation);
+        group->addButton(characters);
+        navLayout->addWidget(characters);
+    }
+
     auto* atlasButton = knowledgeButton(tr("Atlas"), tr("Lugares, culturas y organizaciones"), atlasIndex, navigation);
     auto* magicButton = knowledgeButton(tr("Magia"), tr("Sistemas, costes y límites"), magicIndex, navigation);
     group->addButton(atlasButton);
@@ -121,9 +130,8 @@ void WorldPage::installKnowledgeWorkspace() {
     navLayout->addWidget(atlasButton);
     navLayout->addWidget(magicButton);
 
-    QPushButton* textsButton = nullptr;
     if (textsIndex >= 0) {
-        textsButton = knowledgeButton(tr("Referencias"), tr("Textos, fuentes y documentación"), textsIndex, navigation);
+        auto* textsButton = knowledgeButton(tr("Referencias"), tr("Textos, fuentes y documentación"), textsIndex, navigation);
         group->addButton(textsButton);
         navLayout->addWidget(textsButton);
     }
