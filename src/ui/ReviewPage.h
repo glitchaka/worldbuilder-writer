@@ -29,6 +29,7 @@ public:
     void refresh();
     void installManuscriptExportActions();
     void installWorkspaceNavigation();
+    void installProfileCompatibilityGuard();
     void refreshProductTheme();
 
 signals:
