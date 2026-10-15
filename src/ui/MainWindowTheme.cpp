@@ -2,6 +2,7 @@
 
 #include "ui/MapWorkspace.h"
 #include "ui/PlanningPage.h"
+#include "ui/ProjectHubPage.h"
 #include "ui/ReviewPage.h"
 #include "ui/SettingsWorkspace.h"
 #include "ui/WorldPage.h"
@@ -58,6 +59,7 @@ void MainWindow::refreshProductTheme() {
 )QSS"));
     }
 
+    if (hubPage_) hubPage_->refreshProductTheme();
     if (writingPage_) writingPage_->refreshProductChromeTheme();
     if (planningPage_) planningPage_->refreshProductTheme();
     if (worldPage_) worldPage_->refreshProductTheme();
