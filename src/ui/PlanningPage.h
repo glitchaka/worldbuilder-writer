@@ -30,6 +30,7 @@ public:
 
     void setDocument(ArchiveDocument* document);
     void refresh();
+    void refreshProductTheme();
 
     void openCharacter(const QString& id) {
         if (!document_ || id.isEmpty() || !tabs_ || !characterList_) return;
