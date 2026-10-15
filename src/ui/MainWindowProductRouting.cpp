@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include "ui/MapWorkspace.h"
+#include "ui/PlanningPage.h"
 #include "ui/ProjectHubPage.h"
 #include "ui/ReviewPage.h"
 #include "ui/SettingsWorkspace.h"
@@ -65,6 +66,7 @@ void MainWindow::initializeProductSurface() {
     if (!navigation_) return;
     finalizeNavigationLabels(navigation_);
     prepareWritingSurface(writingPage_);
+    if (planningPage_) planningPage_->refreshProductTheme();
     if (worldPage_) worldPage_->installKnowledgeWorkspace();
     routeProductModule(qMax(0, navigation_->currentRow()));
 }
@@ -100,6 +102,7 @@ void MainWindow::routeProductModule(int row) {
             break;
         case 3:
             pages_->setCurrentWidget(worldPage_);
+            if (planningPage_) planningPage_->refreshProductTheme();
             if (worldPage_) {
                 worldPage_->installKnowledgeWorkspace();
                 worldPage_->configureAtlasProductSurface();
@@ -138,6 +141,7 @@ void MainWindow::routeProductModule(int row) {
     ThemeManager::applySaved();
     refreshProductTheme();
     writingPage_->refreshProductChromeTheme();
+    if (planningPage_) planningPage_->refreshProductTheme();
     if (worldPage_ && row == 3) worldPage_->installKnowledgeWorkspace();
     if (reviewPage_) reviewPage_->refreshProductTheme();
     if (row == 4 && mapPage_) mapPage_->applyTheme();
