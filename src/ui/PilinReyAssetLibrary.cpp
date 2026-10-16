@@ -1,5 +1,6 @@
 #include "ui/PilinReyEditor.h"
 
+#include <QBuffer>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -11,21 +12,49 @@
 #include <QJsonObject>
 #include <QListWidget>
 #include <QListWidgetItem>
+#include <QPainter>
 #include <QPixmap>
+#include <QSvgRenderer>
 #include <QTimer>
 #include <QUuid>
 
 namespace wbw {
 namespace {
 
+QString rasterizedSvgDataUrl(const QByteArray& svg) {
+    QSvgRenderer renderer(svg);
+    if (!renderer.isValid()) return {};
+
+    QSize source = renderer.defaultSize();
+    if (!source.isValid() || source.isEmpty()) source = QSize(512, 512);
+    source.scale(QSize(512, 512), Qt::KeepAspectRatio);
+    source.setWidth(qMax(32, source.width()));
+    source.setHeight(qMax(32, source.height()));
+
+    QImage image(source, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    renderer.render(&painter, image.rect());
+    painter.end();
+
+    QByteArray png;
+    QBuffer buffer(&png);
+    if (!buffer.open(QIODevice::WriteOnly) || !image.save(&buffer, "PNG")) return {};
+    return QStringLiteral("data:image/png;base64,%1").arg(QString::fromLatin1(png.toBase64()));
+}
+
 QString assetDataUrl(const QString& path) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return {};
-    QString mime = QStringLiteral("image/png");
+    const QByteArray bytes = file.readAll();
     const QString lower = path.toLower();
+    if (lower.endsWith(QStringLiteral(".svg"))) return rasterizedSvgDataUrl(bytes);
+
+    QString mime = QStringLiteral("image/png");
     if (lower.endsWith(QStringLiteral(".jpg")) || lower.endsWith(QStringLiteral(".jpeg"))) mime = QStringLiteral("image/jpeg");
     else if (lower.endsWith(QStringLiteral(".webp"))) mime = QStringLiteral("image/webp");
-    return QStringLiteral("data:%1;base64,%2").arg(mime, QString::fromLatin1(file.readAll().toBase64()));
+    return QStringLiteral("data:%1;base64,%2").arg(mime, QString::fromLatin1(bytes.toBase64()));
 }
 
 QByteArray assetBytes(const QString& value) {
@@ -88,7 +117,8 @@ void PilinReyEditor::importAssetDirectory() {
 
     QJsonArray imported;
     QDirIterator it(root,
-                    {QStringLiteral("*.png"), QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"), QStringLiteral("*.webp")},
+                    {QStringLiteral("*.png"), QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"),
+                     QStringLiteral("*.webp"), QStringLiteral("*.svg")},
                     QDir::Files, QDirIterator::Subdirectories);
     const QDir rootDir(root);
     while (it.hasNext() && imported.size() < 500) {
