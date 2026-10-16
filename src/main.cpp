@@ -6,6 +6,7 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QEventLoop>
 #include <QListWidget>
 #include <QMenuBar>
 #include <QSettings>
