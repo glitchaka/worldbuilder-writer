@@ -26,6 +26,7 @@ public:
     void refresh();
     bool openReference(const QString& kind, const QString& id);
     void configureAtlasProductSurface();
+    void configureEditorialKnowledgeSurface();
     void installKnowledgeWorkspace();
     void refreshProductTheme();
 
