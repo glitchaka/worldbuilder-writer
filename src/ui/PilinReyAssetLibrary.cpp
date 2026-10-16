@@ -10,10 +10,12 @@
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPainter>
 #include <QPixmap>
+#include <QPushButton>
 #include <QSvgRenderer>
 #include <QTimer>
 #include <QUuid>
@@ -80,6 +82,17 @@ void PilinReyEditor::decorateAssetLibrary() {
     assets_->setIconSize(QSize(74, 48));
     assets_->setGridSize(QSize(106, 88));
     assets_->setSpacing(4);
+
+    if (assetsPopover_) {
+        for (QLabel* label : assetsPopover_->findChildren<QLabel*>()) {
+            if (label->objectName() == QStringLiteral("pilinPopoverCopy") && label->text().contains(tr("símbolos cartográficos"), Qt::CaseInsensitive)) {
+                label->setText(tr("Importa símbolos cartográficos propios, históricos o con licencia compatible en PNG, JPG, WebP o SVG. La aplicación no genera assets mediante IA."));
+            }
+        }
+        if (auto* folder = assetsPopover_->findChild<QPushButton*>(QStringLiteral("pilinImportAssetFolder"))) {
+            folder->setToolTip(tr("Importa una biblioteca de PNG, JPG, WebP o SVG. Los SVG se rasterizan localmente para mantener el proyecto portable."));
+        }
+    }
 
     const QJsonArray values = map_.value(QStringLiteral("pilinRey")).toObject().value(QStringLiteral("assets")).toArray();
     const int rows = qMin(assets_->count(), values.size());
