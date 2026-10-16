@@ -16,6 +16,7 @@
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTextEdit>
 
 namespace wbw {
 namespace {
@@ -93,6 +94,57 @@ void MainWindow::initializeProductSurface() {
                 if (index >= 0) tabs->setCurrentIndex(index);
             }
         });
+    }
+
+    if (!property("wbwContextSearchV2").toBool()) {
+        if (auto* globalSearch = findChild<QLineEdit*>(QStringLiteral("globalSearch"))) {
+            setProperty("wbwContextSearchV2", true);
+            QObject::disconnect(globalSearch, &QLineEdit::returnPressed, this, nullptr);
+            connect(globalSearch, &QLineEdit::returnPressed, this, [this, globalSearch]() {
+                const QString query = globalSearch->text().trimmed();
+                if (query.isEmpty() || !navigation_) return;
+
+                switch (navigation_->currentRow()) {
+                    case 0: {
+                        if (auto* librarySearch = hubPage_ ? hubPage_->findChild<QLineEdit*>(QStringLiteral("hubSearch")) : nullptr) {
+                            librarySearch->setText(query);
+                            librarySearch->setFocus();
+                        }
+                        break;
+                    }
+                    case 1: {
+                        if (auto* editor = writingPage_ ? writingPage_->findChild<QTextEdit*>(QStringLiteral("sceneEditor")) : nullptr) {
+                            QTextCursor cursor = editor->textCursor();
+                            cursor.clearSelection();
+                            editor->setTextCursor(cursor);
+                            if (!editor->find(query)) {
+                                cursor.movePosition(QTextCursor::Start);
+                                editor->setTextCursor(cursor);
+                                editor->find(query);
+                            }
+                            editor->setFocus();
+                        }
+                        break;
+                    }
+                    case 2: {
+                        if (auto* sceneSearch = writingPage_ ? writingPage_->findChild<QLineEdit*>(QStringLiteral("sceneBoardSearch")) : nullptr) {
+                            sceneSearch->setText(query);
+                            sceneSearch->setFocus();
+                        }
+                        break;
+                    }
+                    case 3: {
+                        if (auto* atlasSearch = worldPage_ ? worldPage_->findChild<QLineEdit*>(QStringLiteral("atlasSearch")) : nullptr) {
+                            atlasSearch->setText(query);
+                            atlasSearch->setFocus();
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            });
+        }
     }
 
     routeProductModule(qMax(0, navigation_->currentRow()));
