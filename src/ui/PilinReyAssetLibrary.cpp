@@ -74,6 +74,17 @@ QString assetId() {
     return QStringLiteral("asset-") + QUuid::createUuid().toString(QUuid::Id128);
 }
 
+QJsonObject importedAssetObject(const QString& path, const QString& category = QString()) {
+    const QString data = assetDataUrl(path);
+    if (data.isEmpty()) return {};
+    const QFileInfo info(path);
+    return QJsonObject{{QStringLiteral("id"), assetId()},
+                       {QStringLiteral("name"), info.completeBaseName()},
+                       {QStringLiteral("category"), category.isEmpty() ? QObject::tr("Biblioteca") : category},
+                       {QStringLiteral("source"), QStringLiteral("user-import")},
+                       {QStringLiteral("dataUrl"), data}};
+}
+
 } // namespace
 
 void PilinReyEditor::decorateAssetLibrary() {
@@ -91,6 +102,29 @@ void PilinReyEditor::decorateAssetLibrary() {
         }
         if (auto* folder = assetsPopover_->findChild<QPushButton*>(QStringLiteral("pilinImportAssetFolder"))) {
             folder->setToolTip(tr("Importa una biblioteca de PNG, JPG, WebP o SVG. Los SVG se rasterizan localmente para mantener el proyecto portable."));
+        }
+        for (QPushButton* button : assetsPopover_->findChildren<QPushButton*>()) {
+            if (!button || !button->text().contains(tr("Importar símbolo"), Qt::CaseInsensitive)) continue;
+            if (button->property("wbwUnifiedAssetImport").toBool()) break;
+            button->setProperty("wbwUnifiedAssetImport", true);
+            button->setText(tr("Importar asset…"));
+            button->setToolTip(tr("PNG, JPG, WebP o SVG. Los SVG se rasterizan localmente para que el proyecto siga siendo portable."));
+            QObject::disconnect(button, nullptr, this, nullptr);
+            connect(button, &QPushButton::clicked, this, [this]() {
+                const QString path = QFileDialog::getOpenFileName(
+                    this, tr("Importar asset cartográfico"), QString(),
+                    tr("Assets cartográficos (*.png *.jpg *.jpeg *.webp *.svg)"));
+                if (path.isEmpty()) return;
+                const QJsonObject imported = importedAssetObject(path);
+                if (imported.isEmpty()) return;
+                mutateDocument([&](QJsonObject& pilin) {
+                    QJsonArray values = pilin.value(QStringLiteral("assets")).toArray();
+                    values.append(imported);
+                    pilin.insert(QStringLiteral("assets"), values);
+                });
+                decorateAssetLibrary();
+            });
+            break;
         }
     }
 
@@ -136,17 +170,12 @@ void PilinReyEditor::importAssetDirectory() {
     const QDir rootDir(root);
     while (it.hasNext() && imported.size() < 500) {
         const QString path = it.next();
-        const QString data = assetDataUrl(path);
-        if (data.isEmpty()) continue;
         const QFileInfo info(path);
         const QString relativeDir = rootDir.relativeFilePath(info.absolutePath());
         QString category = relativeDir.section(QLatin1Char('/'), 0, 0);
         if (category == QStringLiteral(".") || category.isEmpty()) category = tr("Biblioteca");
-        imported.append(QJsonObject{{QStringLiteral("id"), assetId()},
-                                    {QStringLiteral("name"), info.completeBaseName()},
-                                    {QStringLiteral("category"), category},
-                                    {QStringLiteral("source"), QStringLiteral("user-import")},
-                                    {QStringLiteral("dataUrl"), data}});
+        const QJsonObject asset = importedAssetObject(path, category);
+        if (!asset.isEmpty()) imported.append(asset);
     }
     if (imported.isEmpty()) return;
 
