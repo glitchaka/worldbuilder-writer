@@ -35,3 +35,24 @@ jobs:
       - name: Build
         shell: pwsh
         run: cmake --build build --config Release --parallel
+
+      - name: Install standalone bundle
+        shell: pwsh
+        run: cmake --install build --config Release --prefix "${{ github.workspace }}\dist"
+
+      - name: Smoke test deployed application
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "${{ github.workspace }}\dist" -Recurse -Filter WorldbuilderWriter.exe | Select-Object -First 1
+          if (-not $exe) {
+            throw "The deployed bundle does not contain WorldbuilderWriter.exe"
+          }
+
+          $process = Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -PassThru
+          Start-Sleep -Seconds 5
+          $process.Refresh()
+          if ($process.HasExited) {
+            throw "The deployed application exited during launch smoke test with code $($process.ExitCode)"
+          }
+
+          Stop-Process -Id $process.Id -Force
