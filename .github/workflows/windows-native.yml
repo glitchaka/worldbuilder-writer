@@ -40,7 +40,7 @@ jobs:
         shell: pwsh
         run: cmake --install build --config Release --prefix "${{ github.workspace }}\dist"
 
-      - name: Smoke test deployed application
+      - name: Smoke test deployed workspaces
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path "${{ github.workspace }}\dist" -Recurse -Filter WorldbuilderWriter.exe | Select-Object -First 1
@@ -48,11 +48,16 @@ jobs:
             throw "The deployed bundle does not contain WorldbuilderWriter.exe"
           }
 
-          $process = Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName -PassThru
-          Start-Sleep -Seconds 5
-          $process.Refresh()
-          if ($process.HasExited) {
-            throw "The deployed application exited during launch smoke test with code $($process.ExitCode)"
+          $process = Start-Process -FilePath $exe.FullName `
+            -ArgumentList "--smoke-all-workspaces" `
+            -WorkingDirectory $exe.DirectoryName `
+            -PassThru
+
+          if (-not $process.WaitForExit(20000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "The deployed application did not finish workspace traversal within 20 seconds"
           }
 
-          Stop-Process -Id $process.Id -Force
+          if ($process.ExitCode -ne 0) {
+            throw "The deployed application failed workspace traversal with exit code $($process.ExitCode)"
+          }
