@@ -5,6 +5,7 @@
 namespace wbw {
 
 void PlanningPage::refreshProductTheme() {
+    configureEditorialSurface();
     const bool dark = qApp && qApp->property("wbwDarkMode").toBool();
     if (dark) {
         setStyleSheet(QStringLiteral(R"QSS(
@@ -31,6 +32,16 @@ void PlanningPage::refreshProductTheme() {
 #planningPage QPushButton{background:#111922;color:#c8d1d9;border:1px solid #2d3944;border-radius:7px;padding:7px 10px;}
 #planningPage QPushButton:hover{background:#1a2731;color:#fff;border-color:#3d5262;}
 #planningPage QSplitter::handle{background:#0b1016;}
+
+#characterEditorialCenter,#theoryEditorialCenter,#timelineEditorialCenter,#characterNarrativeGrid,#characterEditorialScroll{background:#0b1016;border:0;}
+#characterContextScroll,#characterContextRail,#theoryContextRail,#timelineContextRail{background:#0d131a;border:0;}
+#characterContextRail,#theoryContextRail,#timelineContextRail{border-left:1px solid #25303b;}
+#planningEditorialCard{background:#10171e;border:1px solid #29343f;border-radius:9px;}
+#planningEditorialCardTitle,#planningEditorialContextTitle{font-family:'Georgia';font-size:13pt;font-weight:600;color:#eee9e1;}
+#planningEditorialCardCopy{color:#7f8b96;font-size:8.3pt;}
+#planningEditorialKicker,#planningEditorialLabel{color:#8f9ba6;font-size:7.7pt;font-weight:700;letter-spacing:.7px;}
+#characterEditorialName,#theoryEditorialTitle,#timelineEditorialTitle{background:transparent;border:0;border-bottom:1px solid #29343f;border-radius:0;color:#f2eee8;font-family:'Georgia';font-size:19pt;padding:8px 2px;}
+#characterSearch,#theorySearch,#timelineSearch{background:#0f161e;color:#d8e0e6;border:1px solid #2b3742;border-radius:7px;padding:8px 9px;}
 )QSS"));
     } else {
         setStyleSheet(QStringLiteral(R"QSS(
@@ -55,8 +66,18 @@ void PlanningPage::refreshProductTheme() {
 #planningPage QListWidget::item:hover{background:#eee7dd;}
 #planningPage QListWidget::item:selected{background:#dce8e9;color:#315f68;border-left:2px solid #4d969c;}
 #planningPage QPushButton{background:#f4efe7;color:#4d453d;border:1px solid #d4cabc;border-radius:7px;padding:7px 10px;}
-#planningPage QPushButton:hover{background:#e8dfd4;color:#29251f;border-color:#bdaF9f;}
+#planningPage QPushButton:hover{background:#e8dfd4;color:#29251f;border-color:#bdaf9f;}
 #planningPage QSplitter::handle{background:#ece8e0;}
+
+#characterEditorialCenter,#theoryEditorialCenter,#timelineEditorialCenter,#characterNarrativeGrid,#characterEditorialScroll{background:#ece8e0;border:0;}
+#characterContextScroll,#characterContextRail,#theoryContextRail,#timelineContextRail{background:#f5f1ea;border:0;}
+#characterContextRail,#theoryContextRail,#timelineContextRail{border-left:1px solid #d4cabd;}
+#planningEditorialCard{background:#fbf8f2;border:1px solid #d5cbbf;border-radius:9px;}
+#planningEditorialCardTitle,#planningEditorialContextTitle{font-family:'Georgia';font-size:13pt;font-weight:600;color:#342e28;}
+#planningEditorialCardCopy{color:#796f65;font-size:8.3pt;}
+#planningEditorialKicker,#planningEditorialLabel{color:#83776a;font-size:7.7pt;font-weight:700;letter-spacing:.7px;}
+#characterEditorialName,#theoryEditorialTitle,#timelineEditorialTitle{background:transparent;border:0;border-bottom:1px solid #d5cbbf;border-radius:0;color:#302a24;font-family:'Georgia';font-size:19pt;padding:8px 2px;}
+#characterSearch,#theorySearch,#timelineSearch{background:#fffdf9;color:#332e29;border:1px solid #d1c6b8;border-radius:7px;padding:8px 9px;}
 )QSS"));
     }
 }
