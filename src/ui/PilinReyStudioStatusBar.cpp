@@ -23,19 +23,11 @@ void PilinReyEditor::installStudioStatusBar() {
         row->setContentsMargins(12, 0, 10, 0);
         row->setSpacing(9);
 
-        if (status_) {
-            status_->setParent(bar);
-            status_->setObjectName(QStringLiteral("pilinStudioStatusText"));
-            status_->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-            status_->setMinimumWidth(220);
-            row->addWidget(status_, 1);
-        } else {
-            auto* fallback = new QLabel(tr("Mapa · listo"), bar);
-            fallback->setObjectName(QStringLiteral("pilinStudioStatusText"));
-            row->addWidget(fallback, 1);
-        }
+        auto* canvasState = new QLabel(tr("Lienzo cartográfico"), bar);
+        canvasState->setObjectName(QStringLiteral("pilinStudioStatusText"));
+        row->addWidget(canvasState, 1);
 
-        auto* zoomHint = new QLabel(tr("Rueda · zoom"), bar);
+        auto* zoomHint = new QLabel(tr("Rueda · zoom   ·   botón central / Mover · desplazar"), bar);
         zoomHint->setObjectName(QStringLiteral("pilinStudioStatusHint"));
         row->addWidget(zoomHint);
 
