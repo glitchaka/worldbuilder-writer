@@ -80,6 +80,23 @@ QPushButton{background:#111922;color:#c8d1d9;border:1px solid #2d3944;border-rad
 QPushButton:hover{background:#1a2731;color:#fff;}
 #pageTitle{color:#f0ebe3;} #pageKicker,#fieldTitle,#panelTitle{color:#7f8c97;} #pageDescription{color:#85919c;}
 #magicIndexPanel,#magicEditorCard{background:#0d131a;border:1px solid #26313b;border-radius:9px;}
+
+#magicEditorialScroll,#magicEditorialCenter,#magicEditorialGrid,#referenceEditorSurface{background:#0b1016;border:0;}
+#magicContextScroll,#magicContextRail,#referenceIndexPanel,#referenceContextRail{background:#0d131a;border:0;}
+#magicContextRail,#referenceContextRail{border-left:1px solid #25303b;}
+#referenceIndexPanel{border-right:1px solid #25303b;}
+#knowledgeEditorialCard{background:#10171e;border:1px solid #29343f;border-radius:9px;}
+#knowledgeEditorialCardTitle,#knowledgeContextTitle{color:#eee9e1;font-family:'Georgia';font-size:13pt;font-weight:600;}
+#knowledgeEditorialCardCopy,#knowledgeContextCopy{color:#7f8b96;font-size:8.3pt;}
+#knowledgeEditorialKicker,#knowledgeFieldLabel{color:#8f9ba6;font-size:7.7pt;font-weight:700;letter-spacing:.7px;}
+#magicEditorialName,#referenceEditorialTitle{background:transparent;border:0;border-bottom:1px solid #29343f;border-radius:0;color:#f2eee8;font-family:'Georgia';font-size:19pt;padding:8px 2px;}
+#magicEditorialStatus{min-width:130px;}
+#magicSearch,#referenceSearch{background:#0f161e;color:#d8e0e6;border:1px solid #2b3742;border-radius:7px;padding:8px 9px;}
+#referenceEditorialContent{font-family:'Georgia';font-size:11pt;line-height:1.4;}
+#referenceMentions{background:transparent;border:0;color:#cbd3db;}
+#textsTab::pane{border:0;background:#0b1016;}
+#textsTab QTabBar::tab{background:transparent;color:#7f8b96;border:0;border-bottom:2px solid transparent;padding:10px 16px;}
+#textsTab QTabBar::tab:selected{color:#8bdfe2;border-bottom-color:#42c4c8;}
 )QSS");
     const QString genericLight = QStringLiteral(R"QSS(
 QWidget{background:#ece8e0;color:#342e28;}
@@ -94,6 +111,23 @@ QPushButton{background:#f4efe7;color:#4d453d;border:1px solid #d4cabc;border-rad
 QPushButton:hover{background:#e8dfd4;color:#29251f;}
 #pageTitle{color:#302a24;} #pageKicker,#fieldTitle,#panelTitle{color:#80766d;} #pageDescription{color:#786f66;}
 #magicIndexPanel,#magicEditorCard{background:#fbf8f2;border:1px solid #d4c9bb;border-radius:9px;}
+
+#magicEditorialScroll,#magicEditorialCenter,#magicEditorialGrid,#referenceEditorSurface{background:#ece8e0;border:0;}
+#magicContextScroll,#magicContextRail,#referenceIndexPanel,#referenceContextRail{background:#f5f1ea;border:0;}
+#magicContextRail,#referenceContextRail{border-left:1px solid #d4cabd;}
+#referenceIndexPanel{border-right:1px solid #d4cabd;}
+#knowledgeEditorialCard{background:#fbf8f2;border:1px solid #d5cbbf;border-radius:9px;}
+#knowledgeEditorialCardTitle,#knowledgeContextTitle{color:#342e28;font-family:'Georgia';font-size:13pt;font-weight:600;}
+#knowledgeEditorialCardCopy,#knowledgeContextCopy{color:#796f65;font-size:8.3pt;}
+#knowledgeEditorialKicker,#knowledgeFieldLabel{color:#83776a;font-size:7.7pt;font-weight:700;letter-spacing:.7px;}
+#magicEditorialName,#referenceEditorialTitle{background:transparent;border:0;border-bottom:1px solid #d5cbbf;border-radius:0;color:#302a24;font-family:'Georgia';font-size:19pt;padding:8px 2px;}
+#magicEditorialStatus{min-width:130px;}
+#magicSearch,#referenceSearch{background:#fffdf9;color:#332e29;border:1px solid #d1c6b8;border-radius:7px;padding:8px 9px;}
+#referenceEditorialContent{font-family:'Georgia';font-size:11pt;}
+#referenceMentions{background:transparent;border:0;color:#514a43;}
+#textsTab::pane{border:0;background:#ece8e0;}
+#textsTab QTabBar::tab{background:transparent;color:#796f65;border:0;border-bottom:2px solid transparent;padding:10px 16px;}
+#textsTab QTabBar::tab:selected{color:#315f68;border-bottom-color:#4d969c;}
 )QSS");
     if (magic) magic->setStyleSheet(dark ? genericDark : genericLight);
     if (texts) texts->setStyleSheet(dark ? genericDark : genericLight);
