@@ -10,12 +10,14 @@
 #include "ui/WritingPage.h"
 
 #include <QComboBox>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTextCursor>
 #include <QTextEdit>
 
 namespace wbw {
@@ -48,6 +50,8 @@ void prepareWritingSurface(WritingPage* writing) {
 
 void finalizeNavigationLabels(QListWidget* navigation) {
     if (!navigation) return;
+    navigation->setMinimumWidth(510);
+    navigation->setMaximumWidth(690);
     const QStringList labels{
         QObject::tr("Biblioteca"), QObject::tr("Escritura"), QObject::tr("Tablero"),
         QObject::tr("Atlas"), QObject::tr("Mapas"), QObject::tr("Revisión"), QObject::tr("Configuración")
@@ -57,7 +61,7 @@ void finalizeNavigationLabels(QListWidget* navigation) {
         navigation->item(i)->setToolTip(i == 2 ? QObject::tr("Tablero de escenas")
                                    : i == 3 ? QObject::tr("Atlas y documentación")
                                             : labels.at(i));
-        navigation->item(i)->setSizeHint(QSize(i == 6 ? 118 : 94, 50));
+        navigation->item(i)->setSizeHint(QSize(i == 0 || i == 6 ? 92 : 78, 50));
     }
 }
 
@@ -70,18 +74,61 @@ void MainWindow::initializeProductSurface() {
     if (planningPage_) planningPage_->refreshProductTheme();
     if (worldPage_) worldPage_->installKnowledgeWorkspace();
 
-    if (writingPage_ && worldPage_ && !property("wbwSemanticReferenceBridge").toBool()) {
-        setProperty("wbwSemanticReferenceBridge", true);
+    if (auto* globalSearch = findChild<QLineEdit*>(QStringLiteral("globalSearch"))) {
+        globalSearch->setMinimumWidth(150);
+        globalSearch->setMaximumWidth(310);
+    }
+
+    const auto refreshBrand = [this]() {
+        auto* brand = findChild<QLabel*>(QStringLiteral("appBrand"));
+        if (!brand) return;
+        const QString title = document_.storyTitle().trimmed().isEmpty() ? document_.title().trimmed() : document_.storyTitle().trimmed();
+        if (navigation_ && navigation_->currentRow() == 0) {
+            brand->setText(QStringLiteral("Worldbuilder Writer"));
+            brand->setToolTip(QString());
+            brand->setMinimumWidth(142);
+            brand->setMaximumWidth(190);
+            return;
+        }
+        const QString compact = title.size() > 24 ? title.left(23).trimmed() + QStringLiteral("…") : title;
+        brand->setText(compact.isEmpty() ? QStringLiteral("Worldbuilder Writer") : compact);
+        brand->setToolTip(title);
+        brand->setMinimumWidth(122);
+        brand->setMaximumWidth(190);
+    };
+
+    if (!property("wbwProductBrandBridge").toBool()) {
+        setProperty("wbwProductBrandBridge", true);
+        if (planningPage_) connect(planningPage_, &PlanningPage::changed, this, refreshBrand);
+        if (writingPage_) connect(writingPage_, &WritingPage::changed, this, refreshBrand);
+        if (worldPage_) connect(worldPage_, &WorldPage::changed, this, refreshBrand);
+        if (reviewPage_) connect(reviewPage_, &ReviewPage::changed, this, refreshBrand);
+    }
+
+    if (writingPage_ && worldPage_ && !property("wbwSemanticReferenceBridgeV2").toBool()) {
+        setProperty("wbwSemanticReferenceBridgeV2", true);
+        disconnect(writingPage_, &WritingPage::referenceActivated, this, &MainWindow::handleReference);
         connect(writingPage_, &WritingPage::referenceActivated, this,
                 [this](const QString& kind, const QString& id) {
-            if (id.isEmpty() || !worldPage_) return;
+            if (id.isEmpty() || !worldPage_ || !navigation_) return;
+
+            if (navigation_->currentRow() != 3) navigation_->setCurrentRow(3);
+            else routeProductModule(3);
+
+            auto* tabs = worldPage_->findChild<QTabWidget*>(QStringLiteral("worldTabs"));
+            if (!tabs) return;
+
             if (kind == QStringLiteral("character")) {
+                const int planningIndex = tabs->indexOf(planningPage_);
+                if (planningIndex >= 0) tabs->setCurrentIndex(planningIndex);
                 if (planningPage_) planningPage_->openCharacter(id);
                 return;
             }
 
-            auto* tabs = worldPage_->findChild<QTabWidget*>(QStringLiteral("worldTabs"));
-            if (!tabs) return;
+            // openReference selects the actual record. The product shell then
+            // resolves the visible tab by widget identity so inserting the
+            // planning page can never shift semantic references to a wrong tab.
+            worldPage_->openReference(kind, id);
             QWidget* target = nullptr;
             if (kind == QStringLiteral("world")) target = worldPage_->findChild<QWidget*>(QStringLiteral("atlasTab"));
             else if (kind == QStringLiteral("magic")) target = worldPage_->findChild<QWidget*>(QStringLiteral("magicTab"));
@@ -147,6 +194,7 @@ void MainWindow::initializeProductSurface() {
         }
     }
 
+    refreshBrand();
     routeProductModule(qMax(0, navigation_->currentRow()));
 }
 
@@ -216,6 +264,18 @@ void MainWindow::routeProductModule(int row) {
             break;
         default:
             return;
+    }
+
+    if (auto* brand = findChild<QLabel*>(QStringLiteral("appBrand"))) {
+        const QString title = document_.storyTitle().trimmed().isEmpty() ? document_.title().trimmed() : document_.storyTitle().trimmed();
+        if (row == 0) {
+            brand->setText(QStringLiteral("Worldbuilder Writer"));
+            brand->setToolTip(QString());
+        } else {
+            const QString compact = title.size() > 24 ? title.left(23).trimmed() + QStringLiteral("…") : title;
+            brand->setText(compact.isEmpty() ? QStringLiteral("Worldbuilder Writer") : compact);
+            brand->setToolTip(title);
+        }
     }
 
     ThemeManager::applySaved();
