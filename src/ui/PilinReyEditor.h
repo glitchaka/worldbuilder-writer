@@ -57,6 +57,7 @@ public:
     void installWorkspacePanelControls();
     void installStudioStatusBar();
     void installAzgaarStudioControls();
+    void decorateAssetLibrary();
     void recalculateDerivedGeography();
     void applyMapStylePreset(const QString& styleName);
     QJsonObject map() const { return map_; }
