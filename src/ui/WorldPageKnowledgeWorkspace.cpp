@@ -61,6 +61,8 @@ void applyKnowledgeTheme(QWidget* shell) {
 void WorldPage::installKnowledgeWorkspace() {
     if (!tabs_) return;
 
+    configureEditorialKnowledgeSurface();
+
     if (property("wbwKnowledgeWorkspaceInstalled").toBool()) {
         if (auto* shell = findChild<QWidget*>(QStringLiteral("knowledgeWorkspace"))) applyKnowledgeTheme(shell);
         return;
