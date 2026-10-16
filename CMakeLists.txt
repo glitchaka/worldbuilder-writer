@@ -87,6 +87,7 @@ qt_add_library(WorldbuilderWriterUi OBJECT
     src/ui/WorldPage.cpp
     src/ui/WorldPageChromeV2.cpp
     src/ui/WorldPageAtlasProduct.cpp
+    src/ui/WorldPageEditorialKnowledge.cpp
     src/ui/WorldPageKnowledgeWorkspace.cpp
     src/ui/WorldPageProductTheme.cpp
     src/ui/ReviewPage.cpp
