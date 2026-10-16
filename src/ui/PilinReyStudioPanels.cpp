@@ -11,6 +11,7 @@ void PilinReyEditor::installWorkspacePanelControls() {
     if (property("wbwStudioPanelControls").toBool()) {
         installAzgaarStudioControls();
         installStudioStatusBar();
+        decorateAssetLibrary();
         return;
     }
 
@@ -72,6 +73,7 @@ QToolButton#pilinStudioPanelToggle:checked{background:#142833;color:#9bd9e7;bord
 
     installAzgaarStudioControls();
     installStudioStatusBar();
+    decorateAssetLibrary();
 }
 
 } // namespace wbw
